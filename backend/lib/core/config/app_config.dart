@@ -1,15 +1,15 @@
 // ============================================================
-// PokéGrading — Configuración de la Aplicación (Core)
-// Lee las variables de entorno y las expone de forma tipada.
+// PokéGrading — Application Configuration (Core)
+// Reads environment variables and exposes them in a typed way.
 // ============================================================
 import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:logging/logging.dart';
 
-/// Clase de configuración inmutable que centraliza todos los
-/// parámetros de la aplicación leídos desde variables de entorno.
+/// Immutable configuration class that centralizes all
+/// application parameters read from environment variables.
 ///
-/// Principio: Single Source of Truth para la configuración.
+/// Principle: Single Source of Truth for configuration.
 class AppConfig {
   final String environment;
   final String version;
@@ -17,6 +17,7 @@ class AppConfig {
   final int port;
   final Level logLevel;
   final DatabaseConfig database;
+  final bool useMockRepositories;
 
   const AppConfig({
     required this.environment,
@@ -25,11 +26,13 @@ class AppConfig {
     required this.port,
     required this.logLevel,
     required this.database,
+    required this.useMockRepositories,
   });
 
-  /// Construye [AppConfig] a partir de variables de entorno.
+  /// Builds [AppConfig] from environment variables.
   factory AppConfig.fromEnv(DotEnv env) {
     final environment = env['APP_ENV'] ?? 'development';
+    final useMock = (env['USE_MOCK_REPOSITORIES'] ?? 'false').toLowerCase() == 'true';
 
     return AppConfig(
       environment: environment,
@@ -38,13 +41,14 @@ class AppConfig {
       port: int.tryParse(env['BACKEND_PORT'] ?? '') ?? 8080,
       logLevel: _parseLogLevel(env['BACKEND_LOG_LEVEL'] ?? 'info'),
       database: DatabaseConfig.fromEnv(env),
+      useMockRepositories: useMock,
     );
   }
 
-  /// ¿Estamos en modo desarrollo?
+  /// Are we in development mode?
   bool get isDevelopment => environment == 'development';
 
-  /// ¿Estamos en producción?
+  /// Are we in production mode?
   bool get isProduction => environment == 'production';
 
   static Level _parseLogLevel(String level) {
@@ -58,7 +62,7 @@ class AppConfig {
   }
 }
 
-/// Configuración de conexión a la base de datos PostgreSQL.
+/// PostgreSQL database connection configuration.
 class DatabaseConfig {
   final String host;
   final int port;
@@ -92,7 +96,7 @@ class DatabaseConfig {
     );
   }
 
-  /// DSN (Data Source Name) para la conexión PostgreSQL.
+  /// DSN (Data Source Name) for the PostgreSQL connection.
   String get dsn =>
       'postgresql://$user:$password@$host:$port/$name';
 }
