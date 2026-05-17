@@ -18,7 +18,7 @@ void main() {
     // Envuelve TODA la app para que cualquier widget pueda
     // acceder a los providers.
     const ProviderScope(
-      child: PokéGradingApp(),
+      child: PokeGradingApp(),
     ),
   );
 }
@@ -27,8 +27,8 @@ void main() {
 ///
 /// [ConsumerWidget] de Riverpod permite leer providers
 /// directamente desde el método build.
-class PokéGradingApp extends ConsumerWidget {
-  const PokéGradingApp({super.key});
+class PokeGradingApp extends ConsumerWidget {
+  const PokeGradingApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

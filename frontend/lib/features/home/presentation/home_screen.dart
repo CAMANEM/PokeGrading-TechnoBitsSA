@@ -68,7 +68,7 @@ class _PokeGradingLogo extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.4),
+                color: AppColors.primary.withOpacity(0.4),
                 blurRadius: 32,
                 offset: const Offset(0, 8),
               ),
@@ -104,9 +104,9 @@ class _PokeGradingLogo extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
+            color: AppColors.primary.withOpacity(0.15),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Text(
             'v${AppConfig.appVersion} — Sprint 1',
@@ -135,7 +135,7 @@ class _WelcomeCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderDark),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Colors.black.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),

@@ -18,8 +18,15 @@ import '../lib/core/middleware/correlation_middleware.dart';
 /// Entry point del servidor PokéGrading Backend.
 /// Inicializa configuración, logging, middlewares y rutas base.
 void main() async {
-  // 1. Cargar variables de entorno desde .env (si existe)
-  final env = DotEnv(includePlatformEnvironment: true)..load();
+  // 1. Cargar variables de entorno desde .env (buscando también en directorio padre)
+  final env = DotEnv(includePlatformEnvironment: true);
+  if (File('.env').existsSync()) {
+    env.load();
+  } else if (File('../.env').existsSync()) {
+    env.load(['../.env']);
+  } else {
+    env.load(); // Intento fallback estandar
+  }
   final config = AppConfig.fromEnv(env);
 
   // 2. Inicializar sistema de logging

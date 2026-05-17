@@ -7,7 +7,7 @@ import 'package:shelf/shelf.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logging/logging.dart';
 
-const _log = Logger('PokéGrading.Middleware.Correlation');
+final _log = Logger('PokéGrading.Middleware.Correlation');
 const _uuid = Uuid();
 
 /// Header HTTP que transporta el correlation_id.
