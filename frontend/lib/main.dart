@@ -1,6 +1,6 @@
 // ============================================================
 // PokéGrading Frontend — Entry Point
-// Flutter Web App con Riverpod como gestor de estado.
+// Flutter Web App with Riverpod as state manager.
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,23 +10,22 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
 void main() {
-  // Asegurar que Flutter esté inicializado antes de usar plugins
+  // Ensure that Flutter is initialized before using plugins
   WidgetsFlutterBinding.ensureInitialized();
 
   runApp(
-    // ProviderScope es el contenedor raíz de Riverpod.
-    // Envuelve TODA la app para que cualquier widget pueda
-    // acceder a los providers.
+    // ProviderScope is the root container of Riverpod.
+    // Wraps the entire app so any widget can access providers.
     const ProviderScope(
       child: PokeGradingApp(),
     ),
   );
 }
 
-/// Widget raíz de la aplicación PokéGrading.
+/// Root widget of the PokéGrading application.
 ///
-/// [ConsumerWidget] de Riverpod permite leer providers
-/// directamente desde el método build.
+/// Riverpod's [ConsumerWidget] allows reading providers
+/// directly within the build method.
 class PokeGradingApp extends ConsumerWidget {
   const PokeGradingApp({super.key});
 
@@ -35,16 +34,16 @@ class PokeGradingApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      // ─── SEO & Metadata ──────────────────────────────────
-      title: 'PokéGrading — Pre-Grading Asistido',
+      // --- SEO & Metadata ---
+      title: 'PokéGrading — Assisted Pre-Grading',
       debugShowCheckedModeBanner: false,
 
-      // ─── Tema ────────────────────────────────────────────
+      // --- Theme ---
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Por defecto modo oscuro
+      themeMode: ThemeMode.dark, // Dark mode by default
 
-      // ─── Navegación (go_router) ───────────────────────────
+      // --- Navigation (go_router) ---
       routerConfig: router,
     );
   }

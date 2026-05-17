@@ -1,6 +1,6 @@
 // ============================================================
 // PokéGrading — Health Check Provider (Home Feature)
-// Provider de Riverpod que consulta el /health del backend.
+// Riverpod provider that requests /health from the backend.
 // ============================================================
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +8,13 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
 
-/// Provider que realiza el health check al backend.
+/// Provider that performs the health check against the backend.
 ///
-/// Es un [FutureProvider] porque es una operación asíncrona (HTTP).
-/// Riverpod maneja automáticamente los estados:
-///   - loading: mientras espera la respuesta
-///   - data: respuesta exitosa
-///   - error: fallo en la conexión
+/// It is a [FutureProvider] because it is an asynchronous operation (HTTP).
+/// Riverpod automatically handles the states:
+///   - loading: while waiting for the response
+///   - data: successful response
+///   - error: connection failure
 final healthCheckProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final uri = Uri.parse('${AppConfig.apiBaseUrl}/health');
 
@@ -27,6 +27,6 @@ final healthCheckProvider = FutureProvider<Map<String, dynamic>>((ref) async {
       throw Exception('Status ${response.statusCode}');
     }
   } catch (e) {
-    throw Exception('No se pudo conectar con el backend: $e');
+    throw Exception('Failed to connect to backend: $e');
   }
 });

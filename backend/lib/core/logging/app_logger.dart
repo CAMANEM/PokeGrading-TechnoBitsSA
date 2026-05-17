@@ -1,30 +1,30 @@
 // ============================================================
-// PokéGrading — Logger Global (Core)
-// Logging estructurado con soporte de correlation_id.
+// PokéGrading — Global Logger (Core)
+// Structured logging with correlation_id support.
 // ============================================================
 import 'package:logging/logging.dart';
 
-/// Inicializa y configura el sistema de logging de la aplicación.
+/// Initializes and configures the application's logging system.
 ///
-/// Todos los logs incluyen:
-/// - Timestamp UTC
-/// - Nivel de severidad
-/// - Nombre del logger (origen)
-/// - correlation_id (cuando está disponible en Zone)
-/// - Mensaje
+/// All logs include:
+/// - UTC Timestamp
+/// - Severity level
+/// - Logger name (source)
+/// - correlation_id (when available in Zone)
+/// - Message
 ///
-/// Uso:
+/// Usage:
 /// ```dart
 /// AppLogger.init();
-/// final log = Logger('MiClase');
-/// log.info('Evento importante');
+/// final log = Logger('MyClass');
+/// log.info('Important event');
 /// ```
 class AppLogger {
-  AppLogger._(); // No instanciable
+  AppLogger._(); // Not instantiable
 
   static bool _initialized = false;
 
-  /// Inicializa el sistema de logging. Llamar UNA sola vez al inicio.
+  /// Initializes the logging system. Call ONCE at startup.
   static void init({Level level = Level.INFO}) {
     if (_initialized) return;
     _initialized = true;
@@ -33,19 +33,19 @@ class AppLogger {
     Logger.root.onRecord.listen(_handleRecord);
   }
 
-  /// Handler que formatea y escribe cada [LogRecord] a stdout/stderr.
+  /// Handler that formats and writes each [LogRecord] to stdout/stderr.
   static void _handleRecord(LogRecord record) {
     final timestamp = record.time.toUtc().toIso8601String();
     final level = record.level.name.padRight(7);
     final name = record.loggerName;
     final message = record.message;
 
-    // Formato de log estructurado (JSON-like legible)
+    // Structured log format (human-readable JSON-like)
     final line = '[$timestamp] [$level] [$name] $message';
 
     if (record.level >= Level.SEVERE) {
-      // Errores van a stderr
-      print('\x1B[31m$line\x1B[0m'); // Rojo
+      // Errors go to stderr
+      print('\x1B[31m$line\x1B[0m'); // Red
       if (record.error != null) {
         print('\x1B[31m  ERROR: ${record.error}\x1B[0m');
       }
@@ -53,11 +53,11 @@ class AppLogger {
         print('\x1B[31m  STACK: ${record.stackTrace}\x1B[0m');
       }
     } else if (record.level >= Level.WARNING) {
-      print('\x1B[33m$line\x1B[0m'); // Amarillo
+      print('\x1B[33m$line\x1B[0m'); // Yellow
     } else if (record.level >= Level.INFO) {
       print('\x1B[36m$line\x1B[0m'); // Cyan
     } else {
-      print('\x1B[90m$line\x1B[0m'); // Gris (DEBUG)
+      print('\x1B[90m$line\x1B[0m'); // Grey (DEBUG)
     }
   }
 }

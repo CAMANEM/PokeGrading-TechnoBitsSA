@@ -1,12 +1,12 @@
 // ============================================================
-// PokéGrading — Configuración del Frontend (Core)
-// URLs de API y constantes de la aplicación.
+// PokéGrading — Frontend Configuration (Core)
+// API URLs and application constants.
 // ============================================================
 
-/// Configuración global del frontend.
-/// Las URLs se deben ajustar via variables de entorno en producción.
+/// Global configuration of the frontend.
+/// URLs should be adjusted via environment variables in production.
 abstract class AppConfig {
-  // ─── API Backend ─────────────────────────────────────────
+  // --- Backend API ---
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://localhost:8080',
@@ -15,9 +15,9 @@ abstract class AppConfig {
   static const String apiVersion = 'v1';
   static String get apiUrl => '$apiBaseUrl/api/$apiVersion';
 
-  // ─── App ─────────────────────────────────────────────────
+  // --- App ---
   static const String appName = 'PokéGrading';
   static const String appVersion = '0.1.0';
   static const String appDescription =
-      'Sistema Asistido de Pre-Grading para Cartas Pokémon';
+      'Assisted Pre-Grading System for Pokémon Cards';
 }

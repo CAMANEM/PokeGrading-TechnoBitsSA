@@ -1,6 +1,6 @@
 // ============================================================
 // PokéGrading — Home Screen (Hello World)
-// Pantalla principal que verifica la conexión con el backend.
+// Main screen that verifies connection to the backend.
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +9,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/health_provider.dart';
 
-/// Pantalla principal — Hello World + Health Check
+/// Main screen — Hello World + Health Check
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -26,19 +26,19 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ─── Logo / Título ────────────────────────
+              // --- Logo / Title ---
               _PokeGradingLogo(),
               const SizedBox(height: 48),
 
-              // ─── Tarjeta de Bienvenida ────────────────
+              // --- Welcome Card ---
               _WelcomeCard(theme: theme),
               const SizedBox(height: 24),
 
-              // ─── Health Check del Backend ─────────────
+              // --- Backend Health Check ---
               _HealthCheckCard(healthAsync: healthAsync, ref: ref),
               const SizedBox(height: 32),
 
-              // ─── Stack Info ───────────────────────────
+              // --- Stack Info ---
               _StackInfoRow(),
             ],
           ),
@@ -48,14 +48,14 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ─── Widgets Privados ────────────────────────────────────────
+// --- Private Widgets ---
 
 class _PokeGradingLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Ícono con gradiente
+        // Icon with gradient
         Container(
           width: 96,
           height: 96,
@@ -95,7 +95,7 @@ class _PokeGradingLogo extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Sistema Asistido de Pre-Grading',
+          'Assisted Pre-Grading System',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -149,7 +149,7 @@ class _WelcomeCard extends StatelessWidget {
               const Icon(Icons.waving_hand_rounded,
                   color: AppColors.accent, size: 22),
               const SizedBox(width: 10),
-              Text('¡Hola, Mundo!',
+              Text('Hello, World!',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                   )),
@@ -157,8 +157,8 @@ class _WelcomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'La estructura base del proyecto PokéGrading está lista. '
-            'Este es el punto de partida del Sprint 1.',
+            'The base structure of the PokéGrading project is ready. '
+            'This is the starting point for Sprint 1.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.textSecondary,
               height: 1.6,
@@ -169,19 +169,19 @@ class _WelcomeCard extends StatelessWidget {
           const SizedBox(height: 16),
           _InfoRow(
             icon: Icons.architecture_rounded,
-            label: 'Arquitectura',
+            label: 'Architecture',
             value: 'Layered + Feature-based',
           ),
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.layers_rounded,
-            label: 'Estado',
+            label: 'State Management',
             value: 'Riverpod',
           ),
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.storage_rounded,
-            label: 'Base de datos',
+            label: 'Database',
             value: 'PostgreSQL 16',
           ),
         ],
@@ -249,11 +249,11 @@ class _HealthCheckCard extends StatelessWidget {
                       )),
                 ],
               ),
-              // Botón de refresh
+              // Refresh button
               IconButton(
                 icon: const Icon(Icons.refresh_rounded,
                     color: AppColors.textSecondary, size: 18),
-                tooltip: 'Refrescar',
+                tooltip: 'Refresh',
                 onPressed: () => ref.invalidate(healthCheckProvider),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -273,7 +273,7 @@ class _HealthCheckCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 10),
-                Text('Conectando con el backend...',
+                Text('Connecting to backend...',
                     style: TextStyle(color: AppColors.textSecondary)),
               ],
             ),
@@ -284,7 +284,7 @@ class _HealthCheckCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Backend no disponible — Asegúrate de ejecutar:\n'
+                    'Backend unavailable — Make sure to run:\n'
                     'cd backend && dart run bin/server.dart',
                     style: const TextStyle(
                         color: AppColors.error, fontSize: 13, height: 1.5),
@@ -306,7 +306,7 @@ class _HealthCheckCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('Backend conectado',
+                    const Text('Backend connected',
                         style: TextStyle(
                             color: AppColors.success,
                             fontWeight: FontWeight.w600)),

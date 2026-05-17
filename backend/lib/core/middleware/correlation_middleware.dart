@@ -1,7 +1,7 @@
 // ============================================================
-// PokéGrading — Middleware de Correlation ID (Core)
-// Inyecta un correlation_id único en cada request HTTP para
-// permitir el rastreo end-to-end entre capas (Observabilidad).
+// PokéGrading — Correlation ID Middleware (Core)
+// Injects a unique correlation_id in each HTTP request to
+// enable end-to-end tracing across layers (Observability).
 // ============================================================
 import 'package:shelf/shelf.dart';
 import 'package:uuid/uuid.dart';
@@ -10,27 +10,27 @@ import 'package:logging/logging.dart';
 final _log = Logger('PokéGrading.Middleware.Correlation');
 const _uuid = Uuid();
 
-/// Header HTTP que transporta el correlation_id.
+/// HTTP Header that carries the correlation_id.
 const correlationIdHeader = 'X-Correlation-ID';
 
-/// Middleware que:
-/// 1. Lee el [correlationIdHeader] del request entrante (si lo trae el cliente).
-/// 2. Si no existe, genera uno nuevo (UUID v4).
-/// 3. Lo almacena en el contexto del request para uso downstream.
-/// 4. Lo incluye en el response como header.
+/// Middleware that:
+/// 1. Reads [correlationIdHeader] from the incoming request (if client sent it).
+/// 2. If not present, generates a new one (UUID v4).
+/// 3. Stores it in the request context for downstream usage.
+/// 4. Includes it in the response header.
 ///
-/// Cada capa puede acceder al correlation_id así:
+/// Each layer can access the correlation_id like this:
 /// ```dart
 /// final correlationId = request.context['correlation_id'];
 /// ```
 Middleware correlationMiddleware() {
   return (Handler innerHandler) {
     return (Request request) async {
-      // Leer o generar correlation_id
+      // Read or generate correlation_id
       final correlationId =
           request.headers[correlationIdHeader] ?? _uuid.v4();
 
-      // Inyectar en el contexto del request
+      // Inject into the request context
       final updatedRequest = request.change(
         context: {
           ...request.context,
@@ -44,10 +44,10 @@ Middleware correlationMiddleware() {
         'path=${request.requestedUri.path}',
       );
 
-      // Procesar el request y capturar el response
+      // Process request and get response
       final response = await innerHandler(updatedRequest);
 
-      // Propagar el correlation_id en el response
+      // Propagate the correlation_id in the response
       return response.change(
         headers: {
           ...response.headersAll.map(

@@ -1,6 +1,6 @@
 // ============================================================
-// PokéGrading — Router Principal (Core)
-// Configuración de rutas con go_router + Riverpod.
+// PokéGrading — Main Router (Core)
+// Route configuration using go_router + Riverpod.
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,24 +8,24 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
 
-/// Provider del router principal de la aplicación.
+/// Provider for the main router of the application.
 ///
-/// Usar [appRouterProvider] en lugar de instanciar GoRouter directamente
-/// para mantener el router dentro del árbol de Riverpod y poder
-/// redirigir basado en estado de autenticación en el futuro.
+/// Use [appRouterProvider] instead of instantiating GoRouter directly
+/// to keep the router inside the Riverpod graph and enable
+/// redirection based on authentication state in the future.
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
     routes: [
-      // ─── Rutas Públicas ────────────────────────────────
+      // --- Public Routes ---
       GoRoute(
         path: '/',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
       ),
 
-      // ─── Sprint 1: Rutas de Auth (stub) ───────────────
+      // --- Sprint 1: Auth Routes (stub) ---
       // GoRoute(
       //   path: '/login',
       //   name: 'login',
@@ -37,7 +37,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       //   builder: (context, state) => const RegisterScreen(),
       // ),
 
-      // ─── Sprint 1: Rutas de Catálogo (stub) ───────────
+      // --- Sprint 1: Catalog Routes (stub) ---
       // GoRoute(
       //   path: '/catalog',
       //   name: 'catalog',
@@ -48,7 +48,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Pantalla 404 — Ruta no encontrada
+/// 404 Screen — Page Not Found
 class _NotFoundScreen extends StatelessWidget {
   final Exception? error;
   const _NotFoundScreen({this.error});
@@ -61,7 +61,7 @@ class _NotFoundScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('404', style: TextStyle(fontSize: 64)),
-            const Text('Página no encontrada'),
+            const Text('Page Not Found'),
             if (error != null) Text('$error'),
           ],
         ),

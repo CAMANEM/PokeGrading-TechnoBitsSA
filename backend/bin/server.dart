@@ -1,6 +1,6 @@
 // ============================================================
 // PokéGrading Backend — Entry Point
-// Servidor HTTP usando Dart + Shelf
+// HTTP Server using Dart + Shelf
 // ============================================================
 import 'dart:io';
 
@@ -15,39 +15,39 @@ import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
 
-/// Entry point del servidor PokéGrading Backend.
-/// Inicializa configuración, logging, middlewares y rutas base.
+/// Entry point of the PokéGrading Backend server.
+/// Initializes configuration, logging, middlewares, and base routes.
 void main() async {
-  // 1. Cargar variables de entorno desde .env (buscando también en directorio padre)
+  // 1. Load environment variables from .env (also searching in parent directory)
   final env = DotEnv(includePlatformEnvironment: true);
   if (File('.env').existsSync()) {
     env.load();
   } else if (File('../.env').existsSync()) {
     env.load(['../.env']);
   } else {
-    env.load(); // Intento fallback estandar
+    env.load(); // Standard fallback attempt
   }
   final config = AppConfig.fromEnv(env);
 
-  // 2. Inicializar sistema de logging
+  // 2. Initialize logging system
   AppLogger.init(level: config.logLevel);
   final log = Logger('PokéGrading.Server');
 
-  log.info('🎴 Iniciando PokéGrading Backend v${config.version}');
-  log.info('   Entorno  : ${config.environment}');
-  log.info('   Host     : ${config.host}:${config.port}');
+  log.info('🎴 Starting PokéGrading Backend v${config.version}');
+  log.info('   Environment: ${config.environment}');
+  log.info('   Host       : ${config.host}:${config.port}');
 
-  // 3. Definir el router principal con todas las rutas
+  // 3. Define the main router with all routes
   final router = _buildRouter(config, log);
 
-  // 4. Construir la pipeline de middlewares
+  // 4. Build the middleware pipeline
   final handler = const Pipeline()
       .addMiddleware(logRequests()) // Log HTTP requests
-      .addMiddleware(corsHeaders()) // Habilitar CORS para Flutter Web
-      .addMiddleware(correlationMiddleware()) // Inyectar correlation_id
+      .addMiddleware(corsHeaders()) // Enable CORS for Flutter Web
+      .addMiddleware(correlationMiddleware()) // Inject correlation_id
       .addHandler(router.call);
 
-  // 5. Iniciar el servidor HTTP
+  // 5. Start the HTTP server
   final server = await shelf_io.serve(
     handler,
     config.host,
@@ -55,41 +55,41 @@ void main() async {
   );
   server.autoCompress = true;
 
-  log.info('✅ Servidor escuchando en http://${server.address.host}:${server.port}');
+  log.info('✅ Server listening on http://${server.address.host}:${server.port}');
   log.info('   Health check: http://${server.address.host}:${server.port}/health');
 
-  // 6. Manejar señales de apagado (SIGINT, SIGTERM)
+  // 6. Handle clean shutdown signals (SIGINT, SIGTERM)
   _registerShutdownHandlers(server, log);
 }
 
-/// Construye y devuelve el router principal con todas las rutas registradas.
+/// Builds and returns the main router with all registered routes.
 Router _buildRouter(AppConfig config, Logger log) {
   final router = Router();
 
-  // ─── Rutas del sistema ──────────────────────────────────
+  // --- System Routes ---
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
 
-  // ─── Rutas de Features (Sprint 1 — Stub) ────────────────
-  // Los handlers reales se implementarán en cada feature:
+  // --- Feature Routes (Sprint 1 - Stub) ---
+  // Real handlers will be implemented in each feature:
   // router.mount('/api/v1/auth/',    authRouter.call);
   // router.mount('/api/v1/catalog/', catalogRouter.call);
 
-  // ─── Fallback 404 ────────────────────────────────────────
+  // --- Fallback 404 ---
   router.all('/<ignored|.*>', _handleNotFound);
 
   return router;
 }
 
-/// GET / — Bienvenida al API
+/// GET / — API Welcome Message
 Response _handleRoot(Request request) {
   return Response.ok(
-    '{"message":"¡Bienvenido a PokéGrading API!","docs":"/health"}',
+    '{"message":"Welcome to PokéGrading API!","docs":"/health"}',
     headers: {'content-type': 'application/json; charset=utf-8'},
   );
 }
 
-/// GET /health — Health check del servicio
+/// GET /health — Service Health Check
 Response _handleHealth(Request request, AppConfig config) {
   final correlationId = request.context['correlation_id'] ?? 'none';
   final body = '''
@@ -108,20 +108,20 @@ Response _handleHealth(Request request, AppConfig config) {
   );
 }
 
-/// Fallback: cualquier ruta no definida devuelve 404
+/// Fallback: any undefined route returns 404
 Response _handleNotFound(Request request) {
   return Response.notFound(
-    '{"error":"Ruta no encontrada","path":"${request.url.path}"}',
+    '{"error":"Route not found","path":"${request.url.path}"}',
     headers: {'content-type': 'application/json; charset=utf-8'},
   );
 }
 
-/// Registra handlers para apagado limpio del servidor
+/// Registers handlers for clean server shutdown
 void _registerShutdownHandlers(HttpServer server, Logger log) {
   ProcessSignal.sigint.watch().listen((_) async {
-    log.info('🛑 Señal SIGINT recibida — Apagando servidor...');
+    log.info('🛑 SIGINT signal received - Shutting down server...');
     await server.close(force: false);
-    log.info('   Servidor apagado correctamente.');
+    log.info('   Server shut down successfully.');
     exit(0);
   });
 }
