@@ -68,15 +68,31 @@ scripts\setup.bat
 
 ## 🚀 Levantar el Proyecto (Una vez instalado)
 
-```bash
-# 1. Levantar PostgreSQL con Docker
-docker compose up -d
+### Opción A: Sin Docker (Recomendado para pruebas rápidas / Sin base de datos local)
+Asegúrate de tener `USE_MOCK_REPOSITORIES=true` en tu archivo `.env` (ya configurado por defecto).
 
-# 2. Iniciar el Backend (Dart/Shelf) — Puerto 8080
+```bash
+# 1. Iniciar el Backend (Dart/Shelf) en Terminal 1
 cd backend
 dart run bin/server.dart
 
-# 3. Iniciar el Frontend (Flutter Web) — Puerto 3000
+# 2. Iniciar el Frontend (Flutter Web) en Terminal 2
+cd frontend
+flutter run -d chrome --web-port 3000
+```
+
+### Opción B: Con Docker (PostgreSQL real)
+Asegúrate de tener `USE_MOCK_REPOSITORIES=false` en tu archivo `.env`.
+
+```bash
+# 1. Levantar PostgreSQL y pgAdmin
+docker compose up -d
+
+# 2. Iniciar el Backend (Dart/Shelf)
+cd backend
+dart run bin/server.dart
+
+# 3. Iniciar el Frontend (Flutter Web)
 cd frontend
 flutter run -d chrome --web-port 3000
 ```
