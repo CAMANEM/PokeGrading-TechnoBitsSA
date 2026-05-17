@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    PokéGrading — Flutter Web Entry Point
+    ==========================================
+    Optimizado para SEO y rendimiento web.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- SEO -->
+  <title>PokéGrading — Sistema Asistido de Pre-Grading de Cartas Pokémon</title>
+  <meta name="description" content="PokéGrading analiza el estado de tus cartas Pokémon y estima el grado profesional más probable antes de enviarlas a grading.">
+  <meta name="keywords" content="pokemon, grading, PSA, CGC, BGS, pre-grading, cartas pokemon">
+  <meta name="author" content="TechnoBits SA">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="PokéGrading — Pre-Grading Asistido">
+  <meta property="og:description" content="Analiza y estima el grado profesional de tus cartas Pokémon.">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Manifest PWA -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Preconnect a Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Tema de color para móvil -->
+  <meta name="theme-color" content="#0D0D1A">
+  <meta name="msapplication-TileColor" content="#0D0D1A">
+
+  <style>
+    /* Pantalla de carga mientras Flutter inicializa */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: #0D0D1A;
+      color: #E8E8FF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: #0D0D1A;
+      z-index: 9999;
+      transition: opacity 0.4s ease;
+    }
+
+    #loading-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #6C63FF, #FFCC00);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      animation: pulse 2s ease-in-out infinite;
+      box-shadow: 0 0 40px rgba(108, 99, 255, 0.4);
+    }
+
+    .loading-title {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6C63FF, #FFCC00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(108, 99, 255, 0.2);
+      border-top-color: #6C63FF;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Pantalla de carga mientras Flutter compila y monta -->
+  <div id="loading-screen">
+    <div class="loading-icon">🎴</div>
+    <div class="loading-title">PokéGrading</div>
+    <div class="loading-spinner"></div>
+  </div>
+
+  <!-- Flutter se monta aquí -->
+  <script>
+    window.addEventListener('flutter-first-frame', () => {
+      const loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen) {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => loadingScreen.remove(), 400);
+      }
+    });
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
