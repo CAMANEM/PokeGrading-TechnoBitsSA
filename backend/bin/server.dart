@@ -55,8 +55,10 @@ void main() async {
   );
   server.autoCompress = true;
 
-  log.info('✅ Server listening on http://${server.address.host}:${server.port}');
-  log.info('   Health check: http://${server.address.host}:${server.port}/health');
+  final browserHost = _browserHostFor(config.host, server.address.host);
+
+  log.info('✅ Server listening on http://$browserHost:${server.port}');
+  log.info('   Health check: http://$browserHost:${server.port}/health');
 
   // 6. Handle clean shutdown signals (SIGINT, SIGTERM)
   _registerShutdownHandlers(server, log);
@@ -124,4 +126,15 @@ void _registerShutdownHandlers(HttpServer server, Logger log) {
     log.info('   Server shut down successfully.');
     exit(0);
   });
+}
+
+/// Returns a browser-safe host name for log output.
+///
+/// `0.0.0.0` is a bind address, not a URL users can open directly.
+String _browserHostFor(String configuredHost, String boundHost) {
+  if (configuredHost == '0.0.0.0' || configuredHost == '::') {
+    return 'localhost';
+  }
+
+  return boundHost;
 }
