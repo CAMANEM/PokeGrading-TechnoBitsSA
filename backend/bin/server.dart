@@ -11,6 +11,12 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../lib/features/auth/application/auth_service.dart';
+import '../lib/features/auth/infrastructure/memory_auth_repository.dart';
+import '../lib/features/auth/infrastructure/mock_confirmation_email_sender.dart';
+import '../lib/features/auth/infrastructure/smtp_confirmation_email_sender.dart';
+import '../lib/features/auth/infrastructure/resend_confirmation_email_sender.dart';
+import '../lib/features/auth/presentation/auth_router.dart';
 import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
@@ -38,7 +44,7 @@ void main() async {
   log.info('   Host       : ${config.host}:${config.port}');
 
   // 3. Define the main router with all routes
-  final router = _buildRouter(config, log);
+  final router = _buildRouter(env, config, log);
 
   // 4. Build the middleware pipeline
   final handler = const Pipeline()
@@ -55,30 +61,67 @@ void main() async {
   );
   server.autoCompress = true;
 
-  log.info('✅ Server listening on http://${server.address.host}:${server.port}');
-  log.info('   Health check: http://${server.address.host}:${server.port}/health');
+  final browserHost = _browserHostFor(config.host, server.address.host);
+
+  log.info('✅ Server listening on http://$browserHost:${server.port}');
+  log.info('   Health check: http://$browserHost:${server.port}/health');
 
   // 6. Handle clean shutdown signals (SIGINT, SIGTERM)
   _registerShutdownHandlers(server, log);
 }
 
 /// Builds and returns the main router with all registered routes.
-Router _buildRouter(AppConfig config, Logger log) {
+Router _buildRouter(DotEnv env, AppConfig config, Logger log) {
   final router = Router();
+  final authRepository = MemoryAuthRepository();
+  final emailSender = _buildEmailSender(env, config, log);
+  final authService = AuthService(
+    repository: authRepository,
+    emailSender: emailSender,
+  );
+  final authRouter = buildAuthRouter(authService);
 
   // --- System Routes ---
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
 
-  // --- Feature Routes (Sprint 1 - Stub) ---
-  // Real handlers will be implemented in each feature:
-  // router.mount('/api/v1/auth/',    authRouter.call);
-  // router.mount('/api/v1/catalog/', catalogRouter.call);
+  // --- Feature Routes ---
+  router.mount('/api/v1/auth/', authRouter.call);
+  if (!config.useMockRepositories) {
+    log.warning(
+      'PostgreSQL auth repository is not available yet; using in-memory auth repository.',
+    );
+  }
 
   // --- Fallback 404 ---
   router.all('/<ignored|.*>', _handleNotFound);
 
   return router;
+}
+
+ConfirmationEmailSender _buildEmailSender(DotEnv env, AppConfig config, Logger log) {
+  final resendKey = env['RESEND_API_KEY'] ?? '';
+  final resendFrom = env['RESEND_FROM_EMAIL'] ?? config.email.fromEmail;
+  final resendFromName = env['RESEND_FROM_NAME'] ?? config.email.fromName;
+
+  if (resendKey.isNotEmpty) {
+    log.info('Resend API key found. Using Resend for confirmation emails.');
+    return ResendConfirmationEmailSender(
+      apiKey: resendKey,
+      fromEmail: resendFrom,
+      fromName: resendFromName,
+    );
+  }
+
+  if (config.email.isConfigured) {
+    log.info('SMTP email delivery enabled for confirmation tokens.');
+    return SmtpConfirmationEmailSender(config.email);
+  }
+
+  log.warning(
+    'SMTP not configured and no Resend API key found. Falling back to mock email sender, so tokens will not actually be delivered.',
+  );
+  return MockConfirmationEmailSender();
 }
 
 /// GET / — API Welcome Message
@@ -124,4 +167,15 @@ void _registerShutdownHandlers(HttpServer server, Logger log) {
     log.info('   Server shut down successfully.');
     exit(0);
   });
+}
+
+/// Returns a browser-safe host name for log output.
+///
+/// `0.0.0.0` is a bind address, not a URL users can open directly.
+String _browserHostFor(String configuredHost, String boundHost) {
+  if (configuredHost == '0.0.0.0' || configuredHost == '::') {
+    return 'localhost';
+  }
+
+  return boundHost;
 }

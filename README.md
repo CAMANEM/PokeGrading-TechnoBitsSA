@@ -68,6 +68,8 @@ scripts\setup.bat
 
 ## 🚀 Levantar el Proyecto (Una vez instalado)
 
+> Antes de iniciar el backend por primera vez, ejecuta `dart pub get` dentro de `backend/` para descargar las dependencias de Dart.
+
 ### Opción A: Sin Docker (Recomendado para pruebas rápidas / Sin base de datos local)
 Asegúrate de tener `USE_MOCK_REPOSITORIES=true` en tu archivo `.env` (ya configurado por defecto).
 
@@ -195,7 +197,19 @@ Copia `.env.example` a `.env` y ajusta los valores:
 ```bash
 cp .env.example .env
 ```
+Para que el token llegue a un correo real, configura también las variables SMTP del backend en `.env`:
 
+```bash
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+SMTP_FROM_EMAIL=no-reply@pokegrading.com
+SMTP_FROM_NAME=PokéGrading
+SMTP_USE_SSL=false
+```
+
+Si SMTP no está configurado, el backend arranca igual pero solo registra el intento en logs y no entrega el correo.
 ---
 
 ## 🤝 Contribución
