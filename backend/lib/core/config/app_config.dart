@@ -2,7 +2,6 @@
 // PokéGrading — Application Configuration (Core)
 // Reads environment variables and exposes them in a typed way.
 // ============================================================
-import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:logging/logging.dart';
 
@@ -17,6 +16,7 @@ class AppConfig {
   final int port;
   final Level logLevel;
   final DatabaseConfig database;
+  final EmailConfig email;
   final bool useMockRepositories;
 
   const AppConfig({
@@ -26,6 +26,7 @@ class AppConfig {
     required this.port,
     required this.logLevel,
     required this.database,
+    required this.email,
     required this.useMockRepositories,
   });
 
@@ -41,6 +42,7 @@ class AppConfig {
       port: int.tryParse(env['BACKEND_PORT'] ?? '') ?? 8080,
       logLevel: _parseLogLevel(env['BACKEND_LOG_LEVEL'] ?? 'info'),
       database: DatabaseConfig.fromEnv(env),
+      email: EmailConfig.fromEnv(env),
       useMockRepositories: useMock,
     );
   }
@@ -99,4 +101,43 @@ class DatabaseConfig {
   /// DSN (Data Source Name) for the PostgreSQL connection.
   String get dsn =>
       'postgresql://$user:$password@$host:$port/$name';
+}
+
+/// SMTP / email delivery configuration.
+class EmailConfig {
+  final String host;
+  final int port;
+  final String username;
+  final String password;
+  final String fromEmail;
+  final String fromName;
+  final bool useSsl;
+
+  const EmailConfig({
+    required this.host,
+    required this.port,
+    required this.username,
+    required this.password,
+    required this.fromEmail,
+    required this.fromName,
+    required this.useSsl,
+  });
+
+  factory EmailConfig.fromEnv(DotEnv env) {
+    return EmailConfig(
+      host: env['SMTP_HOST'] ?? '',
+      port: int.tryParse(env['SMTP_PORT'] ?? '') ?? 587,
+      username: env['SMTP_USERNAME'] ?? '',
+      password: env['SMTP_PASSWORD'] ?? '',
+      fromEmail: env['SMTP_FROM_EMAIL'] ?? '',
+      fromName: env['SMTP_FROM_NAME'] ?? 'PokéGrading',
+      useSsl: (env['SMTP_USE_SSL'] ?? 'false').toLowerCase() == 'true',
+    );
+  }
+
+  bool get isConfigured =>
+      host.isNotEmpty &&
+      username.isNotEmpty &&
+      password.isNotEmpty &&
+      fromEmail.isNotEmpty;
 }

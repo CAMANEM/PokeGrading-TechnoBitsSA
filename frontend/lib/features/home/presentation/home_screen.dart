@@ -4,6 +4,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
@@ -183,6 +184,12 @@ class _WelcomeCard extends StatelessWidget {
             icon: Icons.storage_rounded,
             label: 'Database',
             value: 'PostgreSQL 16',
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () => context.goNamed('register'),
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            label: const Text('Registrar usuario normal'),
           ),
         ],
       ),
