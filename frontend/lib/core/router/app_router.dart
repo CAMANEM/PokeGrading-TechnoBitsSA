@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/register_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 
 /// Provider for the main router of the application.
@@ -31,11 +32,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       //   name: 'login',
       //   builder: (context, state) => const LoginScreen(),
       // ),
-      // GoRoute(
-      //   path: '/register',
-      //   name: 'register',
-      //   builder: (context, state) => const RegisterScreen(),
-      // ),
+      GoRoute(
+        path: '/register',
+        name: 'register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
 
       // --- Sprint 1: Catalog Routes (stub) ---
       // GoRoute(
