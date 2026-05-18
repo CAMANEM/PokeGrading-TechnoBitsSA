@@ -1,0 +1,11 @@
+// PokéGrading — Auth Feature (Domain Layer)
+// Placeholder: los modelos de dominio (User, Role, etc.)
+// se implementarán en el Sprint 1.
+//
+// Estructura esperada:
+// ├── user.dart              → Entidad User
+// ├── user_role.dart         → Enum UserRole (submitter, reviewer, admin, b2b)
+// ├── i_user_repository.dart → Interfaz (contrato) del repositorio
+// └── validators/
+//     ├── email_validator.dart
+//     └── password_validator.dart
