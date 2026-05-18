@@ -68,6 +68,8 @@ scripts\setup.bat
 
 ## 🚀 Levantar el Proyecto (Una vez instalado)
 
+> Antes de iniciar el backend por primera vez, ejecuta `dart pub get` dentro de `backend/` para descargar las dependencias de Dart.
+
 ### Opción A: Sin Docker (Recomendado para pruebas rápidas / Sin base de datos local)
 Asegúrate de tener `USE_MOCK_REPOSITORIES=true` en tu archivo `.env` (ya configurado por defecto).
 
