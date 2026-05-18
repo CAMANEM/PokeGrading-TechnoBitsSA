@@ -17,6 +17,9 @@ import '../lib/features/auth/infrastructure/mock_confirmation_email_sender.dart'
 import '../lib/features/auth/infrastructure/smtp_confirmation_email_sender.dart';
 import '../lib/features/auth/infrastructure/resend_confirmation_email_sender.dart';
 import '../lib/features/auth/presentation/auth_router.dart';
+import '../lib/features/catalog/application/catalog_service.dart';
+import '../lib/features/catalog/infrastructure/mock_catalog_repository.dart';
+import '../lib/features/catalog/presentation/catalog_router.dart';
 import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
@@ -80,6 +83,9 @@ Router _buildRouter(DotEnv env, AppConfig config, Logger log) {
     emailSender: emailSender,
   );
   final authRouter = buildAuthRouter(authService);
+  final catalogRepository = MockCatalogRepository();
+  final catalogService = CatalogService(repository: catalogRepository);
+  final catalogRouter = buildCatalogRouter(catalogService);
 
   // --- System Routes ---
   router.get('/', _handleRoot);
@@ -87,6 +93,7 @@ Router _buildRouter(DotEnv env, AppConfig config, Logger log) {
 
   // --- Feature Routes ---
   router.mount('/api/v1/auth/', authRouter.call);
+  router.mount('/api/v1/catalog/', catalogRouter.call);
   if (!config.useMockRepositories) {
     log.warning(
       'PostgreSQL auth repository is not available yet; using in-memory auth repository.',

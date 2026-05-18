@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/catalog/presentation/add_card_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 
 /// Provider for the main router of the application.
@@ -38,12 +39,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
 
-      // --- Sprint 1: Catalog Routes (stub) ---
-      // GoRoute(
-      //   path: '/catalog',
-      //   name: 'catalog',
-      //   builder: (context, state) => const CatalogScreen(),
-      // ),
+      // --- Sprint 1: Catalog Routes ---
+      GoRoute(
+        path: '/catalog/add-card',
+        name: 'catalog_add_card',
+        builder: (context, state) => const AddCardScreen(),
+      ),
     ],
     errorBuilder: (context, state) => _NotFoundScreen(error: state.error),
   );
