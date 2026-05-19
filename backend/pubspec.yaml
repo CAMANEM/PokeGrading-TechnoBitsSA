@@ -26,6 +26,7 @@ dependencies:
   uuid: ^4.4.0
   crypto: ^3.0.3
   logging: ^1.2.0
+  file_picker: ^8.1.2
 
 dev_dependencies:
   lints: ^3.0.0

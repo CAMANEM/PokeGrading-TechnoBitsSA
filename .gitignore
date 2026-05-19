@@ -96,9 +96,6 @@ logs/
 coverage/
 lcov.info
 *.coverage
-<<<<<<< HEAD
-=======
 
 *.deb
 docker-desktop-amd64.deb
->>>>>>> feature/RegisterUser

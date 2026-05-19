@@ -17,12 +17,9 @@ import '../lib/features/auth/infrastructure/mock_confirmation_email_sender.dart'
 import '../lib/features/auth/infrastructure/smtp_confirmation_email_sender.dart';
 import '../lib/features/auth/infrastructure/resend_confirmation_email_sender.dart';
 import '../lib/features/auth/presentation/auth_router.dart';
-<<<<<<< HEAD
 import '../lib/features/catalog/application/catalog_service.dart';
 import '../lib/features/catalog/infrastructure/mock_catalog_repository.dart';
 import '../lib/features/catalog/presentation/catalog_router.dart';
-=======
->>>>>>> feature/RegisterUser
 import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
@@ -55,7 +52,6 @@ void main() async {
   // 4. Build the middleware pipeline
   final handler = const Pipeline()
       .addMiddleware(logRequests()) // Log HTTP requests
-<<<<<<< HEAD
       .addMiddleware(
         corsHeaders(
           // Ensure our client-sent headers are accepted in preflight
@@ -66,9 +62,6 @@ void main() async {
           },
         ),
       ) // Enable CORS for Flutter Web
-=======
-      .addMiddleware(corsHeaders()) // Enable CORS for Flutter Web
->>>>>>> feature/RegisterUser
       .addMiddleware(correlationMiddleware()) // Inject correlation_id
       .addHandler(router.call);
 
@@ -99,12 +92,9 @@ Router _buildRouter(DotEnv env, AppConfig config, Logger log) {
     emailSender: emailSender,
   );
   final authRouter = buildAuthRouter(authService);
-<<<<<<< HEAD
   final catalogRepository = MockCatalogRepository();
   final catalogService = CatalogService(repository: catalogRepository);
   final catalogRouter = buildCatalogRouter(catalogService);
-=======
->>>>>>> feature/RegisterUser
 
   // --- System Routes ---
   router.get('/', _handleRoot);
@@ -112,10 +102,7 @@ Router _buildRouter(DotEnv env, AppConfig config, Logger log) {
 
   // --- Feature Routes ---
   router.mount('/api/v1/auth/', authRouter.call);
-<<<<<<< HEAD
   router.mount('/api/v1/catalog/', catalogRouter.call);
-=======
->>>>>>> feature/RegisterUser
   if (!config.useMockRepositories) {
     log.warning(
       'PostgreSQL auth repository is not available yet; using in-memory auth repository.',

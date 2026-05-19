@@ -91,11 +91,7 @@ Router buildAuthRouter(AuthService authService) {
         {
           'status': 'error',
           'error': 'confirmation_failed',
-<<<<<<< HEAD
           'message': error.toString(),
-=======
-          'message': 'Unable to process registration',
->>>>>>> feature/RegisterUser
         },
       );
     }
