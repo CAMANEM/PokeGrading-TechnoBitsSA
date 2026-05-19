@@ -6,14 +6,14 @@ import '../../../core/theme/app_theme.dart';
 import '../application/auth_provider.dart';
 import '../domain/auth_models.dart';
 
-const supportedCountries = [
-  'Costa Rica',
-  'Panamá',
-  'México',
-  'Colombia',
-  'Chile',
-  'Argentina',
-];
+const supportedCountries = {
+  'CR': 'Costa Rica',
+  'PA': 'Panamá',
+  'MX': 'México',
+  'CO': 'Colombia',
+  'CL': 'Chile',
+  'AR': 'Argentina',
+};
 
 const supportedLanguages = {
   'es': 'Español',
@@ -512,11 +512,11 @@ class _FormPanel extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: 'País de residencia',
                     ),
-                    items: supportedCountries
+                    items: supportedCountries.entries
                         .map(
-                          (country) => DropdownMenuItem(
-                            value: country,
-                            child: Text(country),
+                          (entry) => DropdownMenuItem<String>(
+                            value: entry.key,
+                            child: Text(entry.value),
                           ),
                         )
                         .toList(),
@@ -525,6 +525,7 @@ class _FormPanel extends StatelessWidget {
                       if (value == null || value.isEmpty) {
                         return 'Selecciona un país';
                       }
+
                       return null;
                     },
                   ),
