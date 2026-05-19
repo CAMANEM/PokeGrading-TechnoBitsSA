@@ -21,22 +21,6 @@ class CatalogSubmissionController extends StateNotifier<CatalogSubmissionState> 
   void submitIdentity(CardIdentityInput identity) {
     state = state.copyWith(
       identity: identity,
-      stage: CatalogFlowStage.display,
-      message: null,
-    );
-  }
-
-  void skipDisplay() {
-    state = state.copyWith(
-      displayName: null,
-      stage: CatalogFlowStage.image,
-      message: null,
-    );
-  }
-
-  void submitDisplay(String displayName) {
-    state = state.copyWith(
-      displayName: displayName.trim().isEmpty ? null : displayName.trim(),
       stage: CatalogFlowStage.image,
       message: null,
     );

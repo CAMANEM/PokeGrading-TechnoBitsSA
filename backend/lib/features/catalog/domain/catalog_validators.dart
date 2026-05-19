@@ -1,4 +1,9 @@
 class CatalogValidators {
+  static final RegExp _imageDataUrlPattern = RegExp(
+    r'^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=\r\n]+$',
+    caseSensitive: false,
+  );
+
   static String? validateSet(String value) {
     final normalized = value.trim();
     if (normalized.isEmpty) {
@@ -60,12 +65,15 @@ class CatalogValidators {
     if (normalized.isEmpty) {
       return 'La imagen es obligatoria';
     }
-    if (normalized.length < 24) {
+    if (!_imageDataUrlPattern.hasMatch(normalized)) {
+      return 'Imagen rechazada: solo se permite PNG o JPG';
+    }
+
+    final base64Part = normalized.split(',').last;
+    if (base64Part.length < 24) {
       return 'Imagen rechazada';
     }
-    if (normalized.toUpperCase().contains('REJECT')) {
-      return 'Imagen rechazada';
-    }
+
     return null;
   }
 }

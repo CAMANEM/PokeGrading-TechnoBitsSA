@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,16 +18,15 @@ class AddCardScreen extends ConsumerStatefulWidget {
 
 class _AddCardScreenState extends ConsumerState<AddCardScreen> {
   final _identityFormKey = GlobalKey<FormState>();
-  final _displayFormKey = GlobalKey<FormState>();
-  final _imageFormKey = GlobalKey<FormState>();
 
   final _setController = TextEditingController();
   final _numberController = TextEditingController();
   final _editionController = TextEditingController();
   final _languageController = TextEditingController();
   final _finishController = TextEditingController();
-  final _displayNameController = TextEditingController();
-  final _imageDataController = TextEditingController();
+  String? _selectedImageData;
+  String? _selectedImageName;
+  String? _selectedImageExtension;
 
   @override
   void dispose() {
@@ -33,8 +35,6 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     _editionController.dispose();
     _languageController.dispose();
     _finishController.dispose();
-    _displayNameController.dispose();
-    _imageDataController.dispose();
     super.dispose();
   }
 
@@ -86,33 +86,34 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                           ),
                         );
                       },
-                      onSkipDisplay: controller.skipDisplay,
-                      onSubmitDisplay: () {
-                        if (_displayFormKey.currentState?.validate() != true) {
-                          return;
-                        }
-                        controller.submitDisplay(_displayNameController.text);
-                      },
                       onSubmitImage: () async {
-                        if (_imageFormKey.currentState?.validate() != true) {
+                        if (_selectedImageData == null) {
+                          setState(() {
+                            _selectedImageName = null;
+                          });
                           return;
                         }
-                        await controller.submitImage(_imageDataController.text);
+
+                        await controller.submitImage(_selectedImageData!);
                       },
                       onReset: () {
                         _identityFormKey.currentState?.reset();
-                        _displayFormKey.currentState?.reset();
-                        _imageFormKey.currentState?.reset();
                         _setController.clear();
                         _numberController.clear();
                         _editionController.clear();
                         _languageController.clear();
                         _finishController.clear();
-                        _displayNameController.clear();
-                        _imageDataController.clear();
+                        setState(() {
+                          _selectedImageData = null;
+                          _selectedImageName = null;
+                          _selectedImageExtension = null;
+                        });
                         controller.reset();
                       },
                       onRetryImage: controller.retryFromImage,
+                      onPickImage: _pickImage,
+                      selectedImageName: _selectedImageName,
+                      selectedImageExtension: _selectedImageExtension,
                     ),
                   ],
                 ),
@@ -128,11 +129,12 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     required CatalogSubmissionState state,
     required bool busy,
     required VoidCallback onSubmitIdentity,
-    required VoidCallback onSkipDisplay,
-    required VoidCallback onSubmitDisplay,
     required Future<void> Function() onSubmitImage,
     required VoidCallback onReset,
     required VoidCallback onRetryImage,
+    required Future<void> Function() onPickImage,
+    required String? selectedImageName,
+    required String? selectedImageExtension,
   }) {
     switch (state.stage) {
       case CatalogFlowStage.identity:
@@ -145,27 +147,60 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
           finishController: _finishController,
           onSubmit: onSubmitIdentity,
         );
-      case CatalogFlowStage.display:
-        return _DisplayForm(
-          formKey: _displayFormKey,
-          displayNameController: _displayNameController,
-          onSkip: onSkipDisplay,
-          onSubmit: onSubmitDisplay,
-        );
       case CatalogFlowStage.image:
       case CatalogFlowStage.error:
       case CatalogFlowStage.submitting:
         return _ImageForm(
-          formKey: _imageFormKey,
-          imageDataController: _imageDataController,
+          selectedImageName: selectedImageName,
+          selectedImageExtension: selectedImageExtension,
           busy: busy,
           onRetry: onRetryImage,
+          onPickImage: onPickImage,
           onSubmit: onSubmitImage,
           isError: state.stage == CatalogFlowStage.error,
         );
       case CatalogFlowStage.success:
         return _SuccessCard(result: state.result!, onReset: onReset);
     }
+  }
+
+  Future<void> _pickImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      return;
+    }
+
+    final extension = (file.extension ?? '').toLowerCase();
+    final mimeSubtype = switch (extension) {
+      'png' => 'png',
+      'jpg' => 'jpeg',
+      'jpeg' => 'jpeg',
+      _ => '',
+    };
+
+    if (mimeSubtype.isEmpty) {
+      return;
+    }
+
+    final encoded = base64Encode(bytes);
+    final dataUri = 'data:image/$mimeSubtype;base64,$encoded';
+
+    setState(() {
+      _selectedImageData = dataUri;
+      _selectedImageName = file.name;
+      _selectedImageExtension = extension;
+    });
   }
 }
 
@@ -191,7 +226,7 @@ class _Header extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'CBS-2.1.1: identidad, display opcional e imagen.',
+              'CBS-2.1.1: identidad e imagen PNG/JPG.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -217,11 +252,10 @@ class _FlowProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = switch (stage) {
       CatalogFlowStage.identity => 1,
-      CatalogFlowStage.display => 2,
-      CatalogFlowStage.image => 3,
-      CatalogFlowStage.submitting => 3,
-      CatalogFlowStage.error => 3,
-      CatalogFlowStage.success => 4,
+      CatalogFlowStage.image => 2,
+      CatalogFlowStage.submitting => 2,
+      CatalogFlowStage.error => 2,
+      CatalogFlowStage.success => 3,
     };
 
     return Container(
@@ -235,11 +269,9 @@ class _FlowProgress extends StatelessWidget {
         children: [
           Expanded(child: _StepBadge(label: '1. Identidad', active: step >= 1)),
           const SizedBox(width: 12),
-          Expanded(child: _StepBadge(label: '2. Display', active: step >= 2)),
+          Expanded(child: _StepBadge(label: '2. Imagen', active: step >= 2)),
           const SizedBox(width: 12),
-          Expanded(child: _StepBadge(label: '3. Imagen', active: step >= 3)),
-          const SizedBox(width: 12),
-          Expanded(child: _StepBadge(label: '4. card_id', active: step >= 4)),
+          Expanded(child: _StepBadge(label: '3. card_id', active: step >= 3)),
         ],
       ),
     );
@@ -397,7 +429,7 @@ class _IdentityForm extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: onSubmit,
                 icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Text('Continuar a display'),
+                label: const Text('Continuar a imagen'),
               ),
             ),
           ],
@@ -407,77 +439,21 @@ class _IdentityForm extends StatelessWidget {
   }
 }
 
-class _DisplayForm extends StatelessWidget {
-  final GlobalKey<FormState> formKey;
-  final TextEditingController displayNameController;
-  final VoidCallback onSkip;
-  final VoidCallback onSubmit;
-
-  const _DisplayForm({
-    required this.formKey,
-    required this.displayNameController,
-    required this.onSkip,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _FormCard(
-      title: 'Formulario de Display de Carta (opcional)',
-      child: Form(
-        key: formKey,
-        child: Column(
-          children: [
-            _InputField(
-              controller: displayNameController,
-              label: 'Display name',
-              validator: (value) {
-                if ((value ?? '').trim().length > 60) {
-                  return 'Maximo 60 caracteres';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onSkip,
-                    icon: const Icon(Icons.skip_next_rounded),
-                    label: const Text('No agregar display'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onSubmit,
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('Agregar display'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ImageForm extends StatelessWidget {
-  final GlobalKey<FormState> formKey;
-  final TextEditingController imageDataController;
+  final String? selectedImageName;
+  final String? selectedImageExtension;
   final bool busy;
   final bool isError;
   final VoidCallback onRetry;
+  final Future<void> Function() onPickImage;
   final Future<void> Function() onSubmit;
 
   const _ImageForm({
-    required this.formKey,
-    required this.imageDataController,
+    required this.selectedImageName,
+    required this.selectedImageExtension,
     required this.busy,
     required this.onRetry,
+    required this.onPickImage,
     required this.onSubmit,
     required this.isError,
   });
@@ -486,58 +462,60 @@ class _ImageForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _FormCard(
       title: 'Formulario de Imagen de Carta',
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Simulacion: pega un string largo (base64/mock). Si contiene REJECT o es muy corto, la imagen se rechaza.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Selecciona un archivo PNG o JPG.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onPickImage,
+              icon: const Icon(Icons.image_rounded),
+              label: const Text('Seleccionar imagen PNG/JPG'),
             ),
-            const SizedBox(height: 12),
-            _InputField(
-              controller: imageDataController,
-              label: 'image_data',
-              minLines: 4,
-              maxLines: 6,
-              validator: (value) {
-                final text = value?.trim() ?? '';
-                if (text.isEmpty) {
-                  return 'La imagen es obligatoria';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                if (isError)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : onRetry,
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      label: const Text('Reintentar imagen'),
-                    ),
-                  ),
-                if (isError) const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: busy ? null : onSubmit,
-                    icon: busy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.upload_rounded),
-                    label: Text(busy ? 'Validando...' : 'Subir imagen y agregar carta'),
-                  ),
-                ),
-              ],
+          ),
+          if (selectedImageName != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Archivo seleccionado: $selectedImageName (${selectedImageExtension ?? ''})',
+              style: const TextStyle(
+                color: AppColors.info,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              if (isError)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: busy ? null : onRetry,
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: const Text('Reintentar imagen'),
+                  ),
+                ),
+              if (isError) const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: busy ? null : onSubmit,
+                  icon: busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_rounded),
+                  label: Text(busy ? 'Validando...' : 'Subir imagen y agregar carta'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

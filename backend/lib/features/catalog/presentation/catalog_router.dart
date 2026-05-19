@@ -71,9 +71,13 @@ Future<Map<String, dynamic>> _readJson(Request request) async {
     return <String, dynamic>{};
   }
 
-  final decoded = jsonDecode(body);
-  if (decoded is Map<String, dynamic>) {
-    return decoded;
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+  } on FormatException {
+    return <String, dynamic>{};
   }
 
   return <String, dynamic>{};

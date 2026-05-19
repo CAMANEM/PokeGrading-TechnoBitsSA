@@ -1,6 +1,5 @@
 enum CatalogFlowStage {
   identity,
-  display,
   image,
   submitting,
   success,
