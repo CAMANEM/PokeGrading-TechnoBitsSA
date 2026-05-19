@@ -6,6 +6,20 @@ import '../../../core/theme/app_theme.dart';
 import '../application/auth_provider.dart';
 import '../domain/auth_models.dart';
 
+const supportedCountries = {
+  'CR': 'Costa Rica',
+  'PA': 'Panamá',
+  'MX': 'México',
+  'CO': 'Colombia',
+  'CL': 'Chile',
+  'AR': 'Argentina',
+};
+
+const supportedLanguages = {
+  'es': 'Español',
+  'en': 'English',
+};
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -20,6 +34,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _tokenController = TextEditingController();
+
+  String? _selectedCountry;
+  String? _selectedLanguage = "es";
+  bool _acceptedDisclosure = false;
 
   @override
   void dispose() {
@@ -70,6 +88,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           usernameController: _usernameController,
                           passwordController: _passwordController,
                           tokenController: _tokenController,
+                          selectedCountry: _selectedCountry,
+                          selectedLanguage: _selectedLanguage,
+                          acceptedDisclosure: _acceptedDisclosure,
+                          onCountryChanged: (value) {
+                            setState(() {
+                              _selectedCountry = value;
+                            });
+                          },
+                          onLanguageChanged: (value) {
+                            setState(() {
+                              _selectedLanguage = value;
+                            });
+                          },
+                          onDisclosureChanged: (value) {
+                            setState(() {
+                              _acceptedDisclosure = value ?? false;
+                            });
+                          },
                           onRegister: () async {
                             if (_registrationFormKey.currentState?.validate() != true) {
                               return;
@@ -79,6 +115,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               email: _emailController.text,
                               username: _usernameController.text,
                               password: _passwordController.text,
+                              country: _selectedCountry!,
+                              language: _selectedLanguage!,
+                              acceptedDisclosure: _acceptedDisclosure
                             );
                           },
                           onConfirm: () async {
@@ -358,6 +397,12 @@ class _FormPanel extends StatelessWidget {
   final TextEditingController usernameController;
   final TextEditingController passwordController;
   final TextEditingController tokenController;
+  final String? selectedCountry;
+  final String? selectedLanguage;
+  final bool acceptedDisclosure;
+  final ValueChanged<String?> onCountryChanged;
+  final ValueChanged<String?> onLanguageChanged;
+  final ValueChanged<bool?> onDisclosureChanged;
   final Future<void> Function() onRegister;
   final Future<void> Function() onConfirm;
   final VoidCallback onReset;
@@ -370,6 +415,12 @@ class _FormPanel extends StatelessWidget {
     required this.usernameController,
     required this.passwordController,
     required this.tokenController,
+    required this.selectedCountry,
+    required this.selectedLanguage,
+    required this.acceptedDisclosure,
+    required this.onCountryChanged,
+    required this.onLanguageChanged,
+    required this.onDisclosureChanged,
     required this.onRegister,
     required this.onConfirm,
     required this.onReset,
@@ -421,7 +472,7 @@ class _FormPanel extends StatelessWidget {
                     validator: (value) {
                       final text = (value ?? '').trim();
                       if (text.isEmpty) return 'El email es obligatorio';
-                      if (!text.contains('@')) return 'Ingresa un email válido';
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) return 'Ingresa un email válido';
                       return null;
                     },
                   ),
@@ -451,15 +502,89 @@ class _FormPanel extends StatelessWidget {
                       final text = value ?? '';
                       if (text.isEmpty) return 'La contraseña es obligatoria';
                       if (text.length < 8) return 'Debe tener al menos 8 caracteres';
+                      if (!RegExp(r'[A-Z]').hasMatch(text)) return "Debe contener una mayúscula";
+                      if (!RegExp(r'\d').hasMatch(text)) return "Debe contener un dígito";
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: selectedCountry,
+                    decoration: const InputDecoration(
+                      labelText: 'País de residencia',
+                    ),
+                    items: supportedCountries.entries
+                        .map(
+                          (entry) => DropdownMenuItem<String>(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onCountryChanged,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Selecciona un país';
+                      }
+
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  DropdownButtonFormField<String>(
+                    value: selectedLanguage,
+                    decoration: const InputDecoration(
+                      labelText: 'Idioma',
+                    ),
+                    items: supportedLanguages.entries
+                        .map(
+                          (entry) => DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onLanguageChanged,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Selecciona un idioma';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  CheckboxListTile(
+                    value: acceptedDisclosure,
+                    onChanged: onDisclosureChanged,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Acepto que PokéGrading es únicamente informativo y no sustituye evaluaciones oficiales de PSA, BGS ni CGC.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: isBusy ? null : () async => onRegister(),
+              onPressed: isBusy ? null : () async {
+                if (!acceptedDisclosure) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Debes aceptar el disclosure para continuar")
+                    )
+                  );
+                  return;
+                }
+                
+                await onRegister();
+              },
               icon: isBusy
                   ? const SizedBox(
                       width: 16,

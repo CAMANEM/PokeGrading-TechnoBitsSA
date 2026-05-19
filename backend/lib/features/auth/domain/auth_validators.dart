@@ -1,4 +1,25 @@
 class AuthValidators {
+  
+  static const supportedCountries = {
+    'CR',
+    'PA',
+    'MX',
+    'CO',
+    'CL',
+    'AR',
+  };
+
+  static const supportedLanguages = {
+    'es',
+    'en',
+  };
+
+  static const blockedDomains = {
+    'mailinator.com',
+    '10minutemail.com',
+    'guerrillamail.com',
+  };
+
   static String? validateEmail(String email) {
     final value = email.trim();
     if (value.isEmpty) {
@@ -38,6 +59,48 @@ class AuthValidators {
 
     if (password.length < 8) {
       return 'Password must be at least 8 characters';
+    }
+
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+
+    if (!RegExp(r'\d').hasMatch(password)) {
+      return 'Password must contain at least one digit';
+    }
+
+    return null;
+  }
+
+  static String? validateCountry(String country) {
+    if (!supportedCountries.contains(country)) {
+      return 'Country not supported';
+    }
+
+    return null;
+  }
+
+  static String? validateLanguage(String language) {
+    if (!supportedLanguages.contains(language)) {
+      return 'Language not supported';
+    }
+
+    return null;
+  }
+
+  static String? validateDisclosure(bool accepted) {
+    if (!accepted) {
+      return 'Disclosure must be accepted';
+    }
+
+    return null;
+  }
+
+  static String? validateEmailDomain(String email) {
+    final domain = email.split('@').last.toLowerCase();
+
+    if (blockedDomains.contains(domain)) {
+      return 'Email domain is not allowed';
     }
 
     return null;

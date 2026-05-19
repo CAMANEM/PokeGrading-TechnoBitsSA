@@ -24,7 +24,10 @@ dependencies:
 
   # ─── Utilidades ──────────────────────────────────────────
   uuid: ^4.4.0
+<<<<<<< HEAD
   file_picker: ^8.1.2
+=======
+>>>>>>> feature/RegisterUser
 
 dev_dependencies:
   flutter_test:
