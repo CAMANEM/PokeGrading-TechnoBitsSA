@@ -31,6 +31,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
   final _illustratorController = TextEditingController();
   final _yearController = TextEditingController();
   final _authorController = TextEditingController();
+  String? _selectedLanguage;
   String? _selectedRarity;
   String? _selectedType;
   String? _selectedImageData;
@@ -145,6 +146,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                           _selectedImageData = null;
                           _selectedImageName = null;
                           _selectedImageExtension = null;
+                          _selectedLanguage = null;
                         });
                         controller.reset();
                       },
@@ -183,6 +185,11 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
           editionController: _editionController,
           languageController: _languageController,
           finishController: _finishController,
+                          selectedLanguage: _selectedLanguage,
+                          onLanguageChanged: (value) => setState(() {
+                            _selectedLanguage = value;
+                            _languageController.text = value ?? '';
+                          }),
           displayNameController: _displayNameController,
           hpController: _hpController,
           illustratorController: _illustratorController,
@@ -435,6 +442,8 @@ class _IdentityForm extends StatelessWidget {
   final TextEditingController editionController;
   final TextEditingController languageController;
   final TextEditingController finishController;
+  final String? selectedLanguage;
+  final void Function(String?) onLanguageChanged;
   final TextEditingController displayNameController;
   final TextEditingController hpController;
   final TextEditingController illustratorController;
@@ -453,6 +462,8 @@ class _IdentityForm extends StatelessWidget {
     required this.editionController,
     required this.languageController,
     required this.finishController,
+    required this.selectedLanguage,
+    required this.onLanguageChanged,
     required this.displayNameController,
     required this.hpController,
     required this.illustratorController,
@@ -511,9 +522,14 @@ class _IdentityForm extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            _InputField(
-              controller: languageController,
-              label: 'Idioma',
+            DropdownButtonFormField<String>(
+              value: selectedLanguage,
+              decoration: const InputDecoration(labelText: 'Idioma'),
+              items: const [
+                DropdownMenuItem(value: 'Español', child: Text('Español')),
+                DropdownMenuItem(value: 'Inglés', child: Text('Inglés')),
+              ],
+              onChanged: onLanguageChanged,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'El idioma es obligatorio';

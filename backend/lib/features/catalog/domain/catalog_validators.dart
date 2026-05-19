@@ -43,6 +43,10 @@ class CatalogValidators {
     if (normalized.isEmpty) {
       return 'El idioma es obligatorio';
     }
+    const allowedLanguages = ['Español', 'Inglés'];
+    if (!allowedLanguages.contains(normalized)) {
+      return 'El idioma debe ser Español o Inglés';
+    }
     if (normalized.length > 30) {
       return 'El idioma no puede superar 30 caracteres';
     }
