@@ -96,3 +96,6 @@ logs/
 coverage/
 lcov.info
 *.coverage
+
+*.deb
+docker-desktop-amd64.deb
