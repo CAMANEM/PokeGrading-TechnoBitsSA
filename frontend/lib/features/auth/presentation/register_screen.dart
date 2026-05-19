@@ -36,7 +36,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _tokenController = TextEditingController();
 
   String? _selectedCountry;
-  String? _selectedLanguage;
+  String? _selectedLanguage = "es";
 
   @override
   void dispose() {
