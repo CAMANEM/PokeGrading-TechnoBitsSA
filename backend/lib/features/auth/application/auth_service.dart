@@ -66,6 +66,9 @@ class AuthService {
     required String email,
     required String username,
     required String password,
+    required String country,
+    required String language,
+    required bool acceptedDisclosure
   }) async {
     final emailError = AuthValidators.validateEmail(email);
     if (emailError != null) {
@@ -88,6 +91,38 @@ class AuthService {
       );
     }
 
+    final countryError = AuthValidators.validateCountry(country);
+    if (countryError != null) {
+      throw AuthServiceException(
+        code: 'invalid_country',
+        message: countryError,
+      );
+    }
+
+    final languageError = AuthValidators.validateLanguage(language);
+    if (languageError != null) {
+      throw AuthServiceException(
+        code: 'invalid_language',
+        message: languageError,
+      );
+    }
+
+    final disclosureError = AuthValidators.validateDisclosure(acceptedDisclosure,);
+    if (disclosureError != null) {
+      throw AuthServiceException(
+        code: 'disclosure_required',
+        message: disclosureError,
+      );
+    }
+
+    final blockedDomainError = AuthValidators.validateEmailDomain(email);
+    if (blockedDomainError != null) {
+      throw AuthServiceException(
+        code: 'blocked_email_domain',
+        message: blockedDomainError,
+      );
+    }
+
     if (await repository.emailExists(email)) {
       throw AuthServiceException(
         code: 'email_exists',
@@ -106,6 +141,9 @@ class AuthService {
       email: email,
       username: username,
       password: password,
+      country: country,
+      language: language,
+      acceptedDisclosure: acceptedDisclosure,
     );
 
     await emailSender.sendToken(

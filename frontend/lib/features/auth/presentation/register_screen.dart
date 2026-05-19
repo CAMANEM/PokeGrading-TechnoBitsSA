@@ -117,7 +117,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               password: _passwordController.text,
                               country: _selectedCountry!,
                               language: _selectedLanguage!,
-);
+                              acceptedDisclosure: _acceptedDisclosure
+                            );
                           },
                           onConfirm: () async {
                             if (_confirmationFormKey.currentState?.validate() != true) {

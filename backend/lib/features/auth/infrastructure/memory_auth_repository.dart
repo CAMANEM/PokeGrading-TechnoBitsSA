@@ -48,12 +48,18 @@ class MemoryAuthRepository implements AuthRepository {
     required String email,
     required String username,
     required String password,
+    required String country,
+    required String language,
+    required bool acceptedDisclosure,
   }) async {
     final token = _generateToken();
     final pending = AuthPendingRegistration(
       email: email.trim(),
       username: username.trim(),
       password: password,
+      country: country.trim(),
+      language: language.trim(),
+      acceptedDisclosure: acceptedDisclosure,
       token: token,
       expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 15)),
     );
@@ -78,7 +84,12 @@ class MemoryAuthRepository implements AuthRepository {
       email: pending.email,
       username: pending.username,
       password: pending.password,
+      country: pending.country,
+      language: pending.language,
+      acceptedDisclosure: pending.acceptedDisclosure,
+      role: UserRole.submitter,
       status: UserRegistrationStatus.active,
+      lastLoginAt: DateTime.now().toUtc(),
       createdAt: DateTime.now().toUtc(),
     );
 

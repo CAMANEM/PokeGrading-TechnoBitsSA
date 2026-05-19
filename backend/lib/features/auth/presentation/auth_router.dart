@@ -13,12 +13,18 @@ Router buildAuthRouter(AuthService authService) {
     final email = (payload['email'] ?? '').toString();
     final username = (payload['username'] ?? '').toString();
     final password = (payload['password'] ?? '').toString();
+    final country = (payload['country'] ?? '').toString();
+    final language = (payload['language'] ?? '').toString();
+    final acceptedDisclosure = payload['acceptedDisclosure'] == true;
 
     try {
       final session = await authService.startRegistration(
         email: email,
         username: username,
         password: password,
+        country: country,
+        language: language,
+        acceptedDisclosure: acceptedDisclosure
       );
 
       return _jsonResponse(
@@ -85,7 +91,7 @@ Router buildAuthRouter(AuthService authService) {
         {
           'status': 'error',
           'error': 'confirmation_failed',
-          'message': error.toString(),
+          'message': 'Unable to process registration',
         },
       );
     }
@@ -124,6 +130,10 @@ int _statusCodeFor(String code) {
     'invalid_token' => 400,
     'email_exists' => 409,
     'username_exists' => 409,
+    'invalid_country' => 400,
+    'invalid_language' => 400,
+    'disclosure_required' => 400,
+    'blocked_email_domain' => 403,
     _ => 500,
   };
 }
