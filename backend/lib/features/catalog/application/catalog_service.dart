@@ -19,7 +19,14 @@ class AddCardCommand {
   final String language;
   final String finish;
   final String? displayName;
+  final String? rarity;
+  final String? pokemonType;
+  final int? hp;
+  final String? illustrator;
+  final int? year;
+  final String? author;
   final String imageData;
+  final String? backImageData;
 
   const AddCardCommand({
     required this.set,
@@ -29,6 +36,13 @@ class AddCardCommand {
     required this.finish,
     required this.imageData,
     this.displayName,
+    this.rarity,
+    this.pokemonType,
+    this.hp,
+    this.illustrator,
+    this.year,
+    this.author,
+    this.backImageData,
   });
 }
 
@@ -76,7 +90,14 @@ class CatalogService {
         language: command.language,
         finish: command.finish,
         displayName: command.displayName,
+        rarity: command.rarity,
+        pokemonType: command.pokemonType,
+        hp: command.hp,
+        illustrator: command.illustrator,
+        year: command.year,
+        author: command.author,
         imageData: command.imageData,
+        backImageData: command.backImageData,
       ),
     );
 
@@ -126,6 +147,32 @@ class CatalogService {
         code: 'identity_rejected',
         message: finishError,
       );
+    }
+
+    // Optional / recommended fields validation
+    final rarityError = CatalogValidators.validateRarity(command.rarity);
+    if (rarityError != null) {
+      throw CatalogServiceException(code: 'identity_rejected', message: rarityError);
+    }
+
+    final typeError = CatalogValidators.validateType(command.pokemonType);
+    if (typeError != null) {
+      throw CatalogServiceException(code: 'identity_rejected', message: typeError);
+    }
+
+    final hpError = CatalogValidators.validateHp(command.hp);
+    if (hpError != null) {
+      throw CatalogServiceException(code: 'identity_rejected', message: hpError);
+    }
+
+    final yearError = CatalogValidators.validateYear(command.year);
+    if (yearError != null) {
+      throw CatalogServiceException(code: 'identity_rejected', message: yearError);
+    }
+
+    final authorError = CatalogValidators.validateAuthor(command.author);
+    if (authorError != null) {
+      throw CatalogServiceException(code: 'identity_rejected', message: authorError);
     }
   }
 

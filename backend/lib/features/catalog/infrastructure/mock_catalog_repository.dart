@@ -43,7 +43,29 @@ class MockCatalogRepository implements CatalogRepository {
           ? null
           : input.displayName?.trim(),
       imageData: input.imageData.trim(),
+      rarity: input.rarity,
+      pokemonType: input.pokemonType,
+      hp: input.hp,
+      illustrator: input.illustrator,
+      year: input.year,
+      createdBy: input.author,
+      backImageData: input.backImageData,
       status: PokemonCardStatus.pendingValidation,
+      isActive: true,
+      audit: [
+        {
+          'action': 'created',
+          'author': input.author,
+          'timestamp': now.toIso8601String(),
+          'data': {
+            'set': input.set,
+            'number': input.number,
+            'edition': input.edition,
+            'language': input.language,
+            'finish': input.finish,
+          }
+        }
+      ],
       createdAt: now,
     );
 

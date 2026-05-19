@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,14 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
   final _editionController = TextEditingController();
   final _languageController = TextEditingController();
   final _finishController = TextEditingController();
+  // Display / recommended fields
+  final _displayNameController = TextEditingController();
+  final _hpController = TextEditingController();
+  final _illustratorController = TextEditingController();
+  final _yearController = TextEditingController();
+  final _authorController = TextEditingController();
+  String? _selectedRarity;
+  String? _selectedType;
   String? _selectedImageData;
   String? _selectedImageName;
   String? _selectedImageExtension;
@@ -35,6 +44,11 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     _editionController.dispose();
     _languageController.dispose();
     _finishController.dispose();
+    _displayNameController.dispose();
+    _hpController.dispose();
+    _illustratorController.dispose();
+    _yearController.dispose();
+    _authorController.dispose();
     super.dispose();
   }
 
@@ -94,7 +108,31 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                           return;
                         }
 
-                        await controller.submitImage(_selectedImageData!);
+                        final payload = AddCardPayload(
+                          identity: CardIdentityInput(
+                            set: _setController.text,
+                            number: _numberController.text,
+                            edition: _editionController.text,
+                            language: _languageController.text,
+                            finish: _finishController.text,
+                          ),
+                          displayName: _displayNameController.text.trim().isEmpty
+                              ? null
+                              : _displayNameController.text.trim(),
+                          rarity: _selectedRarity,
+                          pokemonType: _selectedType,
+                          hp: int.tryParse(_hpController.text.trim()),
+                          illustrator: _illustratorController.text.trim().isEmpty
+                              ? null
+                              : _illustratorController.text.trim(),
+                          year: int.tryParse(_yearController.text.trim()),
+                          author: _authorController.text.trim().isEmpty
+                              ? null
+                              : _authorController.text.trim(),
+                          imageData: _selectedImageData!,
+                        );
+
+                        await controller.submitImagePayload(payload);
                       },
                       onReset: () {
                         _identityFormKey.currentState?.reset();
@@ -145,6 +183,15 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
           editionController: _editionController,
           languageController: _languageController,
           finishController: _finishController,
+          displayNameController: _displayNameController,
+          hpController: _hpController,
+          illustratorController: _illustratorController,
+          yearController: _yearController,
+          authorController: _authorController,
+          selectedRarity: _selectedRarity,
+          selectedType: _selectedType,
+          onRarityChanged: (v) => setState(() => _selectedRarity = v),
+          onTypeChanged: (v) => setState(() => _selectedType = v),
           onSubmit: onSubmitIdentity,
         );
       case CatalogFlowStage.image:
@@ -191,6 +238,50 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
 
     if (mimeSubtype.isEmpty) {
       return;
+    }
+
+    // Basic client-side validations: size and dimensions
+    const minBytes = 5 * 1024; // 5KB minimal
+    const maxBytes = 5 * 1024 * 1024; // 5MB max
+
+    if (bytes.length < minBytes) {
+      setState(() {
+        _selectedImageName = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Imagen demasiado pequeña (min 5KB)')),
+      );
+      return;
+    }
+
+    if (bytes.length > maxBytes) {
+      setState(() {
+        _selectedImageName = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Imagen demasiado pesada (max 5MB)')),
+      );
+      return;
+    }
+
+    // Try to decode dimensions (works on Flutter platforms)
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      final width = image.width;
+      final height = image.height;
+
+      const minWidth = 400;
+      const minHeight = 400;
+      if (width < minWidth || height < minHeight) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Resolución mínima 400x400 píxeles')),
+        );
+        return;
+      }
+    } catch (_) {
+      // If decoding fails, fall back to size-only validation
     }
 
     final encoded = base64Encode(bytes);
@@ -344,6 +435,15 @@ class _IdentityForm extends StatelessWidget {
   final TextEditingController editionController;
   final TextEditingController languageController;
   final TextEditingController finishController;
+  final TextEditingController displayNameController;
+  final TextEditingController hpController;
+  final TextEditingController illustratorController;
+  final TextEditingController yearController;
+  final TextEditingController authorController;
+  final String? selectedRarity;
+  final String? selectedType;
+  final void Function(String?) onRarityChanged;
+  final void Function(String?) onTypeChanged;
   final VoidCallback onSubmit;
 
   const _IdentityForm({
@@ -353,6 +453,15 @@ class _IdentityForm extends StatelessWidget {
     required this.editionController,
     required this.languageController,
     required this.finishController,
+    required this.displayNameController,
+    required this.hpController,
+    required this.illustratorController,
+    required this.yearController,
+    required this.authorController,
+    required this.selectedRarity,
+    required this.selectedType,
+    required this.onRarityChanged,
+    required this.onTypeChanged,
     required this.onSubmit,
   });
 
@@ -422,6 +531,112 @@ class _IdentityForm extends StatelessWidget {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 12),
+            _InputField(
+              controller: displayNameController,
+              label: 'Nombre (display)',
+              validator: (value) {
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedRarity,
+                    decoration: const InputDecoration(labelText: 'Rareza'),
+                    items: [
+                      'Common',
+                      'Uncommon',
+                      'Rare',
+                      'Holo Rare',
+                      'Ultra Rare',
+                      'Secret Rare',
+                    ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                    onChanged: onRarityChanged,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(labelText: 'Tipo'),
+                    items: [
+                      'Normal',
+                      'Fighting',
+                      'Fire',
+                      'Water',
+                      'Grass',
+                      'Electric',
+                      'Psychic',
+                      'Dark',
+                      'Metal',
+                      'Dragon',
+                      'Fairy',
+                    ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: onTypeChanged,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _InputField(
+                    controller: hpController,
+                    label: 'HP',
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return null;
+                      if (int.tryParse(value.trim()) == null) return 'HP debe ser numérico';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InputField(
+                    controller: illustratorController,
+                    label: 'Ilustrador',
+                    validator: (value) => null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _InputField(
+                    controller: yearController,
+                    label: 'Año',
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return null;
+                      final y = int.tryParse(value.trim());
+                      if (y == null) return 'Año inválido';
+                      if (y < 1950 || y > DateTime.now().year) return 'Año fuera de rango';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InputField(
+                    controller: authorController,
+                    label: 'Autor (tu nombre)',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El autor es obligatorio mientras no haya auth';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             SizedBox(

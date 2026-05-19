@@ -16,6 +16,13 @@ Router buildCatalogRouter(CatalogService catalogService) {
     final language = (payload['language'] ?? '').toString();
     final finish = (payload['finish'] ?? '').toString();
     final displayName = payload['display_name']?.toString();
+    final rarity = payload['rarity']?.toString();
+    final type = payload['type']?.toString();
+    final hp = payload['hp'] is int ? payload['hp'] as int : int.tryParse((payload['hp'] ?? '').toString());
+    final illustrator = payload['illustrator']?.toString();
+    final year = payload['year'] is int ? payload['year'] as int : int.tryParse((payload['year'] ?? '').toString());
+    final author = payload['author']?.toString();
+    final backImageData = payload['back_image_data']?.toString();
     final imageData = (payload['image_data'] ?? '').toString();
 
     try {
@@ -27,7 +34,14 @@ Router buildCatalogRouter(CatalogService catalogService) {
           language: language,
           finish: finish,
           displayName: displayName,
+          rarity: rarity,
+          pokemonType: type,
+          hp: hp,
+          illustrator: illustrator,
+          year: year,
+          author: author,
           imageData: imageData,
+          backImageData: backImageData,
         ),
       );
 

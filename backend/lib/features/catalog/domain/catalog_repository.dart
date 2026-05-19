@@ -7,7 +7,14 @@ class AddPokemonCardInput {
   final String language;
   final String finish;
   final String? displayName;
+  final String? rarity;
+  final String? pokemonType;
+  final int? hp;
+  final String? illustrator;
+  final int? year;
+  final String? author;
   final String imageData;
+  final String? backImageData;
 
   const AddPokemonCardInput({
     required this.set,
@@ -17,6 +24,13 @@ class AddPokemonCardInput {
     required this.finish,
     required this.imageData,
     this.displayName,
+    this.rarity,
+    this.pokemonType,
+    this.hp,
+    this.illustrator,
+    this.year,
+    this.author,
+    this.backImageData,
   });
 }
 

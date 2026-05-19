@@ -25,12 +25,26 @@ class CardIdentityInput {
 class AddCardPayload {
   final CardIdentityInput identity;
   final String? displayName;
+  final String? rarity;
+  final String? pokemonType;
+  final int? hp;
+  final String? illustrator;
+  final int? year;
+  final String? author;
   final String imageData;
+  final String? backImageData;
 
   const AddCardPayload({
     required this.identity,
     required this.imageData,
     this.displayName,
+    this.rarity,
+    this.pokemonType,
+    this.hp,
+    this.illustrator,
+    this.year,
+    this.author,
+    this.backImageData,
   });
 }
 

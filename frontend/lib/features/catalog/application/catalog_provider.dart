@@ -60,6 +60,25 @@ class CatalogSubmissionController extends StateNotifier<CatalogSubmissionState> 
     }
   }
 
+  Future<void> submitImagePayload(AddCardPayload payload) async {
+    state = state.copyWith(stage: CatalogFlowStage.submitting, message: null);
+
+    try {
+      final result = await _apiClient.addCard(payload);
+
+      state = state.copyWith(
+        stage: CatalogFlowStage.success,
+        result: result,
+        message: 'Carta agregada correctamente',
+      );
+    } on CatalogApiException catch (error) {
+      state = state.copyWith(
+        stage: CatalogFlowStage.error,
+        message: error.message,
+      );
+    }
+  }
+
   void reset() {
     state = const CatalogSubmissionState.initial();
   }

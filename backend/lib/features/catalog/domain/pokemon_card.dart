@@ -13,7 +13,16 @@ class PokemonCard {
   final String finish;
   final String? displayName;
   final String imageData;
+  final String? rarity;
+  final String? pokemonType;
+  final int? hp;
+  final String? illustrator;
+  final int? year;
+  final String? createdBy;
+  final String? backImageData;
   final PokemonCardStatus status;
+  final bool isActive;
+  final List<Map<String, dynamic>> audit;
   final DateTime createdAt;
 
   const PokemonCard({
@@ -25,7 +34,16 @@ class PokemonCard {
     required this.finish,
     required this.imageData,
     this.displayName,
+    this.rarity,
+    this.pokemonType,
+    this.hp,
+    this.illustrator,
+    this.year,
+    this.createdBy,
+    this.backImageData,
     this.status = PokemonCardStatus.pendingValidation,
+    this.isActive = true,
+    this.audit = const [],
     required this.createdAt,
   });
 
@@ -38,7 +56,16 @@ class PokemonCard {
     String? finish,
     String? displayName,
     String? imageData,
+    String? rarity,
+    String? pokemonType,
+    int? hp,
+    String? illustrator,
+    int? year,
+    String? createdBy,
+    String? backImageData,
     PokemonCardStatus? status,
+    bool? isActive,
+    List<Map<String, dynamic>>? audit,
     DateTime? createdAt,
   }) {
     return PokemonCard(
@@ -48,9 +75,18 @@ class PokemonCard {
       edition: edition ?? this.edition,
       language: language ?? this.language,
       finish: finish ?? this.finish,
-      displayName: displayName ?? this.displayName,
       imageData: imageData ?? this.imageData,
+      displayName: displayName ?? this.displayName,
+      rarity: rarity ?? this.rarity,
+      pokemonType: pokemonType ?? this.pokemonType,
+      hp: hp ?? this.hp,
+      illustrator: illustrator ?? this.illustrator,
+      year: year ?? this.year,
+      createdBy: createdBy ?? this.createdBy,
+      backImageData: backImageData ?? this.backImageData,
       status: status ?? this.status,
+      isActive: isActive ?? this.isActive,
+      audit: audit ?? this.audit,
       createdAt: createdAt ?? this.createdAt,
     );
   }

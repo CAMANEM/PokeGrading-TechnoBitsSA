@@ -52,7 +52,16 @@ void main() async {
   // 4. Build the middleware pipeline
   final handler = const Pipeline()
       .addMiddleware(logRequests()) // Log HTTP requests
-      .addMiddleware(corsHeaders()) // Enable CORS for Flutter Web
+      .addMiddleware(
+        corsHeaders(
+          // Ensure our client-sent headers are accepted in preflight
+          headers: {
+            'Access-Control-Allow-Headers':
+                'Origin, Content-Type, Accept, X-Correlation-ID',
+              'Access-Control-Expose-Headers': 'X-Correlation-ID',
+          },
+        ),
+      ) // Enable CORS for Flutter Web
       .addMiddleware(correlationMiddleware()) // Inject correlation_id
       .addHandler(router.call);
 

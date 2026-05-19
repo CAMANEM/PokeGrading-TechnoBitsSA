@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -21,19 +22,30 @@ class CatalogApiClient {
 
   Future<AddCardResult> addCard(AddCardPayload payload) async {
     final uri = Uri.parse('${AppConfig.apiUrl}/catalog/cards');
-    final response = await _client.post(
-      uri,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'set': payload.identity.set,
-        'number': payload.identity.number,
-        'edition': payload.identity.edition,
-        'language': payload.identity.language,
-        'finish': payload.identity.finish,
-        'display_name': payload.displayName,
-        'image_data': payload.imageData,
-      }),
-    );
+    final correlationId = const Uuid().v4();
+    final headers = {
+      'content-type': 'application/json',
+      'X-Correlation-ID': correlationId,
+    };
+
+    final bodyMap = <String, dynamic>{
+      'set': payload.identity.set,
+      'number': payload.identity.number,
+      'edition': payload.identity.edition,
+      'language': payload.identity.language,
+      'finish': payload.identity.finish,
+      'display_name': payload.displayName,
+      'rarity': payload.rarity,
+      'type': payload.pokemonType,
+      'hp': payload.hp,
+      'illustrator': payload.illustrator,
+      'year': payload.year,
+      'author': payload.author,
+      'image_data': payload.imageData,
+      'back_image_data': payload.backImageData,
+    };
+
+    final response = await _client.post(uri, headers: headers, body: jsonEncode(bodyMap));
 
     final body = _decodeResponse(response.body);
     if (response.statusCode == 201) {

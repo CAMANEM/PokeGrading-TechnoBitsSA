@@ -70,10 +70,64 @@ class CatalogValidators {
     }
 
     final base64Part = normalized.split(',').last;
-    if (base64Part.length < 24) {
-      return 'Imagen rechazada';
+    // Minimal size check (rough) to avoid trivially small payloads
+    if (base64Part.length < 5 * 1024) {
+      return 'Imagen rechazada: resolución o tamaño insuficiente';
     }
 
+    return null;
+  }
+
+  static const List<String> allowedRarities = [
+    'Common',
+    'Uncommon',
+    'Rare',
+    'Holo Rare',
+    'Ultra Rare',
+    'Secret Rare',
+  ];
+
+  static String? validateRarity(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!allowedRarities.contains(value)) return 'Rareza no válida';
+    return null;
+  }
+
+  static const List<String> allowedTypes = [
+    'Normal',
+    'Fighting',
+    'Fire',
+    'Water',
+    'Grass',
+    'Electric',
+    'Psychic',
+    'Dark',
+    'Metal',
+    'Dragon',
+    'Fairy',
+  ];
+
+  static String? validateType(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!allowedTypes.contains(value)) return 'Tipo no válido';
+    return null;
+  }
+
+  static String? validateHp(int? value) {
+    if (value == null) return null;
+    if (value < 0 || value > 2000) return 'HP fuera de rango';
+    return null;
+  }
+
+  static String? validateYear(int? value) {
+    if (value == null) return null;
+    if (value < 1950 || value > DateTime.now().year) return 'Año inválido';
+    return null;
+  }
+
+  static String? validateAuthor(String? value) {
+    if (value == null || value.trim().isEmpty) return 'El autor es obligatorio';
+    if (value.trim().length > 100) return 'Autor demasiado largo';
     return null;
   }
 }
