@@ -37,6 +37,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   String? _selectedCountry;
   String? _selectedLanguage = "es";
+  bool _acceptedDisclosure = false;
 
   @override
   void dispose() {
@@ -89,6 +90,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           tokenController: _tokenController,
                           selectedCountry: _selectedCountry,
                           selectedLanguage: _selectedLanguage,
+                          acceptedDisclosure: _acceptedDisclosure,
                           onCountryChanged: (value) {
                             setState(() {
                               _selectedCountry = value;
@@ -97,6 +99,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           onLanguageChanged: (value) {
                             setState(() {
                               _selectedLanguage = value;
+                            });
+                          },
+                          onDisclosureChanged: (value) {
+                            setState(() {
+                              _acceptedDisclosure = value ?? false;
                             });
                           },
                           onRegister: () async {
@@ -391,8 +398,10 @@ class _FormPanel extends StatelessWidget {
   final TextEditingController tokenController;
   final String? selectedCountry;
   final String? selectedLanguage;
+  final bool acceptedDisclosure;
   final ValueChanged<String?> onCountryChanged;
   final ValueChanged<String?> onLanguageChanged;
+  final ValueChanged<bool?> onDisclosureChanged;
   final Future<void> Function() onRegister;
   final Future<void> Function() onConfirm;
   final VoidCallback onReset;
@@ -407,8 +416,10 @@ class _FormPanel extends StatelessWidget {
     required this.tokenController,
     required this.selectedCountry,
     required this.selectedLanguage,
+    required this.acceptedDisclosure,
     required this.onCountryChanged,
     required this.onLanguageChanged,
+    required this.onDisclosureChanged,
     required this.onRegister,
     required this.onConfirm,
     required this.onReset,
@@ -460,7 +471,7 @@ class _FormPanel extends StatelessWidget {
                     validator: (value) {
                       final text = (value ?? '').trim();
                       if (text.isEmpty) return 'El email es obligatorio';
-                      if (!text.contains('@')) return 'Ingresa un email válido';
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) return 'Ingresa un email válido';
                       return null;
                     },
                   ),
@@ -490,6 +501,8 @@ class _FormPanel extends StatelessWidget {
                       final text = value ?? '';
                       if (text.isEmpty) return 'La contraseña es obligatoria';
                       if (text.length < 8) return 'Debe tener al menos 8 caracteres';
+                      if (!RegExp(r'[A-Z]').hasMatch(text)) return "Debe contener una mayúscula";
+                      if (!RegExp(r'\d').hasMatch(text)) return "Debe contener un dígito";
                       return null;
                     },
                   ),
@@ -539,12 +552,37 @@ class _FormPanel extends StatelessWidget {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 18),
+                  CheckboxListTile(
+                    value: acceptedDisclosure,
+                    onChanged: onDisclosureChanged,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Acepto que PokéGrading es únicamente informativo y no sustituye evaluaciones oficiales de PSA, BGS ni CGC.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: isBusy ? null : () async => onRegister(),
+              onPressed: isBusy ? null : () async {
+                if (!acceptedDisclosure) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Debes aceptar el disclosure para continuar")
+                    )
+                  );
+                  return;
+                }
+                
+                await onRegister();
+              },
               icon: isBusy
                   ? const SizedBox(
                       width: 16,
