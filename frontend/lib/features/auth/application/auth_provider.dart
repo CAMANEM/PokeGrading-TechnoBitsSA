@@ -22,6 +22,8 @@ class AuthRegistrationController extends StateNotifier<AuthRegistrationState> {
     required String email,
     required String username,
     required String password,
+    required String country,
+    required String language,
   }) async {
     state = state.copyWith(stage: AuthFlowStage.submitting, message: null);
 
@@ -30,6 +32,8 @@ class AuthRegistrationController extends StateNotifier<AuthRegistrationState> {
         email: email,
         username: username,
         password: password,
+        country: country,
+        language: language
       );
 
       state = state.copyWith(

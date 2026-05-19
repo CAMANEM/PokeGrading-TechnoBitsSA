@@ -23,6 +23,8 @@ class AuthApiClient {
     required String email,
     required String username,
     required String password,
+    required String country,
+    required String language,
   }) async {
     final uri = Uri.parse('${AppConfig.apiUrl}/auth/register');
     final response = await _client.post(
@@ -32,6 +34,8 @@ class AuthApiClient {
         'email': email,
         'username': username,
         'password': password,
+        'country': country,
+        'language': language,
       }),
     );
 
