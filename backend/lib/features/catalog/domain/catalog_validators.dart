@@ -1,0 +1,137 @@
+class CatalogValidators {
+  static final RegExp _imageDataUrlPattern = RegExp(
+    r'^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=\r\n]+$',
+    caseSensitive: false,
+  );
+
+  static String? validateSet(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'El set es obligatorio';
+    }
+    if (normalized.length > 60) {
+      return 'El set no puede superar 60 caracteres';
+    }
+    return null;
+  }
+
+  static String? validateNumber(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'El numero es obligatorio';
+    }
+    final pattern = RegExp(r'^[0-9]{1,6}$');
+    if (!pattern.hasMatch(normalized)) {
+      return 'El numero debe ser numerico (1 a 6 digitos)';
+    }
+    return null;
+  }
+
+  static String? validateEdition(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'La edicion es obligatoria';
+    }
+    if (normalized.length > 40) {
+      return 'La edicion no puede superar 40 caracteres';
+    }
+    return null;
+  }
+
+  static String? validateLanguage(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'El idioma es obligatorio';
+    }
+    const allowedLanguages = ['Español', 'Inglés'];
+    if (!allowedLanguages.contains(normalized)) {
+      return 'El idioma debe ser Español o Inglés';
+    }
+    if (normalized.length > 30) {
+      return 'El idioma no puede superar 30 caracteres';
+    }
+    return null;
+  }
+
+  static String? validateFinish(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'El acabado es obligatorio';
+    }
+    if (normalized.length > 30) {
+      return 'El acabado no puede superar 30 caracteres';
+    }
+    return null;
+  }
+
+  static String? validateImageData(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'La imagen es obligatoria';
+    }
+    if (!_imageDataUrlPattern.hasMatch(normalized)) {
+      return 'Imagen rechazada: solo se permite PNG o JPG';
+    }
+
+    final base64Part = normalized.split(',').last;
+    // Minimal size check (rough) to avoid trivially small payloads
+    if (base64Part.length < 5 * 1024) {
+      return 'Imagen rechazada: resolución o tamaño insuficiente';
+    }
+
+    return null;
+  }
+
+  static const List<String> allowedRarities = [
+    'Common',
+    'Uncommon',
+    'Rare',
+    'Holo Rare',
+    'Ultra Rare',
+    'Secret Rare',
+  ];
+
+  static String? validateRarity(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!allowedRarities.contains(value)) return 'Rareza no válida';
+    return null;
+  }
+
+  static const List<String> allowedTypes = [
+    'Normal',
+    'Fighting',
+    'Fire',
+    'Water',
+    'Grass',
+    'Electric',
+    'Psychic',
+    'Dark',
+    'Metal',
+    'Dragon',
+    'Fairy',
+  ];
+
+  static String? validateType(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!allowedTypes.contains(value)) return 'Tipo no válido';
+    return null;
+  }
+
+  static String? validateHp(int? value) {
+    if (value == null) return null;
+    if (value < 0 || value > 2000) return 'HP fuera de rango';
+    return null;
+  }
+
+  static String? validateYear(int? value) {
+    if (value == null) return null;
+    if (value < 1950 || value > DateTime.now().year) return 'Año inválido';
+    return null;
+  }
+
+  static String? validateAuthor(String? value) {
+    if (value == null || value.trim().isEmpty) return 'El autor es obligatorio';
+    if (value.trim().length > 100) return 'Autor demasiado largo';
+    return null;
+  }
+}

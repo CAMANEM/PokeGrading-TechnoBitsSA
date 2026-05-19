@@ -191,6 +191,12 @@ class _WelcomeCard extends StatelessWidget {
             icon: const Icon(Icons.person_add_alt_1_rounded),
             label: const Text('Registrar usuario normal'),
           ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: () => context.goNamed('catalog_add_card'),
+            icon: const Icon(Icons.add_photo_alternate_rounded),
+            label: const Text('Agregar carta al catalogo'),
+          ),
         ],
       ),
     );
