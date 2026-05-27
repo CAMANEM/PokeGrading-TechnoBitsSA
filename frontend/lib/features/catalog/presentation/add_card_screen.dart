@@ -122,9 +122,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                             language: _languageController.text,
                             finish: _finishController.text,
                           ),
-                          displayName: _displayNameController.text.trim().isEmpty
-                              ? null
-                              : _displayNameController.text.trim(),
+                          displayName: _displayNameController.text.trim(),
                           rarity: _selectedRarity,
                           pokemonType: _selectedType,
                           hp: int.tryParse(_hpController.text.trim()),
@@ -558,6 +556,9 @@ class _IdentityForm extends StatelessWidget {
               controller: displayNameController,
               label: 'Nombre (display)',
               validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'El nombre (display) es obligatorio';
+                }
                 return null;
               },
             ),
