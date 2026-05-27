@@ -77,7 +77,12 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _Header(onBack: () => context.go('/')),
+                    _Header(
+                      onBack: () {
+                        controller.reset();
+                        context.go('/');
+                      },
+                    ),
                     const SizedBox(height: 24),
                     _FlowProgress(stage: state.stage),
                     const SizedBox(height: 16),
