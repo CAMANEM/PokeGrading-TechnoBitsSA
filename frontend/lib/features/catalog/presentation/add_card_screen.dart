@@ -34,9 +34,14 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
   String? _selectedLanguage;
   String? _selectedRarity;
   String? _selectedType;
-  String? _selectedImageData;
-  String? _selectedImageName;
-  String? _selectedImageExtension;
+  // Front image
+  String? _selectedFrontImageData;
+  String? _selectedFrontImageName;
+  String? _selectedFrontImageExtension;
+  // Back image
+  String? _selectedBackImageData;
+  String? _selectedBackImageName;
+  String? _selectedBackImageExtension;
 
   @override
   void dispose() {
@@ -107,10 +112,10 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                         );
                       },
                       onSubmitImage: () async {
-                        if (_selectedImageData == null) {
-                          setState(() {
-                            _selectedImageName = null;
-                          });
+                        if (_selectedFrontImageData == null || _selectedBackImageData == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Debes cargar tanto la imagen frontal como la trasera')),
+                          );
                           return;
                         }
 
@@ -133,7 +138,8 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                           author: _authorController.text.trim().isEmpty
                               ? null
                               : _authorController.text.trim(),
-                          imageData: _selectedImageData!,
+                          imageData: _selectedFrontImageData!,
+                          backImageData: _selectedBackImageData,
                         );
 
                         await controller.submitImagePayload(payload);
@@ -145,18 +151,31 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                         _editionController.clear();
                         _languageController.clear();
                         _finishController.clear();
+                        _displayNameController.clear();
+                        _hpController.clear();
+                        _illustratorController.clear();
+                        _yearController.clear();
+                        _authorController.clear();
                         setState(() {
-                          _selectedImageData = null;
-                          _selectedImageName = null;
-                          _selectedImageExtension = null;
+                          _selectedFrontImageData = null;
+                          _selectedFrontImageName = null;
+                          _selectedFrontImageExtension = null;
+                          _selectedBackImageData = null;
+                          _selectedBackImageName = null;
+                          _selectedBackImageExtension = null;
                           _selectedLanguage = null;
+                          _selectedRarity = null;
+                          _selectedType = null;
                         });
                         controller.reset();
                       },
                       onRetryImage: controller.retryFromImage,
-                      onPickImage: _pickImage,
-                      selectedImageName: _selectedImageName,
-                      selectedImageExtension: _selectedImageExtension,
+                      onPickFrontImage: () => _pickImage(isBack: false),
+                      onPickBackImage: () => _pickImage(isBack: true),
+                      selectedFrontImageName: _selectedFrontImageName,
+                      selectedFrontImageExtension: _selectedFrontImageExtension,
+                      selectedBackImageName: _selectedBackImageName,
+                      selectedBackImageExtension: _selectedBackImageExtension,
                     ),
                   ],
                 ),
@@ -175,9 +194,12 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     required Future<void> Function() onSubmitImage,
     required VoidCallback onReset,
     required VoidCallback onRetryImage,
-    required Future<void> Function() onPickImage,
-    required String? selectedImageName,
-    required String? selectedImageExtension,
+    required Future<void> Function() onPickFrontImage,
+    required Future<void> Function() onPickBackImage,
+    required String? selectedFrontImageName,
+    required String? selectedFrontImageExtension,
+    required String? selectedBackImageName,
+    required String? selectedBackImageExtension,
   }) {
     switch (state.stage) {
       case CatalogFlowStage.identity:
@@ -208,11 +230,14 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
       case CatalogFlowStage.error:
       case CatalogFlowStage.submitting:
         return _ImageForm(
-          selectedImageName: selectedImageName,
-          selectedImageExtension: selectedImageExtension,
+          selectedFrontImageName: selectedFrontImageName,
+          selectedFrontImageExtension: selectedFrontImageExtension,
+          selectedBackImageName: selectedBackImageName,
+          selectedBackImageExtension: selectedBackImageExtension,
           busy: busy,
           onRetry: onRetryImage,
-          onPickImage: onPickImage,
+          onPickFrontImage: onPickFrontImage,
+          onPickBackImage: onPickBackImage,
           onSubmit: onSubmitImage,
           isError: state.stage == CatalogFlowStage.error,
         );
@@ -221,7 +246,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage({required bool isBack}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['png', 'jpg', 'jpeg'],
@@ -255,9 +280,6 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     const maxBytes = 5 * 1024 * 1024; // 5MB max
 
     if (bytes.length < minBytes) {
-      setState(() {
-        _selectedImageName = null;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Imagen demasiado pequeña (min 5KB)')),
       );
@@ -265,9 +287,6 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     }
 
     if (bytes.length > maxBytes) {
-      setState(() {
-        _selectedImageName = null;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Imagen demasiado pesada (max 5MB)')),
       );
@@ -298,9 +317,15 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
     final dataUri = 'data:image/$mimeSubtype;base64,$encoded';
 
     setState(() {
-      _selectedImageData = dataUri;
-      _selectedImageName = file.name;
-      _selectedImageExtension = extension;
+      if (isBack) {
+        _selectedBackImageData = dataUri;
+        _selectedBackImageName = file.name;
+        _selectedBackImageExtension = extension;
+      } else {
+        _selectedFrontImageData = dataUri;
+        _selectedFrontImageName = file.name;
+        _selectedFrontImageExtension = extension;
+      }
     });
   }
 }
@@ -677,20 +702,26 @@ class _IdentityForm extends StatelessWidget {
 }
 
 class _ImageForm extends StatelessWidget {
-  final String? selectedImageName;
-  final String? selectedImageExtension;
+  final String? selectedFrontImageName;
+  final String? selectedFrontImageExtension;
+  final String? selectedBackImageName;
+  final String? selectedBackImageExtension;
   final bool busy;
   final bool isError;
   final VoidCallback onRetry;
-  final Future<void> Function() onPickImage;
+  final Future<void> Function() onPickFrontImage;
+  final Future<void> Function() onPickBackImage;
   final Future<void> Function() onSubmit;
 
   const _ImageForm({
-    required this.selectedImageName,
-    required this.selectedImageExtension,
+    required this.selectedFrontImageName,
+    required this.selectedFrontImageExtension,
+    required this.selectedBackImageName,
+    required this.selectedBackImageExtension,
     required this.busy,
     required this.onRetry,
-    required this.onPickImage,
+    required this.onPickFrontImage,
+    required this.onPickBackImage,
     required this.onSubmit,
     required this.isError,
   });
@@ -703,22 +734,53 @@ class _ImageForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Selecciona un archivo PNG o JPG.',
+            'Selecciona archivos PNG o JPG para el frente y la parte trasera. Ambas imágenes son obligatorias.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Front Image Section
+          const Text(
+            'Frente de la carta',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: busy ? null : onPickImage,
+              onPressed: busy ? null : onPickFrontImage,
               icon: const Icon(Icons.image_rounded),
-              label: const Text('Seleccionar imagen PNG/JPG'),
+              label: const Text('Seleccionar imagen frontal'),
             ),
           ),
-          if (selectedImageName != null) ...[
+          if (selectedFrontImageName != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Archivo seleccionado: $selectedImageName (${selectedImageExtension ?? ''})',
+              'Archivo seleccionado: $selectedFrontImageName (${selectedFrontImageExtension ?? ''})',
+              style: const TextStyle(
+                color: AppColors.info,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          // Back Image Section
+          const Text(
+            'Parte trasera de la carta',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onPickBackImage,
+              icon: const Icon(Icons.image_rounded),
+              label: const Text('Seleccionar imagen trasera'),
+            ),
+          ),
+          if (selectedBackImageName != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Archivo seleccionado: $selectedBackImageName (${selectedBackImageExtension ?? ''})',
               style: const TextStyle(
                 color: AppColors.info,
                 fontWeight: FontWeight.w600,
@@ -747,7 +809,7 @@ class _ImageForm extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.upload_rounded),
-                  label: Text(busy ? 'Validando...' : 'Subir imagen y agregar carta'),
+                  label: Text(busy ? 'Validando...' : 'Subir imágenes y agregar carta'),
                 ),
               ),
             ],
