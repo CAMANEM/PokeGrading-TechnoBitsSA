@@ -244,6 +244,20 @@ PokeGrading-TechnoBitsSA/
             └── *_api.dart         # API: clientes HTTP que comunican con el backend; convierten respuestas y lanzan excepciones manejables.
 ```
 
+# Estructura backend:
+```
+└── backend/lib/                   # Código del servidor
+    ├── core/                      # Configuración y utilidades compartidas (logger, config, middleware)
+    ├── application/               # Rutas HTTP, wiring de dependencias y adaptadores de entrada (handlers/controllers)
+    │   ├── app_router.dart        # Orquestador de rutas y composición de middlewares
+    │   └── <module>/_routes.dart  # Mapea endpoints a la lógica de dominio
+    ├── domain/                    # Lógica de negocio: entidades, validadores y casos de uso (use-cases)
+    │   └── <module>/              # Ej: `create_card_logic.dart` contiene las reglas de negocio del flujo
+    └── persistence/               # Adaptadores de datos: repositorios, SQL y proveedores externos
+        └── <module>/              # Implementaciones concretas (mock, memory, SQL, SMTP, etc.)
+```
+
+
 
 ---
 
