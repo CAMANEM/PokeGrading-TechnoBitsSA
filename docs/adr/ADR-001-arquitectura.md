@@ -1,101 +1,140 @@
 # ADR-001: Arquitectura del Sistema PokéGrading
 
-| Campo       | Valor                                |
-|-------------|--------------------------------------|
-| **Número**  | ADR-001                              |
-| **Título**  | Arquitectura en Capas Feature-Based  |
-| **Estado**  | ✅ Aceptado                          |
-| **Fecha**   | 2026-05-01                           |
-| **Autores** | Equipo TechnoBits SA                 |
+
+- **Status:** accepted
+- **Deciders:** Equipo de Desarrollo (4 integrantes)
+- **Date:** 2026-05-16
+
+**Technical Story:** Definición de la arquitectura base para el sistema PokéGrading.
 
 ---
 
-## Contexto
+## Context and Problem Statement
 
-El proyecto PokéGrading requiere un sistema escalable que soporte múltiples roles de usuario, flujos de validación complejos y la integración futura con modelos de análisis de imagen para grading automático de cartas Pokémon.
+El sistema **PokéGrading** requiere una arquitectura que permita desarrollar un servicio de pre-grading asistido para cartas Pokémon, soportando procesamiento de imágenes, versionado de scoring, auditoría y comunicación con servicios externos.
 
-Se necesita una arquitectura que:
-- Permita crecer sin refactorizaciones masivas
-- Mantenga el código testeable y mantenible
-- Separe claramente las responsabilidades
-- Soporte al equipo de desarrollo con distintas especialidades
-
-## Decisión
-
-Se adopta una **Arquitectura en Capas (Layered Architecture) técnicamente particionada**, organizada mediante un enfoque **Feature-Based (por funcionalidades)**.
-
-### Estructura de Capas por Feature
-
-Cada feature contiene las siguientes capas:
-
-```
-features/<nombre>/
-├── presentation/    # Capa de Presentación
-├── application/     # Capa de Aplicación
-├── domain/          # Capa de Dominio
-└── infrastructure/  # Capa de Infraestructura
-```
-
-### Responsabilidades por Capa
-
-| Capa | Responsabilidad | Ejemplos |
-|------|-----------------|---------|
-| **Presentation** | UI Widgets / Route Handlers HTTP | Screens, Forms, API endpoints |
-| **Application** | Orquestación y casos de uso | Services, Providers (Riverpod), BLoC |
-| **Domain** | Modelos y reglas de negocio puras | Entidades, Interfaces (contratos), Validators |
-| **Infrastructure** | Implementaciones externas | Repositorios PostgreSQL, clientes HTTP |
-
-### Reglas de Dependencia (Dependency Rule)
-
-```
-Presentation → Application → Domain ← Infrastructure
-```
-
-- **Domain** no depende de NINGUNA otra capa (es el núcleo)
-- **Infrastructure** implementa las interfaces definidas en Domain
-- **Application** coordina Domain e Infrastructure
-- **Presentation** solo consume Application
-
-### Stack Tecnológico
-
-| Componente | Tecnología | Justificación |
-|------------|------------|---------------|
-| Frontend | Flutter Web | Multiplataforma, rendimiento, Dart unificado |
-| Estado (Frontend) | Riverpod | Tipado, testeable, sin boilerplate excesivo |
-| Backend | Dart + Shelf | Mismo lenguaje que frontend, bajo overhead |
-| Base de Datos | PostgreSQL 16 | ACID, soporte JSON, extensible |
-| Contenerización | Docker Compose | Reproducibilidad local |
-
-## Consecuencias
-
-### ✅ Positivas
-- **Alta cohesión**: cada feature encapsula toda su lógica
-- **Bajo acoplamiento**: interfaces definen contratos, no implementaciones
-- **Testabilidad**: Domain es puro Dart, fácil de unit-testear
-- **Escalabilidad del equipo**: distintos desarrolladores trabajan en distintas features sin conflictos
-- **Evolutividad**: cambiar PostgreSQL por otro motor solo requiere tocar Infrastructure
-
-### ⚠️ Trade-offs
-- Más archivos iniciales vs. una arquitectura plana
-- Curva de aprendizaje para el equipo si no conoce Layered Architecture
-- Posible over-engineering para features muy simples (aceptable dado el alcance del proyecto)
-
-## Alternativas Consideradas
-
-| Alternativa | Razón de rechazo |
-|-------------|-----------------|
-| MVC plano | No escala bien, mezcla responsabilidades |
-| Clean Architecture estricta | Demasiado ceremonial para el tamaño del equipo |
-| Monolito sin capas | Dificulta testing y mantenimiento |
-| Microservicios | Complejidad operacional innecesaria en Sprint 1 |
-
-## Principios de Calidad Aplicados
-
-- **[SP1] Seguridad por defecto**: JWT, hashing bcrypt, CORS configurado
-- **[SP2] Consultas parametrizadas**: Evitar SQL injection en todos los repositorios
-- **[SP3] Validación de entrada**: Tamaño y tipo de archivos validados en Application layer
-- **[S1] Configuración < 20 min**: Scripts de setup automatizado para Linux y Windows
-- **[CBS-1.2.1] Doble verificación Admin**: Flujo implementado en Application layer
-- **[CBS-1.2.3] API Key B2B**: Generación en Domain layer, persistencia en Infrastructure
+La solución debe operar bajo una restricción presupuestaria de **$800 mensuales**, permitiendo además escalabilidad futura y mantenibilidad para un equipo reducido de desarrollo. El equipo está constituído por tan solo 4 desarrolladores y se afrontarán sprints agresivos y cortos.
 
 ---
+
+## Decision Drivers
+
+- Mantener costos operativos por debajo de $800/mes.
+- Reducir complejidad operativa para un equipo de 4 personas.
+- Garantizar mantenibilidad y velocidad de desarrollo.
+- Permitir escalabilidad futura sin rediseño completo.
+- Facilitar integración con APIs externas y procesamiento de imágenes.
+- Garantizar trazabilidad e integridad de evaluaciones históricas.
+
+---
+
+## Considered Options
+
+- Arquitectura en Capas (Layered Architecture)
+- Microservicios
+- Arquitectura Basada en Eventos (EDA)
+
+---
+
+## Decision Outcome
+
+Chosen option: **"Arquitectura en Capas (Layered Architecture)"**, porque ofrece el mejor balance entre simplicidad, mantenibilidad, velocidad de desarrollo y costos operativos para la etapa inicial del proyecto.
+
+La arquitectura se organiza en capas de:
+
+- Presentación
+- Lógica de negocio
+- Acceso a datos
+- Infraestructura
+
+### Folder Structure (layer → module → flow)
+
+Since Sprint 1 refactor, the codebase follows [refactorDiagramProposal.md](refactorDiagramProposal.md):
+
+| Layer | Frontend | Backend |
+|-------|----------|---------|
+| Presentation | `presentation/` (screen, ChangeNotifier provider, API client, go_router) | — |
+| Application | — | `application/` (HTTP routes, light orchestration) |
+| Domain | — | `domain/` (entities, validators, `*_logic.dart`) |
+| Persistence | — | `persistence/` (repositories, SQL, external adapters) |
+
+**Modules:** `user`, `submitter_catalog`, `reference_catalog` (scaffold only).
+
+**Frontend is thin:** no separate `application/`, `domain/`, or `persistence/` folders — flow state and HTTP clients are colocated under each feature folder inside `presentation/`.
+
+**Backend dependency rule:** `application → domain ← persistence`. Shared gateway code lives in `core/`.
+
+### Acceso a Datos
+
+La base de datos es fundacional, con su respectiva capa de acceso a datos, implementando buenas prácticas de programación como Views y Store Procedures.
+
+### Positive Consequences
+
+- Menor complejidad técnica y operativa.
+- Despliegue simplificado en Azure.
+- Desarrollo más rápido para el Sprint 1.
+- Facilita mantenimiento por parte de un equipo pequeño.
+- Reduce costos de infraestructura y monitoreo.
+
+### Negative Consequences
+
+- Posible over-engineering para features muy simples.
+- Mayor acoplamiento entre módulos si no se mantienen interfaces claras.
+- Escalabilidad limitada comparada con microservicios.
+
+---
+
+## Pros and Cons of the Options
+
+### Arquitectura en Capas (Seleccionada)
+
+Arquitectura organizada por responsabilidades técnicas.
+
+#### Pros
+
+- Fácil implementación inicial.
+- Menor costo operativo.
+- Menor curva de aprendizaje.
+- Simplifica testing y debugging.
+
+#### Cons
+
+- Puede generar fuerte acoplamiento entre capas.
+- Riesgo de crecimiento monolítico.
+- Escalabilidad funcional limitada.
+
+---
+
+### Microservicios
+
+Arquitectura distribuida basada en servicios independientes.
+
+#### Pros
+
+- Alta escalabilidad.
+- Aislamiento de fallos.
+- Despliegues independientes.
+
+#### Cons
+
+- Mayor complejidad operativa.
+- Incremento significativo en costos cloud.
+- Mayor esfuerzo en observabilidad y CI/CD.
+
+---
+
+### Arquitectura Basada en Eventos (EDA)
+
+Arquitectura orientada a eventos y procesamiento asíncrono.
+
+#### Pros
+
+- Alto desacoplamiento.
+- Excelente manejo de procesos asíncronos.
+- Buena resiliencia ante fallos.
+
+#### Cons
+
+- Mayor complejidad arquitectónica.
+- Curva de aprendizaje elevada.
+- Más difícil de depurar y monitorear.

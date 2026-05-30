@@ -10,10 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ─── Gestión de Estado ────────────────────────────────────
-  flutter_riverpod: ^2.5.1
-
-  # ─── Navegación ───────────────────────────────────────────
+  # ─── Navigation ───────────────────────────────────────────
   go_router: ^13.2.0
 
   # ─── HTTP / API Client ────────────────────────────────────
