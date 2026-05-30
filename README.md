@@ -233,6 +233,18 @@ PokeGrading-TechnoBitsSA/
 └── README.md
 ```
 
+# Estructura frontend:
+```
+└── presentation/                 # Business logic
+    └── module/
+        └── feature
+            ├── *_screen.dart      # Pantalla / UI: widgets que renderizan la interfaz y manejan la interacción del usuario.
+            ├── *_state.dart       # Estado: modelos que representan el estado de la pantalla (valores, etapa del flujo, resultados).
+            ├── *_provider.dart    # Provider: `ChangeNotifier` que contiene la lógica de presentación, orquesta acciones y expone el `state` a la UI.
+            └── *_api.dart         # API: clientes HTTP que comunican con el backend; convierten respuestas y lanzan excepciones manejables.
+```
+
+
 ---
 
 ## 🧪 Verificar que funciona
