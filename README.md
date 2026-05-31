@@ -11,21 +11,95 @@
 
 ## 📐 Arquitectura
 
-El proyecto sigue una **Arquitectura en Capas (Layered Architecture)** con organización **Feature-based**:
+El proyecto sigue una **Arquitectura en Capas (Layered Architecture)**:
+
+```mermaid
+graph TD
+
+    %% CAPAS
+    subgraph P_Presentation_Layer["Presentation Layer"]
+        direction TB
+        P_USER["Submitter UI"]
+        P_B2B["B2B UI"]
+        P_ADMIN["Administrator UI"]
+    end
+
+    subgraph A_Application_Layer["Application Layer"]
+        direction TB
+        Gateway["API Gateway / Middleware"]
+        Orchestrator["Routers / Orchestrators"]
+    end
+
+    subgraph D_Domain_Layer["Domain Layer"]
+        direction TB
+        D_USER["Identity & Access"]
+        D_CATALOG["Catalog"]
+        Grading_Engine["Scoring Heuristics"]
+        D_Auditoria["Audit, Logs & Playbook"]
+        Market_Engine["Human Management"]
+        Market_Engine2["Economic Management"]
+    end
+
+    subgraph Data_Access_Layer["Data Access Layer"]
+        direction TB
+        CatalogRepo["User Data Provider"]
+        EvalRepo["Letter Data Provider"]
+        BlobManager["Image Provider"]
+        BlobManager2["Audit Data Provider"]
+    end
+
+    subgraph Data_Layer["Data Sources / External"]
+        direction TB
+        DB_Catalog[("Reference Catalog DB")]
+    end
+
+    %% RELACIONES
+    P_Presentation_Layer --> A_Application_Layer
+    Gateway --> Orchestrator
+    Orchestrator --> D_Domain_Layer
+    D_Domain_Layer --> Data_Access_Layer
+    Data_Access_Layer --> Data_Layer
+
+    %% ESTILO SOBRIO BLANCO Y NEGRO
+    classDef presentation fill:#ffffff,stroke:#111111,color:#111111,stroke-width:1.5px;
+    classDef services fill:#f5f5f5,stroke:#111111,color:#111111,stroke-width:1.5px;
+    classDef business fill:#fafafa,stroke:#111111,color:#111111,stroke-width:1.5px;
+    classDef dataaccess fill:#f0f0f0,stroke:#111111,color:#111111,stroke-width:1.5px;
+    classDef datasource fill:#eaeaea,stroke:#111111,color:#111111,stroke-width:1.5px;
+
+    class P_USER,P_B2B,P_ADMIN presentation;
+    class Gateway,Orchestrator services;
+    class D_USER,D_CATALOG,Grading_Engine,D_Auditoria,Market_Engine,Market_Engine2 business;
+    class CatalogRepo,EvalRepo,BlobManager,BlobManager2 dataaccess;
+    class DB_Catalog datasource;
+
+    style P_Presentation_Layer fill:#ffffff,stroke:#222222,stroke-width:2px,color:#111111
+    style A_Application_Layer fill:#fcfcfc,stroke:#222222,stroke-width:2px,color:#111111
+    style D_Domain_Layer fill:#ffffff,stroke:#222222,stroke-width:2px,color:#111111
+    style Data_Access_Layer fill:#fcfcfc,stroke:#222222,stroke-width:2px,color:#111111
+    style Data_Layer fill:#ffffff,stroke:#222222,stroke-width:2px,color:#111111
+
+    linkStyle default stroke:#222222,stroke-width:1.5px,color:#222222
+```
+
+En la estructura de código se sigue dicha estructura de la siguiente forma:
 
 ```
-feature/
-├── presentation/    # UI Widgets (Flutter) / Route Handlers (Backend)
-├── application/     # Servicios de orquestación y casos de uso
-├── domain/          # Modelos, reglas de negocio, interfaces (contratos)
-└── infrastructure/  # Repositorios, clientes de APIs externas, DB
+layer/
+└── module/          # user, submitter_catalog, reference_catalog
+    └── feature/     # register, create_card, login, …
 ```
+
+- **Frontend (delgado):** solo `core/` + `presentation/` — pantalla, provider (`ChangeNotifier`), API y rutas colocalizados por flujo.
+- **Backend:** `core/` + `application/` (HTTP routes) + `domain/` (lógica de negocio) + `persistence/` (repositorios, SQL, adaptadores externos).
+
+Ver [docs/adr/refactorDiagramProposal.md](docs/adr/refactorDiagramProposal.md) para el detalle completo.
 
 ### Stack Tecnológico
 
 | Capa       | Tecnología                              |
 |------------|-----------------------------------------|
-| Frontend   | Flutter Web + Riverpod                  |
+| Frontend   | Flutter Web + go_router + ChangeNotifier |
 | Backend    | Dart + Shelf                            |
 | Base Datos | PostgreSQL 16 (Single Database)         |
 | Infra      | Docker Compose                          |
@@ -111,59 +185,79 @@ flutter run -d chrome --web-port 3000
 PokeGrading-TechnoBitsSA/
 ├── backend/                        # Servidor Dart + Shelf
 │   ├── bin/
-│   │   └── server.dart             # Entry point del servidor
+│   │   └── server.dart             # Entry point (bootstrap)
 │   ├── lib/
-│   │   ├── core/                   # Núcleo compartido del backend
-│   │   │   ├── config/             # Configuración (env vars)
-│   │   │   ├── logging/            # Logger con correlation_id
-│   │   │   └── middleware/         # Middlewares HTTP (CORS, auth, logging)
-│   │   └── features/
-│   │       ├── auth/               # Feature: Autenticación y usuarios
-│   │       │   ├── presentation/   # Route handlers HTTP
-│   │       │   ├── application/    # Servicios y casos de uso
-│   │       │   ├── domain/         # Modelos, interfaces, reglas de negocio
-│   │       │   └── infrastructure/ # Repositorios PostgreSQL
-│   │       └── catalog/            # Feature: Catálogo de cartas
-│   │           ├── presentation/
-│   │           ├── application/
-│   │           ├── domain/
-│   │           └── infrastructure/
+│   │   ├── core/                   # config, logging, middleware
+│   │   ├── application/            # HTTP routes + DI wiring
+│   │   │   ├── app_router.dart
+│   │   │   ├── user/
+│   │   │   │   └── register_routes.dart
+│   │   │   └── submitter_catalog/
+│   │   │       └── create_card_routes.dart
+│   │   ├── domain/                 # Business logic
+│   │   │   ├── user/
+│   │   │   │   ├── register/register_logic.dart
+│   │   │   │   ├── user.dart
+│   │   │   │   └── user_repository.dart
+│   │   │   └── submitter_catalog/
+│   │   │       └── create_card/create_card_logic.dart
+│   │   └── persistence/            # Repositories, SQL, external adapters
+│   │       ├── user/
+│   │       └── submitter_catalog/
 │   └── pubspec.yaml
 │
 ├── frontend/                       # Aplicación Flutter Web
 │   ├── lib/
-│   │   ├── core/                   # Núcleo compartido del frontend
-│   │   │   ├── config/             # URLs de API, constantes
-│   │   │   ├── theme/              # Design System (colores, tipografía)
-│   │   │   └── utils/              # Helpers, formatters
-│   │   ├── features/
-│   │   │   ├── auth/               # Feature: Autenticación
-│   │   │   │   ├── presentation/   # Screens y Widgets
-│   │   │   │   ├── application/    # Providers/BLoC + casos de uso
-│   │   │   │   ├── domain/         # Modelos de dominio
-│   │   │   │   └── infrastructure/ # Clientes HTTP (API calls)
-│   │   │   └── catalog/            # Feature: Catálogo de cartas
-│   │   │       ├── presentation/
-│   │   │       ├── application/
-│   │   │       ├── domain/
-│   │   │       └── infrastructure/
-│   │   └── main.dart               # Entry point
+│   │   ├── core/                   # config, theme
+│   │   ├── presentation/
+│   │   │   ├── app_router.dart     # go_router global
+│   │   │   ├── home/
+│   │   │   ├── user/register/      # screen + provider + api
+│   │   │   └── submitter_catalog/create_card/
+│   │   └── main.dart
 │   ├── web/
 │   └── pubspec.yaml
 │
 ├── docs/
 │   └── adr/
-│       └── ADR-001-arquitectura.md # Architecture Decision Record
+│       ├── ADR-001-arquitectura.md
+│       └── refactorDiagramProposal.md
 │
 ├── scripts/
-│   ├── setup.sh                    # Script de instalación Linux/macOS
-│   ├── setup.ps1                   # Script de instalación Windows (PowerShell)
-│   └── setup.bat                   # Script de instalación Windows (CMD)
+│   ├── setup.sh
+│   ├── setup.ps1
+│   └── setup.bat
 │
-├── docker-compose.yml              # PostgreSQL + pgAdmin
-├── .env.example                    # Variables de entorno de ejemplo
+├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
+
+# Estructura frontend:
+```
+└── presentation/                 # Business logic
+    └── module/
+        └── feature
+            ├── *_screen.dart      # Pantalla / UI: widgets que renderizan la interfaz y manejan la interacción del usuario.
+            ├── *_state.dart       # Estado: modelos que representan el estado de la pantalla (valores, etapa del flujo, resultados).
+            ├── *_provider.dart    # Provider: `ChangeNotifier` que contiene la lógica de presentación, orquesta acciones y expone el `state` a la UI.
+            └── *_api.dart         # API: clientes HTTP que comunican con el backend; convierten respuestas y lanzan excepciones manejables.
+```
+
+# Estructura backend:
+```
+└── backend/lib/                   # Código del servidor
+    ├── core/                      # Configuración y utilidades compartidas (logger, config, middleware)
+    ├── application/               # Rutas HTTP, wiring de dependencias y adaptadores de entrada (handlers/controllers)
+    │   ├── app_router.dart        # Orquestador de rutas y composición de middlewares
+    │   └── <module>/_routes.dart  # Mapea endpoints a la lógica de dominio
+    ├── domain/                    # Lógica de negocio: entidades, validadores y casos de uso (use-cases)
+    │   └── <module>/              # Ej: `create_card_logic.dart` contiene las reglas de negocio del flujo
+    └── persistence/               # Adaptadores de datos: repositorios, SQL y proveedores externos
+        └── <module>/              # Implementaciones concretas (mock, memory, SQL, SMTP, etc.)
+```
+
+
 
 ---
 
