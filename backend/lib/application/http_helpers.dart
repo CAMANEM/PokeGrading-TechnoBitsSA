@@ -1,3 +1,14 @@
+/*
+ HTTP helper utilities used by route handlers.
+
+ - `readJson`: safely reads and decodes a JSON request body into a Map.
+ - `jsonResponse`: convenience to construct a JSON `Response` with correct
+   content-type header.
+ - `registerStatusCodeFor`: maps domain error codes from registration logic
+   to HTTP status codes.
+ - `createCardStatusCodeFor`: maps create-card domain error codes to HTTP
+   status codes.
+*/
 import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
@@ -20,6 +31,11 @@ Future<Map<String, dynamic>> readJson(Request request) async {
   return <String, dynamic>{};
 }
 
+/*
+ Returns a JSON `Response` with the provided `statusCode` and body.
+ The body is encoded using `jsonEncode` and the `content-type` header is set
+ to `application/json; charset=utf-8`.
+*/
 Response jsonResponse(int statusCode, Map<String, dynamic> body) {
   return Response(
     statusCode,
@@ -28,6 +44,10 @@ Response jsonResponse(int statusCode, Map<String, dynamic> body) {
   );
 }
 
+/*
+ Maps registration-specific domain error codes to HTTP status codes. The
+ mapping is intentionally concise; unknown codes map to `500`.
+*/
 int registerStatusCodeFor(String code) {
   return switch (code) {
     'invalid_email' => 400,
@@ -44,6 +64,9 @@ int registerStatusCodeFor(String code) {
   };
 }
 
+/*
+ Maps create-card domain error codes to HTTP status codes.
+*/
 int createCardStatusCodeFor(String code) {
   return switch (code) {
     'identity_rejected' => 409,

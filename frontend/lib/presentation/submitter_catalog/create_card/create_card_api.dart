@@ -6,6 +6,13 @@ import 'package:uuid/uuid.dart';
 import '../../../core/config/app_config.dart';
 import 'create_card_state.dart';
 
+/*
+ Frontend client for creating catalog cards.
+
+ `CreateCardApi.addCard` posts a JSON payload representing the card and
+ includes a `X-Correlation-ID` header to help correlate client-side actions
+ with server logs. It converts successful responses into `CreateCardResult`.
+*/
 class CreateCardApiException implements Exception {
   final String message;
 

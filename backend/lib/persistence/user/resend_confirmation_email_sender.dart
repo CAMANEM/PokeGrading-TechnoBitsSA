@@ -5,7 +5,13 @@ import 'package:http/http.dart' as http;
 
 import 'confirmation_email_sender.dart';
 
-/// Sends confirmation tokens using Resend API (https://resend.com).
+/*
+ Sends confirmation tokens using Resend API (https://resend.com).
+
+ This implementation calls the Resend REST API and throws an exception
+ when the provider returns a non-successful HTTP status. It logs both
+ errors and success events.
+*/
 class ResendConfirmationEmailSender implements ConfirmationEmailSender {
   final String apiKey;
   final String fromEmail;

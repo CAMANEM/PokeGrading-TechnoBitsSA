@@ -1,3 +1,10 @@
+/*
+ Mock implementation of `ConfirmationEmailSender` for development.
+
+ Instead of sending emails, this sender logs a warning containing the
+ confirmation token. Useful when SMTP or third-party email providers are
+ not configured.
+*/
 import 'package:logging/logging.dart';
 
 import 'confirmation_email_sender.dart';

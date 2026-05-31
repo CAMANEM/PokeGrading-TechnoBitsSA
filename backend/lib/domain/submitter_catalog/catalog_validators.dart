@@ -1,3 +1,10 @@
+/*
+ Validation helpers for submitter catalog inputs.
+
+ Contains static methods to validate identity fields (set, number, edition,
+ language, finish), image payloads and optional metadata (rarity, type, hp,
+ year, author). Methods return `null` on success or an error message on failure.
+*/
 class CatalogValidators {
   static final RegExp _imageDataUrlPattern = RegExp(
     r'^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=\r\n]+$',

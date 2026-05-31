@@ -1,3 +1,12 @@
+/*
+ Mock in-memory implementation of `CatalogRepository` for development and tests.
+
+ Behavior:
+ - Generates card IDs using an `IdGenerator` (UUID by default).
+ - Persists `PokemonCard` instances in a memory map and tracks identity
+   tuples to prevent duplicates.
+ - Records a simple `audit` entry when a card is created.
+*/
 import '../../domain/submitter_catalog/catalog_repository.dart';
 import '../../domain/submitter_catalog/pokemon_card.dart';
 import 'id_generator.dart';

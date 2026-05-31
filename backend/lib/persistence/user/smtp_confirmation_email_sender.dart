@@ -1,3 +1,10 @@
+/*
+ SMTP-based implementation of `ConfirmationEmailSender`.
+
+ Uses the `mailer` package to deliver both plain-text and HTML emails.
+ Configuration is provided via `EmailConfig` and the sender logs a report
+ when delivery is attempted.
+*/
 import 'package:logging/logging.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';

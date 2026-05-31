@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'register_api.dart';
 import 'register_state.dart';
 
+/*
+ Provider (ChangeNotifier) responsible for the registration UI flow.
+
+ Orchestrates calls to `RegisterApi`, updates `RegisterState` accordingly
+ and notifies listeners. UI code should listen to this provider to reflect
+ progress, errors and success states.
+*/
 class RegisterProvider extends ChangeNotifier {
   RegisterProvider(this._api);
 

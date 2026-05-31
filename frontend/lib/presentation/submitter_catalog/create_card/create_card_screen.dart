@@ -1,3 +1,11 @@
+/*
+ Create card UI for adding new catalog entries.
+
+ This file exposes `CreateCardScreen` which implements a small multi-step
+ wizard: identity capture -> image selection -> upload. It performs client-
+ side validations (file size, dimensions) and encodes images as data URIs
+ before sending them to the backend via `CreateCardApi`.
+*/
 import 'dart:convert';
 import 'dart:ui' as ui;
 

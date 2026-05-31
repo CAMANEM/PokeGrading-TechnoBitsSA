@@ -1,5 +1,14 @@
+/*
+ Repository contract for submitter catalog persistence.
+
+ Implementations of `CatalogRepository` provide methods to check for
+ identity tuple collisions, persist a new `PokemonCard` and query by id.
+*/
 import 'pokemon_card.dart';
 
+/*
+ Input DTO used by the repository to persist a new Pokemon card.
+*/
 class AddPokemonCardInput {
   final String set;
   final String number;
@@ -34,6 +43,9 @@ class AddPokemonCardInput {
   });
 }
 
+/*
+ Abstract repository interface for catalog operations.
+*/
 abstract class CatalogRepository {
   Future<bool> identityTupleExists({
     required String set,

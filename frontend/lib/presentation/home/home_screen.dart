@@ -167,7 +167,7 @@ class _WelcomeCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'The base structure of the PokéGrading project is ready. '
-            'This is the starting point for Sprint 1.',
+            'This is the starting point for Sprint 2.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.textSecondary,
               height: 1.6,
@@ -178,14 +178,14 @@ class _WelcomeCard extends StatelessWidget {
           const SizedBox(height: 16),
           const _InfoRow(
             icon: Icons.architecture_rounded,
-            label: 'Architecture',
-            value: 'Layer → Module → Flow',
+            label: 'Layer Architecture',
+            value: 'Presentation → Application → Domain → Persistance → Data',
           ),
           const SizedBox(height: 8),
           const _InfoRow(
             icon: Icons.layers_rounded,
-            label: 'State Management',
-            value: 'ChangeNotifier (colocated)',
+            label: 'Proyect State',
+            value: 'in development',
           ),
           const SizedBox(height: 8),
           const _InfoRow(

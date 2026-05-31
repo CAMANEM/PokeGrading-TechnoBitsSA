@@ -1,9 +1,45 @@
+/// Domain logic for creating a new Pokemon card in the submitter catalog.
+///
+/// This file contains the command objects, result wrappers and the
+/// `CreateCardLogic` use-case which validates identity and image data,
+/// checks for duplicates and delegates persistence to a `CatalogRepository`.
+///
+/// Public API:
+/// - `CreateCardCommand` : input DTO for the create operation
+/// - `CardCreatedResult` : response DTO returned on success
+/// - `CreateCardLogic` : orchestrator for validation and persistence
+///
+/// Errors are represented by `CreateCardLogicException` and use simple
+/// string `code` values for mapping to HTTP responses in the application layer.
+/*
+ Domain logic for creating a new Pokemon card in the submitter catalog.
+
+ This file contains the command objects, result wrappers and the
+ `CreateCardLogic` use-case which validates identity and image data,
+ checks for duplicates and delegates persistence to a `CatalogRepository`.
+
+ Public API:
+ - `CreateCardCommand` : input DTO for the create operation
+ - `CardCreatedResult` : response DTO returned on success
+ - `CreateCardLogic` : orchestrator for validation and persistence
+
+ Errors are represented by `CreateCardLogicException` and use simple
+ string `code` values for mapping to HTTP responses in the application layer.
+*/
 import '../catalog_repository.dart';
 import '../catalog_validators.dart';
 import '../pokemon_card.dart';
 
+/// Represents an error produced by `CreateCardLogic`.
+///
+/// The `code` is a short machine-friendly identifier (for example
+/// `identity_rejected` or `image_rejected`) and `message` contains a
+/// human-readable explanation suitable for logs and error responses.
 class CreateCardLogicException implements Exception {
+  /// Short error code for programmatic handling.
   final String code;
+
+  /// Human readable message describing the reason for the exception.
   final String message;
 
   const CreateCardLogicException({required this.code, required this.message});
@@ -12,6 +48,11 @@ class CreateCardLogicException implements Exception {
   String toString() => 'CreateCardLogicException($code): $message';
 }
 
+/// Input DTO for the `CreateCardLogic.create` operation.
+///
+/// Contains the identity tuple (set, number, edition, language, finish),
+/// optional metadata and Base64-encoded image payloads. Fields that are
+/// nullable are optional and will be persisted when present.
 class CreateCardCommand {
   final String set;
   final String number;
@@ -46,6 +87,11 @@ class CreateCardCommand {
   });
 }
 
+/// Result returned after successfully creating a card.
+///
+/// `cardId` is the repository-generated identifier, `status` is the initial
+/// workflow status of the created `PokemonCard` and `createdAt` is the
+/// timestamp recorded by the persistence layer.
 class CardCreatedResult {
   final String cardId;
   final PokemonCardStatus status;
@@ -59,10 +105,30 @@ class CardCreatedResult {
 }
 
 class CreateCardLogic {
+  /// Repository used to persist and query catalog data.
   final CatalogRepository repository;
 
-  const CreateCardLogic({required this.repository});
+  /// Creates a new `CreateCardLogic` instance.
+  /* Creates a new `CreateCardLogic` instance. */
+  const CreateCardLogic({required this.repository}); 
 
+  /*
+   Validates the provided `command`, ensures the identity tuple is unique
+   and delegates the creation to the configured `CatalogRepository`.
+
+   Parameters:
+   - `command`: the input DTO containing identity, metadata and image data.
+
+   Returns:
+   - a `CardCreatedResult` with the created card id, initial status and
+     creation timestamp.
+
+   Throws:
+   - `CreateCardLogicException` with `code: 'identity_rejected'` when any
+     identity validation fails or the identity tuple already exists.
+   - `CreateCardLogicException` with `code: 'image_rejected'` when the image
+     validation fails.
+  */
   Future<CardCreatedResult> create(CreateCardCommand command) async {
     _validateIdentity(command);
     _validateImage(command.imageData);
@@ -108,6 +174,8 @@ class CreateCardLogic {
     );
   }
 
+  // Private helpers validate parts of the command. These throw
+  // `CreateCardLogicException` with `identity_rejected` when invalid.
   void _validateIdentity(CreateCardCommand command) {
     final setError = CatalogValidators.validateSet(command.set);
     if (setError != null) {

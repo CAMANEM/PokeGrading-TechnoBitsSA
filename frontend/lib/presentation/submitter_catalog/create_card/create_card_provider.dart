@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'create_card_api.dart';
 import 'create_card_state.dart';
 
+/*
+ Provider for the create-card flow. Exposes simple methods to advance the
+ multi-step UI (identity -> image -> submitting) and delegates network
+ operations to `CreateCardApi`.
+
+ It updates `CreateCardState` and notifies listeners for UI updates.
+*/
 class CreateCardProvider extends ChangeNotifier {
   CreateCardProvider(this._api);
 

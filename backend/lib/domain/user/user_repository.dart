@@ -1,5 +1,10 @@
 import 'user.dart';
 
+/*
+ Repository-facing DTO representing a pending registration created by
+ `startRegistration`. Contains the confirmation token and expiry used by
+ the email sender.
+*/
 class PendingRegistration {
   final String email;
   final String username;
@@ -25,6 +30,13 @@ class PendingRegistration {
   });
 }
 
+/*
+ Abstract repository contract for user persistence and registration flows.
+
+ Implementations are expected to handle uniqueness checks, create pending
+ registrations (returning a `PendingRegistration`) and complete
+ registrations by token.
+*/
 abstract class UserRepository {
   Future<bool> emailExists(String email);
   Future<bool> usernameExists(String username);

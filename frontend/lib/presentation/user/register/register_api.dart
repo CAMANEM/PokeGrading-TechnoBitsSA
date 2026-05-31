@@ -1,3 +1,10 @@
+/*
+ Frontend HTTP client for user registration flows.
+
+ `RegisterApi` wraps HTTP calls to the backend registration endpoints and
+ converts responses into frontend DTOs defined in `register_state.dart`.
+ It throws `RegisterApiException` on non-successful results.
+*/
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;

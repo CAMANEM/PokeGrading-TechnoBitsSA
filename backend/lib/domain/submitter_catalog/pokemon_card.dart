@@ -1,3 +1,19 @@
+/*
+ Domain entity representing a submitted Pokemon card.
+
+ `PokemonCard` is an immutable value object that contains identity fields
+ (set, number, edition, language, finish), image payloads and optional
+ metadata. The `status` field represents the moderation workflow state and
+ `audit` holds an append-only list of events recorded by persistence or
+ business logic.
+*/
+
+/*
+ Represents the moderation/validation status of a Pokemon card.
+ - `pendingValidation`: newly created and awaiting validation by the system or human reviewer.
+ - `validated`: accepted into the reference catalog.
+ - `rejected`: rejected due to identity/image/metadata validation.
+*/
 enum PokemonCardStatus {
   pendingValidation,
   validated,
@@ -47,6 +63,10 @@ class PokemonCard {
     required this.createdAt,
   });
 
+  /*
+   Returns a copy of the card with specified fields replaced. Useful
+   when updating metadata or status while preserving immutability.
+  */
   PokemonCard copyWith({
     String? id,
     String? set,

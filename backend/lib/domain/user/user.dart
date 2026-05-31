@@ -1,8 +1,26 @@
+/*
+ Domain entity representing an application user.
+
+ This file declares the `User` value object and related enums used across
+ the backend. `User` instances are intended to be immutable; use `copyWith`
+ to create modified copies. Passwords stored here are expected to be hashed
+ by the persistence layer.
+*/
+
+/*
+ Represents the registration lifecycle of a user.
+ - `pendingConfirmation`: the user has started registration and awaits email confirmation.
+ - `active`: the user has completed confirmation and is active.
+*/
 enum UserRegistrationStatus {
   pendingConfirmation,
   active,
 }
 
+/*
+ Represents the role assigned to a user. Roles affect authorization checks
+ and permitted actions within the system.
+*/
 enum UserRole {
   submitter,
   reviewer,
@@ -10,6 +28,14 @@ enum UserRole {
   b2bServiceAccount
 }
 
+/*
+ Immutable value object that models a user account.
+
+ Fields of note:
+ - `password`: hashed password (do not log or expose this field).
+ - `acceptedDisclosure`: indicates whether the user accepted required terms.
+ - `role` and `status` control authorization and registration lifecycle.
+*/
 class User {
   final String id;
   final String email;
@@ -40,6 +66,10 @@ class User {
     required this.lastLoginAt,
   });
 
+  /*
+   Returns a copy of the user with the provided fields replaced. Useful for
+   updating a subset of fields while keeping immutability.
+  */
   User copyWith({
     String? id,
     String? email,

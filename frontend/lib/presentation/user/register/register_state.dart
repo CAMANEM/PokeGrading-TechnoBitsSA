@@ -1,3 +1,13 @@
+/*
+ Models and DTOs for the registration UI flow.
+
+ - `RegisterStage`: small enum describing the current UI step.
+ - `PendingRegistrationData`: returned by the backend when the registration
+   request was accepted and an email token was sent to the user.
+ - `ConfirmedUserData`: user information returned after successful confirmation.
+ - `RegisterState`: immutable state object used by `RegisterProvider`.
+*/
+
 enum RegisterStage {
   idle,
   submitting,

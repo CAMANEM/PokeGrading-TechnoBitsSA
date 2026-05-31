@@ -1,3 +1,12 @@
+/*
+ Register screen and UI widgets for the user registration flow.
+
+ This file contains the complete registration UI used by the frontend:
+ - `RegisterScreen` (entrypoint) builds the two-column layout for wide
+   viewports and a stacked layout for small screens.
+ - Several small private widgets drive the step-by-step UX and display
+   server-driven previews (pending token delivery) and success messages.
+*/
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 

@@ -1,3 +1,13 @@
+/*
+ State and DTOs for the create-card presentation flow.
+
+ - `CreateCardStage`: enum describing the multi-step UI stages.
+ - `CardIdentityInput`: minimal identity fields required before uploading images.
+ - `CreateCardPayload`: complete payload sent to the backend including
+   base64-encoded image data.
+ - `CreateCardResult`: successful creation response from backend.
+ - `CreateCardState`: immutable state object consumed by UI widgets.
+*/
 enum CreateCardStage {
   identity,
   image,

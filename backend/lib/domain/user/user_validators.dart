@@ -1,3 +1,11 @@
+/*
+ Validation helpers for `User`-related input.
+
+ This class provides a set of static validator functions used by the
+ registration use-case and the frontend for local validation. Each method
+ returns `null` when the value is valid or a short human-friendly error
+ message when invalid.
+*/
 class UserValidators {
   static const supportedCountries = {
     'CR',

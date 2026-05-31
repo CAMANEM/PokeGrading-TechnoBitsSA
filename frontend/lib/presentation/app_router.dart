@@ -1,3 +1,10 @@
+/*
+ Application route configuration for the frontend.
+
+ Exposes `appRouter` (a `GoRouter`) that maps top-level paths to the main
+ screens used in the demo application. The router also provides a minimal
+ not-found screen used during development.
+*/
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 

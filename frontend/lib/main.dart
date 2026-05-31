@@ -1,3 +1,9 @@
+/*
+ Main entrypoint for the Flutter frontend.
+
+ Initializes Flutter bindings and configures `MaterialApp.router` with the
+ application's theme and route configuration defined in `app_router.dart`.
+*/
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
