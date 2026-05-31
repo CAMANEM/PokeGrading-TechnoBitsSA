@@ -205,6 +205,12 @@ class _WelcomeCard extends StatelessWidget {
             icon: const Icon(Icons.add_photo_alternate_rounded),
             label: const Text('Agregar carta al catalogo'),
           ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: () => context.goNamed('evaluations'),
+            icon: const Icon(Icons.add_photo_alternate_rounded),
+            label: const Text('Enviar carta para evaluacion'),
+          ),
         ],
       ),
     );
