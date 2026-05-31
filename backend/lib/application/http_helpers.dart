@@ -74,3 +74,10 @@ int createCardStatusCodeFor(String code) {
     _ => 500,
   };
 }
+
+int submitEvaluationStatusCodeFor(String code) {
+  return switch (code) {
+    'image_rejected' => 400,
+    _ => 500,
+  };
+}
