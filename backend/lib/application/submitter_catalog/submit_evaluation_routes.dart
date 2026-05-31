@@ -24,11 +24,10 @@ Router buildSubmitEvaluationRoutes(
       return jsonResponse(
         201,
         {
-          'status': 'pending_validation',
-          'message': 'evaluation_registered',
           'evaluation_id': result.submissionId,
-          'evaluation_status': result.status,
+          'status': result.status,
           'created_at': result.createdAt.toIso8601String(),
+          'estimated_time': 0
         },
       );
     } on SubmitEvaluationLogicException catch (error) {

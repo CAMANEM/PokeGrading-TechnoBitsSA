@@ -64,23 +64,41 @@ class SubmitEvaluationLogic {
       command.frontImageData,
     );
 
+    if (frontScore.score < 60) {
+      throw SubmitEvaluationLogicException(
+        code: 'image_rejected',
+        message:
+            'Front image obtained ${frontScore.score.toStringAsFixed(1)} for IQS. '
+            'Reasons: ${frontScore.rejectionReasons.join(", ")}',
+      );
+    }
+
     final backScore = await imageQualityService.calculateScore(
       command.backImageData,
     );
+
+    if (backScore.score < 60) {
+      throw SubmitEvaluationLogicException(
+        code: 'image_rejected',
+        message:
+            'Back image obtained ${backScore.score.toStringAsFixed(1)} for IQS. '
+            'Reasons: ${backScore.rejectionReasons.join(", ")}',
+      );
+    }
 
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
         frontImageData: command.frontImageData,
         backImageData: command.backImageData,
-        frontImageScore: frontScore,
-        backImageScore: backScore,
+        frontImageScore: frontScore.score,
+        backImageScore: backScore.score,
       ),
     );
 
     return EvaluationSubmittedResult(
       submissionId: saved.id,
-      frontScore: frontScore,
-      backScore: backScore,
+      frontScore: frontScore.score,
+      backScore: backScore.score,
       status: saved.status,
       createdAt: saved.createdAt,
     );
