@@ -2,6 +2,7 @@ import 'evaluation_repository.dart';
 import 'evaluation_request.dart';
 import 'evaluation_validators.dart';
 import 'image_quality_service.dart';
+import 'polyglot_detection.dart';
 
 class SubmitEvaluationLogicException implements Exception {
   /// Short error code for programmatic handling.
@@ -49,10 +50,12 @@ class EvaluationSubmittedResult {
 class SubmitEvaluationLogic {
   final EvaluationRepository repository;
   final ImageQualityService imageQualityService;
+  final PolyglotDetector polyglotDetector;
 
   const SubmitEvaluationLogic({
     required this.repository,
     required this.imageQualityService,
+    required this.polyglotDetector,
   });
 
   Future<EvaluationSubmittedResult> submit(
@@ -83,6 +86,41 @@ class SubmitEvaluationLogic {
         message:
             'Back image obtained ${backScore.score.toStringAsFixed(1)} for IQS. '
             'Reasons: ${backScore.rejectionReasons.join(", ")}',
+      );
+    }
+
+    final frontPolyglotResult =
+        polyglotDetector.inspect(command.frontImageData);
+
+    if (frontPolyglotResult.isPolyglot) {
+      await repository.saveSecurityAudit(
+        SecurityAuditEvent(
+          eventType: 'polyglot_detected',
+          details: 'Polyglot detected in front image',
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+
+      throw SubmitEvaluationLogicException(
+        code: 'image_rejected',
+        message: 'Malicious file detected in Front Image',
+      );
+    }
+
+    final backPolyglotResult = polyglotDetector.inspect(command.backImageData);
+
+    if (backPolyglotResult.isPolyglot) {
+      await repository.saveSecurityAudit(
+        SecurityAuditEvent(
+          eventType: 'polyglot_detected',
+          details: 'Polyglot detected in back image',
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+
+      throw SubmitEvaluationLogicException(
+        code: 'image_rejected',
+        message: 'Malicious file detected in Back Image',
       );
     }
 

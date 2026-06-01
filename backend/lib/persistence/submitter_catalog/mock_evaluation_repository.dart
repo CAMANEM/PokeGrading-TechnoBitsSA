@@ -16,6 +16,8 @@ class MockEvaluationRepository implements EvaluationRepository {
   final Map<String, EvaluationRequest> _requests =
       <String, EvaluationRequest>{};
 
+  final List<SecurityAuditEvent> _auditEvents = <SecurityAuditEvent>[];
+
   MockEvaluationRepository({IdGenerator? idGenerator})
       : _idGenerator = idGenerator ?? UuidIdGenerator();
 
@@ -40,5 +42,12 @@ class MockEvaluationRepository implements EvaluationRepository {
   @override
   Future<EvaluationRequest?> findById(String id) async {
     return _requests[id];
+  }
+
+  @override
+  Future<void> saveSecurityAudit(
+    SecurityAuditEvent event,
+  ) async {
+    _auditEvents.add(event);
   }
 }

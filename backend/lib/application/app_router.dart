@@ -15,6 +15,7 @@ import '../core/config/app_config.dart';
 import '../domain/user/register/register_logic.dart';
 import '../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart';
+import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
 import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
 import '../persistence/user/confirmation_email_sender.dart';
 import '../persistence/user/memory_user_repository.dart';
@@ -55,9 +56,11 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
 
   final evaluationRepository = MockEvaluationRepository();
   final imageQualityService = ImageQualityService();
+  final polyglotDetector = PolyglotDetector();
   final evaluationLogic = SubmitEvaluationLogic(
       repository: evaluationRepository,
-      imageQualityService: imageQualityService);
+      imageQualityService: imageQualityService,
+      polyglotDetector: polyglotDetector);
   final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
 
   router.get('/', _handleRoot);

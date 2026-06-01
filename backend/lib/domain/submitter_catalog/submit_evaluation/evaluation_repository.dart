@@ -15,10 +15,26 @@ class AddEvaluationInput {
   });
 }
 
+class SecurityAuditEvent {
+  final String eventType;
+  final String details;
+  final DateTime timestamp;
+
+  const SecurityAuditEvent({
+    required this.eventType,
+    required this.details,
+    required this.timestamp,
+  });
+}
+
 abstract class EvaluationRepository {
   Future<EvaluationRequest> saveEvaluation(
     AddEvaluationInput input,
   );
 
   Future<EvaluationRequest?> findById(String id);
+
+  Future<void> saveSecurityAudit(
+    SecurityAuditEvent event,
+  );
 }
