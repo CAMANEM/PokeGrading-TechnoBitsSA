@@ -98,19 +98,19 @@ class ImageQualityService {
 
     if (sharpness100 < 60) {
       reasons.add(
-        'La imagen presenta poca nitidez (${sharpness100.toStringAsFixed(1)}/100)',
+        'Image is blurry (Sharpness: ${sharpness100.toStringAsFixed(1)}/100)',
       );
     }
 
     if (brightness100 < 60) {
       reasons.add(
-        'La iluminación es deficiente (${brightness100.toStringAsFixed(1)}/100)',
+        'Image is obscure (Brightness: ${brightness100.toStringAsFixed(1)}/100)',
       );
     }
 
     if (overall100 < 60) {
       reasons.add(
-        'El Image Quality Score es insuficiente (${overall100.toStringAsFixed(1)}/100)',
+        'Image Quality Score is below acceptance (${overall100.toStringAsFixed(1)}/100)',
       );
     }
 

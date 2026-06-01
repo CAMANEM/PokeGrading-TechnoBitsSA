@@ -25,9 +25,9 @@ Router buildSubmitEvaluationRoutes(
         201,
         {
           'evaluation_id': result.submissionId,
-          'status': result.status,
+          'status': result.status.toString(),
           'created_at': result.createdAt.toIso8601String(),
-          'estimated_time': 0
+          'estimated_time': "0 seconds"
         },
       );
     } on SubmitEvaluationLogicException catch (error) {
