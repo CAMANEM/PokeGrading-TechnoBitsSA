@@ -11,6 +11,8 @@ import 'package:go_router/go_router.dart';
 import 'home/home_screen.dart';
 import 'submitter_catalog/create_card/create_card_screen.dart';
 import 'user/register/register_screen.dart';
+import 'submitter_catalog/submit_evaluation/submit_evaluation_screen.dart';
+
 final appRouter = GoRouter(
   initialLocation: '/',
   debugLogDiagnostics: true,
@@ -29,6 +31,11 @@ final appRouter = GoRouter(
       path: '/catalog/add-card',
       name: 'catalog_add_card',
       builder: (context, state) => const CreateCardScreen(),
+    ),
+    GoRoute(
+      path: '/evaluations',
+      name: 'evaluations',
+      builder: (context, state) => const SubmitEvaluationScreen(),
     ),
   ],
   errorBuilder: (context, state) => _NotFoundScreen(error: state.error),
