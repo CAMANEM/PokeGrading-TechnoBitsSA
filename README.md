@@ -144,6 +144,29 @@ scripts\setup.bat
 
 > Antes de iniciar el backend por primera vez, ejecuta `dart pub get` dentro de `backend/` para descargar las dependencias de Dart.
 
+## 🗄️ Base de Datos PostgreSQL
+
+La base se levanta con Docker y se inicializa sola desde [backend/db/migrations/001_initial_schema.sql](backend/db/migrations/001_initial_schema.sql) cuando el volumen está vacío.
+
+### Windows
+
+```powershell
+scripts\db.bat
+```
+
+### Linux / macOS
+
+```bash
+chmod +x scripts/db.sh
+./scripts/db.sh
+```
+
+Si quieres recrear el esquema desde cero, primero detén y elimina el volumen:
+
+```bash
+docker compose down -v
+```
+
 ### Opción A: Sin Docker (Recomendado para pruebas rápidas / Sin base de datos local)
 Asegúrate de tener `USE_MOCK_REPOSITORIES=true` en tu archivo `.env` (ya configurado por defecto).
 
@@ -166,6 +189,7 @@ docker compose up -d
 
 # 2. Iniciar el Backend (Dart/Shelf)
 cd backend
+dart pub get
 dart run bin/server.dart
 
 # 3. Iniciar el Frontend (Flutter Web)

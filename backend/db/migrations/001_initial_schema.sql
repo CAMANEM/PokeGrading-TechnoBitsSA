@@ -1,101 +1,158 @@
--- ==============================================================================
--- PokéGrading — Migración Inicial (Sprint 0 / Hello World)
--- Se ejecuta automáticamente al iniciar PostgreSQL con Docker Compose.
--- ==============================================================================
+-- ================================================================================
+-- PokéGrading — DB Inicial (Sprint 2)
+-- PostgreSQL compatible schema.
+-- ================================================================================
 
--- Extensión para UUIDs
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- ==============================================================================
--- Tabla: schema_migrations
--- Registro de migraciones aplicadas (control de versiones del esquema)
--- ==============================================================================
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version     VARCHAR(20) PRIMARY KEY,
-  applied_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  description TEXT
+CREATE TABLE "IMAGEN" (
+  "id_imagen" integer PRIMARY KEY,
+  "ruta_cloud" varchar(255) NOT NULL,
+  "hash_visual" varchar(255),
+  "calidad_score" numeric,
+  "fecha_subida" timestamp NOT NULL DEFAULT now()
 );
 
--- Registrar esta migración
-INSERT INTO schema_migrations (version, description)
-VALUES ('001', 'Migración inicial — Tablas base Sprint 0')
-ON CONFLICT (version) DO NOTHING;
-
--- ==============================================================================
--- Tabla: users (Sprint 1 — estructura base, sin datos)
--- ==============================================================================
-CREATE TABLE IF NOT EXISTS users (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email           VARCHAR(255) NOT NULL UNIQUE,
-  password_hash   VARCHAR(255) NOT NULL,
-  role            VARCHAR(50)  NOT NULL CHECK (role IN ('submitter', 'reviewer', 'admin', 'b2b')),
-  display_name    VARCHAR(255),
-  api_key         VARCHAR(255) UNIQUE,         -- Solo para rol b2b
-  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-  is_verified     BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+CREATE TABLE "USUARIO" (
+  "id_usuario" integer PRIMARY KEY,
+  "username" varchar(255) UNIQUE NOT NULL,
+  "password_hash" varchar(255) NOT NULL,
+  "email" varchar(255) UNIQUE NOT NULL,
+  "rol" varchar(255) NOT NULL,
+  "pais_residencia" varchar(255),
+  "idioma" varchar(255),
+  "api_key" varchar(255) UNIQUE,
+  "cuota_mensual" integer,
+  "cuota_consumida" integer,
+  "sla_plan" varchar(255),
+  "fecha_creacion" timestamp NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_role  ON users(role);
-
--- ==============================================================================
--- Tabla: pokemon_cards (Sprint 1 — estructura base)
--- ==============================================================================
-CREATE TABLE IF NOT EXISTS pokemon_cards (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Atributos de identidad
-  card_set        VARCHAR(255) NOT NULL,
-  card_number     VARCHAR(50)  NOT NULL,
-  edition         VARCHAR(100) NOT NULL,
-  language        VARCHAR(10)  NOT NULL,
-  finish          VARCHAR(50)  NOT NULL,   -- holo, reverse_holo, normal, etc.
-  -- Estado y flujo de validación dual
-  status          VARCHAR(50)  NOT NULL DEFAULT 'pending'
-                  CHECK (status IN ('pending', 'approved', 'rejected')),
-  created_by      UUID NOT NULL REFERENCES users(id),
-  validated_by    UUID REFERENCES users(id),
-  validated_at    TIMESTAMP WITH TIME ZONE,
-  -- Inmutabilidad (versionado)
-  version         INTEGER NOT NULL DEFAULT 1,
-  is_current      BOOLEAN NOT NULL DEFAULT TRUE,
-  -- Timestamps
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+CREATE TABLE "CARTA" (
+  "id_carta" integer PRIMARY KEY,
+  "tipo" varchar(255) NOT NULL,
+  "nombre_display" varchar(255) NOT NULL,
+  "set_code" varchar(255) NOT NULL,
+  "numero_carta" varchar(255) NOT NULL,
+  "edicion" varchar(255) NOT NULL,
+  "idioma" varchar(255) NOT NULL,
+  "acabado" varchar(255) NOT NULL,
+  "anio" integer,
+  "rareza" varchar(255),
+  "ilustrador" varchar(255),
+  "id_imagen_derecho" integer NOT NULL,
+  "id_imagen_reves" integer NOT NULL,
+  "estado_aprobacion" varchar(255) NOT NULL DEFAULT 'pendiente',
+  "id_creador" integer NOT NULL,
+  "id_validador" integer,
+  "fecha_registro" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "fk_carta_imagen_derecho"
+    FOREIGN KEY ("id_imagen_derecho") REFERENCES "IMAGEN" ("id_imagen"),
+  CONSTRAINT "fk_carta_imagen_reves"
+    FOREIGN KEY ("id_imagen_reves") REFERENCES "IMAGEN" ("id_imagen"),
+  CONSTRAINT "fk_carta_creador"
+    FOREIGN KEY ("id_creador") REFERENCES "USUARIO" ("id_usuario"),
+  CONSTRAINT "fk_carta_validador"
+    FOREIGN KEY ("id_validador") REFERENCES "USUARIO" ("id_usuario")
 );
 
-CREATE INDEX IF NOT EXISTS idx_cards_status     ON pokemon_cards(status);
-CREATE INDEX IF NOT EXISTS idx_cards_created_by ON pokemon_cards(created_by);
+CREATE TABLE "SOLICITUD_EVALUACION" (
+  "id_solicitud" integer PRIMARY KEY,
+  "id_usuario" integer NOT NULL,
+  "correlation_id" varchar(255) UNIQUE NOT NULL,
+  "estado_proceso" varchar(255) NOT NULL,
+  "fecha_solicitud" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "fk_solicitud_usuario"
+    FOREIGN KEY ("id_usuario") REFERENCES "USUARIO" ("id_usuario")
+);
 
--- Restricción de unicidad para la combinación de atributos de identidad
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_identity
-  ON pokemon_cards(card_set, card_number, edition, language, finish)
-  WHERE is_current = TRUE;
+CREATE TABLE "CARTA_REFERENCIA" (
+  "id_carta" integer PRIMARY KEY,
+  CONSTRAINT "fk_carta_referencia_carta"
+    FOREIGN KEY ("id_carta") REFERENCES "CARTA" ("id_carta")
+);
 
--- ==============================================================================
--- Trigger: Actualizar updated_at automáticamente
--- ==============================================================================
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE "CARTA_SUBMITTER" (
+  "id_carta" integer PRIMARY KEY,
+  "id_solicitud" integer NOT NULL,
+  "id_carta_ref" integer NOT NULL,
+  CONSTRAINT "fk_carta_submitter_carta"
+    FOREIGN KEY ("id_carta") REFERENCES "CARTA" ("id_carta"),
+  CONSTRAINT "fk_carta_submitter_solicitud"
+    FOREIGN KEY ("id_solicitud") REFERENCES "SOLICITUD_EVALUACION" ("id_solicitud"),
+  CONSTRAINT "fk_carta_submitter_carta_ref"
+    FOREIGN KEY ("id_carta_ref") REFERENCES "CARTA_REFERENCIA" ("id_carta")
+);
 
-CREATE TRIGGER trigger_users_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TABLE "ALGORITMO" (
+  "id_version" integer PRIMARY KEY,
+  "nombre_version" varchar(255) NOT NULL,
+  "fecha_lanzamiento" timestamp,
+  "precision_global_validada" numeric,
+  "es_activo" boolean NOT NULL DEFAULT false
+);
 
-CREATE TRIGGER trigger_cards_updated_at
-  BEFORE UPDATE ON pokemon_cards
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TABLE "EVALUACION_RESULTADO" (
+  "id_evaluacion" integer PRIMARY KEY,
+  "id_solicitud" integer NOT NULL,
+  "id_algoritmo" integer NOT NULL,
+  "grado_final" numeric,
+  "confianza_global" numeric,
+  "es_resultado_final" boolean NOT NULL DEFAULT true,
+  "fecha_evaluacion" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "fk_evaluacion_solicitud"
+    FOREIGN KEY ("id_solicitud") REFERENCES "SOLICITUD_EVALUACION" ("id_solicitud"),
+  CONSTRAINT "fk_evaluacion_algoritmo"
+    FOREIGN KEY ("id_algoritmo") REFERENCES "ALGORITMO" ("id_version")
+);
 
--- ==============================================================================
--- Datos de ejemplo para verificar el Hello World
--- ==============================================================================
--- (Comentados en producción — solo para desarrollo)
--- INSERT INTO users (email, password_hash, role, display_name, is_verified)
--- VALUES ('admin@pokegrading.local', 'hash_placeholder', 'admin', 'Admin PokéGrading', TRUE);
+CREATE TABLE "SUBGRADE" (
+  "id_subgrade" integer PRIMARY KEY,
+  "id_evaluacion" integer NOT NULL,
+  "criterio" varchar(255) NOT NULL,
+  "valor" numeric,
+  "confianza_especifica" numeric,
+  "metricas_json" json,
+  CONSTRAINT "fk_subgrade_evaluacion"
+    FOREIGN KEY ("id_evaluacion") REFERENCES "EVALUACION_RESULTADO" ("id_evaluacion")
+);
+
+CREATE TABLE "REVISION_HUMANA" (
+  "id_revision" integer PRIMARY KEY,
+  "id_evaluacion" integer NOT NULL,
+  "id_reviewer" integer NOT NULL,
+  "motivo" varchar(255) NOT NULL,
+  "resultado_grado" numeric,
+  "comentarios" text,
+  "estado_revision" varchar(255) NOT NULL,
+  "fecha_asignacion" timestamp NOT NULL DEFAULT now(),
+  "fecha_resolucion" timestamp,
+  CONSTRAINT "fk_revision_evaluacion"
+    FOREIGN KEY ("id_evaluacion") REFERENCES "EVALUACION_RESULTADO" ("id_evaluacion"),
+  CONSTRAINT "fk_revision_reviewer"
+    FOREIGN KEY ("id_reviewer") REFERENCES "USUARIO" ("id_usuario")
+);
+
+CREATE TABLE "RECOMENDACION" (
+  "id_recomendacion" integer PRIMARY KEY,
+  "id_evaluacion" integer NOT NULL,
+  "accion_sugerida" varchar(255),
+  "valor_estimado_raw" numeric,
+  "valor_estimado_graded" numeric,
+  "ganancia_esperada" numeric,
+  "costo_envio_estimado" numeric,
+  CONSTRAINT "fk_recomendacion_evaluacion"
+    FOREIGN KEY ("id_evaluacion") REFERENCES "EVALUACION_RESULTADO" ("id_evaluacion")
+);
+
+COMMENT ON COLUMN "USUARIO"."rol" IS 'Submitter | Reviewer | Admin | B2B';
+COMMENT ON COLUMN "USUARIO"."api_key" IS 'Solo para rol B2B';
+COMMENT ON COLUMN "USUARIO"."sla_plan" IS 'Basic | Premium';
+COMMENT ON COLUMN "CARTA"."tipo" IS 'referencia | submitter';
+COMMENT ON COLUMN "CARTA"."edicion" IS '1st Edition | Unlimited';
+COMMENT ON COLUMN "CARTA"."acabado" IS 'Holo | Reverse Holo | etc.';
+COMMENT ON COLUMN "CARTA"."estado_aprobacion" IS 'pendiente | aprobado | rechazado';
+COMMENT ON COLUMN "SOLICITUD_EVALUACION"."estado_proceso" IS 'identificado | validando | completado | revision_humana';
+COMMENT ON TABLE "EVALUACION_RESULTADO" IS 'Inmutable: ante una re-evaluación se crea un nuevo registro';
+COMMENT ON COLUMN "SUBGRADE"."criterio" IS 'Centering | Corners | Edges | Surface';
+COMMENT ON COLUMN "REVISION_HUMANA"."motivo" IS 'baja_confianza | disputa_usuario | fallo_tecnico';
+COMMENT ON COLUMN "REVISION_HUMANA"."estado_revision" IS 'pendiente | completada';
+COMMENT ON COLUMN "RECOMENDACION"."accion_sugerida" IS 'conservar | graduar_psa | vender';
