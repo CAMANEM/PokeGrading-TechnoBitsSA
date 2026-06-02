@@ -211,6 +211,12 @@ class _WelcomeCard extends StatelessWidget {
             icon: const Icon(Icons.add_photo_alternate_rounded),
             label: const Text('Enviar carta para evaluacion'),
           ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: () => context.goNamed('catalog_search'),
+            icon: const Icon(Icons.search),
+            label: const Text('Busqueda rapida de carta'),
+          ),
         ],
       ),
     );
