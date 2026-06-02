@@ -53,7 +53,6 @@ int registerStatusCodeFor(String code) {
     'invalid_email' => 400,
     'invalid_username' => 400,
     'invalid_password' => 400,
-    'invalid_token' => 400,
     'email_exists' => 409,
     'username_exists' => 409,
     'invalid_country' => 400,

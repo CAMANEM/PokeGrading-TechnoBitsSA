@@ -9,11 +9,9 @@
 
 /*
  Represents the registration lifecycle of a user.
- - `pendingConfirmation`: the user has started registration and awaits email confirmation.
- - `active`: the user has completed confirmation and is active.
+ - `active`: the user is active and allowed to log in.
 */
 enum UserRegistrationStatus {
-  pendingConfirmation,
   active,
 }
 
@@ -21,12 +19,7 @@ enum UserRegistrationStatus {
  Represents the role assigned to a user. Roles affect authorization checks
  and permitted actions within the system.
 */
-enum UserRole {
-  submitter,
-  reviewer,
-  admin,
-  b2bServiceAccount
-}
+enum UserRole { submitter, reviewer, admin, b2bServiceAccount }
 
 /*
  Immutable value object that models a user account.
