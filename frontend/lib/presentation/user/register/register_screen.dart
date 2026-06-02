@@ -1,11 +1,7 @@
 /*
  Register screen and UI widgets for the user registration flow.
 
- This file contains the complete registration UI used by the frontend:
- - `RegisterScreen` (entrypoint) builds the two-column layout for wide
-   viewports and a stacked layout for small screens.
- - Several small private widgets drive the step-by-step UX and display
-   server-driven previews (pending token delivery) and success messages.
+ This file contains the registration UI used by the frontend.
 */
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -40,14 +36,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late final RegisterProvider _provider;
 
   final _registrationFormKey = GlobalKey<FormState>();
-  final _confirmationFormKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _tokenController = TextEditingController();
 
   String? _selectedCountry;
-  String? _selectedLanguage = "es";
+  String? _selectedLanguage = 'es';
   bool _acceptedDisclosure = false;
 
   @override
@@ -62,7 +56,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
-    _tokenController.dispose();
     super.dispose();
   }
 
@@ -97,17 +90,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           builder: (context, constraints) {
                             final isWide = constraints.maxWidth >= 860;
                             final introPanel = _IntroPanel(
-                              pending: authState.pendingRegistration,
                               confirmedUser: authState.confirmedUser,
                             );
                             final formPanel = _FormPanel(
                               authState: authState,
                               registrationFormKey: _registrationFormKey,
-                              confirmationFormKey: _confirmationFormKey,
                               emailController: _emailController,
                               usernameController: _usernameController,
                               passwordController: _passwordController,
-                              tokenController: _tokenController,
                               selectedCountry: _selectedCountry,
                               selectedLanguage: _selectedLanguage,
                               acceptedDisclosure: _acceptedDisclosure,
@@ -127,7 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 });
                               },
                               onRegister: () async {
-                                if (_registrationFormKey.currentState?.validate() != true) {
+                                if (_registrationFormKey.currentState
+                                        ?.validate() !=
+                                    true) {
                                   return;
                                 }
 
@@ -135,27 +127,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   email: _emailController.text,
                                   username: _usernameController.text,
                                   password: _passwordController.text,
-                                  country: _selectedCountry!,
-                                  language: _selectedLanguage!,
+                                  country: _selectedCountry ?? '',
+                                  language: _selectedLanguage ?? 'es',
                                   acceptedDisclosure: _acceptedDisclosure,
-                                );
-                              },
-                              onConfirm: () async {
-                                if (_confirmationFormKey.currentState?.validate() != true) {
-                                  return;
-                                }
-
-                                await _provider.confirm(
-                                  token: _tokenController.text,
                                 );
                               },
                               onReset: () {
                                 _registrationFormKey.currentState?.reset();
-                                _confirmationFormKey.currentState?.reset();
                                 _emailController.clear();
                                 _usernameController.clear();
                                 _passwordController.clear();
-                                _tokenController.clear();
+                                setState(() {
+                                  _selectedCountry = null;
+                                  _selectedLanguage = 'es';
+                                  _acceptedDisclosure = false;
+                                });
                                 _provider.reset();
                               },
                             );
@@ -215,7 +201,7 @@ class _Header extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Flujo de alta asistida con envío real de token por correo.',
+              'Registro directo sin confirmación por correo.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -233,10 +219,9 @@ class _Header extends StatelessWidget {
 }
 
 class _IntroPanel extends StatelessWidget {
-  final PendingRegistrationData? pending;
   final ConfirmedUserData? confirmedUser;
 
-  const _IntroPanel({required this.pending, required this.confirmedUser});
+  const _IntroPanel({required this.confirmedUser});
 
   @override
   Widget build(BuildContext context) {
@@ -250,17 +235,18 @@ class _IntroPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.verified_user_rounded, color: AppColors.accent, size: 34),
+          const Icon(Icons.verified_user_rounded,
+              color: AppColors.accent, size: 34),
           const SizedBox(height: 18),
           Text(
-            'Registro escalonado',
+            'Registro directo',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: AppColors.textPrimary,
                 ),
           ),
           const SizedBox(height: 12),
           Text(
-            'Primero validamos que el email y el username no existan. Luego enviamos un token real al correo registrado para confirmar la cuenta antes de crear el usuario definitivamente.',
+            'El usuario se crea directamente sin enviar un correo de confirmación.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.6,
@@ -270,26 +256,17 @@ class _IntroPanel extends StatelessWidget {
           _FlowCard(
             title: '1. Captura',
             subtitle: 'Email, username y password',
-            active: pending == null,
+            active: confirmedUser == null,
           ),
           const SizedBox(height: 12),
           _FlowCard(
-            title: '2. Confirmación',
-            subtitle: pending == null
-                ? 'Token pendiente de envío'
-                : 'Revisa la bandeja de entrada del correo registrado',
-            active: pending != null && confirmedUser == null,
-          ),
-          const SizedBox(height: 12),
-          _FlowCard(
-            title: '3. Alta final',
+            title: '2. Alta final',
             subtitle: confirmedUser != null
                 ? 'Usuario ${confirmedUser!.username} registrado'
-                : 'Persistencia en memoria',
+                : 'Creación directa de cuenta',
             active: confirmedUser != null,
           ),
           const SizedBox(height: 24),
-          if (pending != null) _DeliveryPreview(email: pending!.email, expiresAt: pending!.expiresAt),
           if (confirmedUser != null) ...[
             const SizedBox(height: 16),
             _SuccessBox(user: confirmedUser!),
@@ -319,7 +296,8 @@ class _FlowCard extends StatelessWidget {
         color: active ? AppColors.surfaceDark2 : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: active ? AppColors.accent.withOpacity(0.5) : AppColors.borderDark,
+          color:
+              active ? AppColors.accent.withOpacity(0.5) : AppColors.borderDark,
         ),
       ),
       child: Row(
@@ -328,11 +306,15 @@ class _FlowCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: active ? AppColors.accent : AppColors.primary.withOpacity(0.25),
+              color: active
+                  ? AppColors.accent
+                  : AppColors.primary.withOpacity(0.25),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              active ? Icons.check_rounded : Icons.radio_button_unchecked_rounded,
+              active
+                  ? Icons.check_rounded
+                  : Icons.radio_button_unchecked_rounded,
               color: active ? AppColors.textOnDark : AppColors.primaryLight,
               size: 20,
             ),
@@ -342,42 +324,17 @@ class _FlowCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                Text(title,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeliveryPreview extends StatelessWidget {
-  final String email;
-  final DateTime expiresAt;
-
-  const _DeliveryPreview({required this.email, required this.expiresAt});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Token enviado por correo', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text('Enviado a: $email', style: const TextStyle(color: AppColors.accent, fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text('Expira: ${expiresAt.toLocal()}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
         ],
       ),
     );
@@ -402,9 +359,12 @@ class _SuccessBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Cuenta activa', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w700)),
+          const Text('Cuenta activa',
+              style: TextStyle(
+                  color: AppColors.success, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('${user.username} <${user.email}>', style: const TextStyle(color: AppColors.textPrimary)),
+          Text('${user.username} <${user.email}>',
+              style: const TextStyle(color: AppColors.textPrimary)),
         ],
       ),
     );
@@ -414,11 +374,9 @@ class _SuccessBox extends StatelessWidget {
 class _FormPanel extends StatelessWidget {
   final RegisterState authState;
   final GlobalKey<FormState> registrationFormKey;
-  final GlobalKey<FormState> confirmationFormKey;
   final TextEditingController emailController;
   final TextEditingController usernameController;
   final TextEditingController passwordController;
-  final TextEditingController tokenController;
   final String? selectedCountry;
   final String? selectedLanguage;
   final bool acceptedDisclosure;
@@ -426,17 +384,14 @@ class _FormPanel extends StatelessWidget {
   final ValueChanged<String?> onLanguageChanged;
   final ValueChanged<bool?> onDisclosureChanged;
   final Future<void> Function() onRegister;
-  final Future<void> Function() onConfirm;
   final VoidCallback onReset;
 
   const _FormPanel({
     required this.authState,
     required this.registrationFormKey,
-    required this.confirmationFormKey,
     required this.emailController,
     required this.usernameController,
     required this.passwordController,
-    required this.tokenController,
     required this.selectedCountry,
     required this.selectedLanguage,
     required this.acceptedDisclosure,
@@ -444,14 +399,12 @@ class _FormPanel extends StatelessWidget {
     required this.onLanguageChanged,
     required this.onDisclosureChanged,
     required this.onRegister,
-    required this.onConfirm,
     required this.onReset,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isBusy = authState.stage == RegisterStage.submitting || authState.stage == RegisterStage.confirming;
-    final pending = authState.pendingRegistration;
+    final isBusy = authState.stage == RegisterStage.submitting;
 
     return Container(
       padding: const EdgeInsets.all(28),
@@ -464,199 +417,178 @@ class _FormPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            pending == null ? 'Datos de registro' : 'Confirmar token',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppColors.textPrimary),
+            'Datos de registro',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(color: AppColors.textPrimary),
           ),
           const SizedBox(height: 12),
           Text(
-            pending == null
-                ? 'Completa el formulario para recibir el token por correo.'
-                : 'Usa el token mostrado en el panel lateral para terminar el registro.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            'Completa el formulario para crear tu cuenta sin envío de correo de confirmación.',
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
           if (authState.message != null) ...[
-            _MessageBanner(message: authState.message!, success: authState.stage == RegisterStage.success),
+            _MessageBanner(
+                message: authState.message!,
+                success: authState.stage == RegisterStage.success),
             const SizedBox(height: 18),
           ],
-          if (pending == null) ...[
-            Form(
-              key: registrationFormKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'usuario@correo.com',
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      final text = (value ?? '').trim();
-                      if (text.isEmpty) return 'El email es obligatorio';
-                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) return 'Ingresa un email válido';
-                      return null;
-                    },
+          Form(
+            key: registrationFormKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'usuario@correo.com',
                   ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      hintText: 'ash_ketchum',
-                    ),
-                    validator: (value) {
-                      final text = (value ?? '').trim();
-                      if (text.isEmpty) return 'El username es obligatorio';
-                      if (text.length < 3) return 'Debe tener al menos 3 caracteres';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Mínimo 8 caracteres',
-                    ),
-                    validator: (value) {
-                      final text = value ?? '';
-                      if (text.isEmpty) return 'La contraseña es obligatoria';
-                      if (text.length < 8) return 'Debe tener al menos 8 caracteres';
-                      if (!RegExp(r'[A-Z]').hasMatch(text)) return "Debe contener una mayúscula";
-                      if (!RegExp(r'\d').hasMatch(text)) return "Debe contener un dígito";
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedCountry,
-                    decoration: const InputDecoration(
-                      labelText: 'País de residencia',
-                    ),
-                    items: supportedCountries.entries
-                        .map(
-                          (entry) => DropdownMenuItem<String>(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: onCountryChanged,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Selecciona un país';
-                      }
-
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  DropdownButtonFormField<String>(
-                    value: selectedLanguage,
-                    decoration: const InputDecoration(
-                      labelText: 'Idioma',
-                    ),
-                    items: supportedLanguages.entries
-                        .map(
-                          (entry) => DropdownMenuItem(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: onLanguageChanged,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Selecciona un idioma';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  CheckboxListTile(
-                    value: acceptedDisclosure,
-                    onChanged: onDisclosureChanged,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Acepto que PokéGrading es únicamente informativo y no sustituye evaluaciones oficiales de PSA, BGS ni CGC.',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : () async {
-                if (!acceptedDisclosure) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Debes aceptar el disclosure para continuar")
-                    )
-                  );
-                  return;
-                }
-                
-                await onRegister();
-              },
-              icon: isBusy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.send_rounded),
-              label: const Text('Enviar registro'),
-            ),
-          ] else ...[
-            Form(
-              key: confirmationFormKey,
-              child: TextFormField(
-                controller: tokenController,
-                decoration: const InputDecoration(
-                  labelText: 'Token de confirmación',
-                  hintText: '000000',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return 'El email es obligatorio';
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
+                      return 'Ingresa un email válido';
+                    }
+                    final lower = text.toLowerCase();
+                    if (!(lower.endsWith('.cr') || lower.endsWith('.com'))) {
+                      return 'El email debe terminar en .cr o .com';
+                    }
+                    return null;
+                  },
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return 'El token es obligatorio';
-                  }
-                  return null;
-                },
-              ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    hintText: 'ash_ketchum',
+                  ),
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return 'El username es obligatorio';
+                    if (text.length < 3)
+                      return 'Debe tener al menos 3 caracteres';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Mínimo 8 caracteres',
+                  ),
+                  validator: (value) {
+                    final text = value ?? '';
+                    if (text.isEmpty) return 'La contraseña es obligatoria';
+                    if (text.length < 8)
+                      return 'Debe tener al menos 8 caracteres';
+                    if (!RegExp(r'[A-Z]').hasMatch(text))
+                      return 'Debe contener una mayúscula';
+                    if (!RegExp(r'\d').hasMatch(text))
+                      return 'Debe contener un dígito';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: selectedCountry,
+                  decoration: const InputDecoration(
+                    labelText: 'País de residencia',
+                  ),
+                  items: supportedCountries.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: onCountryChanged,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Selecciona un país';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: selectedLanguage,
+                  decoration: const InputDecoration(
+                    labelText: 'Idioma',
+                  ),
+                  items: supportedLanguages.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: onLanguageChanged,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Selecciona un idioma';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 18),
+                CheckboxListTile(
+                  value: acceptedDisclosure,
+                  onChanged: onDisclosureChanged,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Acepto que PokéGrading es únicamente informativo y no sustituye evaluaciones oficiales de PSA, BGS ni CGC.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : () async => onConfirm(),
-              icon: isBusy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.verified_rounded),
-              label: const Text('Confirmar cuenta'),
-            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: isBusy
+                ? null
+                : () async {
+                    if (!acceptedDisclosure) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Debes aceptar el disclosure para continuar'),
+                        ),
+                      );
+                      return;
+                    }
+                    await onRegister();
+                  },
+            icon: isBusy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.send_rounded),
+            label: const Text('Crear cuenta'),
+          ),
+          if (authState.stage == RegisterStage.success) ...[
             const SizedBox(height: 12),
             TextButton(
-              onPressed: isBusy ? null : onReset,
-              child: const Text('Empezar de nuevo'),
-            ),
-          ],
-          if (authState.stage == RegisterStage.error) ...[
-            const SizedBox(height: 14),
-            const Text(
-              'Revisa el mensaje anterior y corrige los datos antes de continuar.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              onPressed: onReset,
+              child: const Text('Registrar otro usuario'),
             ),
           ],
         ],
@@ -676,15 +608,22 @@ class _MessageBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: success ? AppColors.success.withOpacity(0.15) : AppColors.error.withOpacity(0.15),
+        color: success
+            ? AppColors.success.withOpacity(0.15)
+            : AppColors.error.withOpacity(0.15),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: success ? AppColors.success.withOpacity(0.35) : AppColors.error.withOpacity(0.35),
+          color: success
+              ? AppColors.success.withOpacity(0.35)
+              : AppColors.error.withOpacity(0.35),
         ),
       ),
       child: Row(
         children: [
-          Icon(success ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+          Icon(
+              success
+                  ? Icons.check_circle_rounded
+                  : Icons.error_outline_rounded,
               color: success ? AppColors.success : AppColors.error),
           const SizedBox(width: 10),
           Expanded(

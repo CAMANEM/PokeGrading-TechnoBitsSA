@@ -17,7 +17,7 @@ Router buildRegisterRoutes(RegisterLogic registerLogic) {
     final acceptedDisclosure = payload['acceptedDisclosure'] == true;
 
     try {
-      final session = await registerLogic.register(
+      final user = await registerLogic.register(
         email: email,
         username: username,
         password: password,
@@ -29,45 +29,8 @@ Router buildRegisterRoutes(RegisterLogic registerLogic) {
       return jsonResponse(
         201,
         {
-          'status': 'pending_confirmation',
-          'message': 'Confirmation token sent to the provided email address.',
-          'email': session.email,
-          'username': session.username,
-          'expires_at': session.expiresAt.toIso8601String(),
-        },
-      );
-    } on RegisterLogicException catch (error) {
-      return jsonResponse(
-        registerStatusCodeFor(error.code),
-        {
-          'status': 'error',
-          'error': error.code,
-          'message': error.message,
-        },
-      );
-    } catch (error) {
-      return jsonResponse(
-        502,
-        {
-          'status': 'error',
-          'error': 'email_delivery_failed',
-          'message': error.toString(),
-        },
-      );
-    }
-  });
-
-  router.post('/confirm', (Request request) async {
-    final payload = await readJson(request);
-    final token = (payload['token'] ?? '').toString();
-
-    try {
-      final user = await registerLogic.confirm(token: token);
-      return jsonResponse(
-        200,
-        {
           'status': 'active',
-          'message': 'Account confirmed successfully.',
+          'message': 'Usuario registrado correctamente.',
           'user': {
             'id': user.id,
             'email': user.email,
@@ -89,7 +52,7 @@ Router buildRegisterRoutes(RegisterLogic registerLogic) {
         502,
         {
           'status': 'error',
-          'error': 'confirmation_failed',
+          'error': 'email_delivery_failed',
           'message': error.toString(),
         },
       );

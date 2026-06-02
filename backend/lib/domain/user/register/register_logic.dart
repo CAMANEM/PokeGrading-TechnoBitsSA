@@ -1,15 +1,13 @@
 /*
- Domain logic for user registration and confirmation.
+ Domain logic for user registration.
 
  This module implements the `RegisterLogic` use-case which performs input
- validation, coordinates with the `UserRepository` to create pending
- registrations, and sends confirmation tokens through a `ConfirmationEmailSender`.
+ validation, coordinates with the `UserRepository` to create active user
+ accounts directly, without email confirmation.
 
  Public API:
- - `RegisterLogic.register(...)` : starts a registration and sends a token
- - `RegisterLogic.confirm(...)` : confirms a registration using a token
- - `RegisterSession` : DTO returned when registration is started
- - `ConfirmedUser` : DTO returned after a successful confirmation
+ - `RegisterLogic.register(...)` : validates inputs and creates an active user
+ - `ConfirmedUser` : DTO returned after successful registration
 
  Errors are represented by `RegisterLogicException` using short `code`
  identifiers suitable for mapping to HTTP response codes and bodies.
@@ -17,14 +15,13 @@
 import '../user.dart';
 import '../user_repository.dart';
 import '../user_validators.dart';
-import '../../../persistence/user/confirmation_email_sender.dart';
 
 /*
  Represents an error raised by `RegisterLogic`.
 
  `code` is a short machine-friendly identifier (e.g. `invalid_email`,
- `email_exists`, `invalid_token`) and `message` provides a human-readable
- explanation for logs and client error messages.
+ `email_exists`) and `message` provides a human-readable explanation for
+ logs and client error messages.
 */
 class RegisterLogicException implements Exception {
   final String code;
@@ -37,27 +34,7 @@ class RegisterLogicException implements Exception {
 }
 
 /*
- DTO returned when a registration has been initiated.
-
- `email` and `username` reflect the pending registration details and
- `expiresAt` indicates when the confirmation token will expire.
-*/
-class RegisterSession {
-  final String email;
-  final String username;
-  final DateTime expiresAt;
-
-  const RegisterSession({
-    required this.email,
-    required this.username,
-    required this.expiresAt,
-  });
-}
-
-/*
- Value object returned after successful confirmation.
-
- Contains the persisted user's `id`, `email` and `username`.
+ Value object returned after successful registration.
 */
 class ConfirmedUser {
   final String id;
@@ -83,19 +60,13 @@ class ConfirmedUser {
  Core registration use-case.
 
  `register(...)` validates inputs, ensures uniqueness of email/username,
- creates a pending registration and sends a confirmation token via the
- configured `ConfirmationEmailSender`.
-
- `confirm(...)` completes a pending registration when provided with a
- valid token and returns a `ConfirmedUser`.
+ and creates an active user in the repository.
 */
 class RegisterLogic {
   final UserRepository repository;
-  final ConfirmationEmailSender emailSender;
 
   const RegisterLogic({
     required this.repository,
-    required this.emailSender,
   });
 
   /*
@@ -110,14 +81,13 @@ class RegisterLogic {
    - `acceptedDisclosure`: whether the user accepted required disclosures.
 
    Returns:
-   - A `RegisterSession` describing the pending registration and token
-     expiry.
+   - A `ConfirmedUser` representing the newly created user.
 
    Throws:
    - `RegisterLogicException` when validation fails or the identity is
-     already registered/pending.
+     already registered.
   */
-  Future<RegisterSession> register({
+  Future<ConfirmedUser> register({
     required String email,
     required String username,
     required String password,
@@ -162,7 +132,8 @@ class RegisterLogic {
       );
     }
 
-    final disclosureError = UserValidators.validateDisclosure(acceptedDisclosure);
+    final disclosureError =
+        UserValidators.validateDisclosure(acceptedDisclosure);
     if (disclosureError != null) {
       throw RegisterLogicException(
         code: 'disclosure_required',
@@ -181,18 +152,18 @@ class RegisterLogic {
     if (await repository.emailExists(email)) {
       throw RegisterLogicException(
         code: 'email_exists',
-        message: 'Email is already registered or pending confirmation',
+        message: 'Email is already registered.',
       );
     }
 
     if (await repository.usernameExists(username)) {
       throw RegisterLogicException(
         code: 'username_exists',
-        message: 'Username is already registered or pending confirmation',
+        message: 'Username is already registered.',
       );
     }
 
-    final pending = await repository.startRegistration(
+    final user = await repository.createUser(
       email: email,
       username: username,
       password: password,
@@ -201,50 +172,6 @@ class RegisterLogic {
       acceptedDisclosure: acceptedDisclosure,
     );
 
-    await emailSender.sendToken(
-      email: pending.email,
-      username: pending.username,
-      token: pending.token,
-      expiresAt: pending.expiresAt,
-    );
-
-    return RegisterSession(
-      email: pending.email,
-      username: pending.username,
-      expiresAt: pending.expiresAt,
-    );
-  }
-
-  /*
-   Confirms a pending registration using the provided token.
-
-   Parameters:
-   - `token`: confirmation token previously sent to the user's email.
-
-   Returns:
-   - `ConfirmedUser` for the persisted user on success.
-
-   Throws:
-   - `RegisterLogicException` with `code: 'invalid_token'` when the token
-     is empty, invalid or expired.
-  */
-  Future<ConfirmedUser> confirm({required String token}) async {
-    final normalizedToken = token.trim();
-    if (normalizedToken.isEmpty) {
-      throw RegisterLogicException(
-        code: 'invalid_token',
-        message: 'Token is required',
-      );
-    }
-
-    try {
-      final user = await repository.confirmRegistration(token: normalizedToken);
-      return ConfirmedUser.fromUser(user);
-    } on StateError {
-      throw const RegisterLogicException(
-        code: 'invalid_token',
-        message: 'Token is invalid or expired',
-      );
-    }
+    return ConfirmedUser.fromUser(user);
   }
 }

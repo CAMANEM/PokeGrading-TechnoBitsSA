@@ -30,7 +30,7 @@ class RegisterProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final pending = await _api.register(
+      final confirmed = await _api.register(
         email: email,
         username: username,
         password: password,
@@ -40,30 +40,9 @@ class RegisterProvider extends ChangeNotifier {
       );
 
       _state = _state.copyWith(
-        stage: RegisterStage.awaitingToken,
-        pendingRegistration: pending,
-        message: 'Check your email to confirm registration.',
-      );
-    } on RegisterApiException catch (error) {
-      _state = _state.copyWith(
-        stage: RegisterStage.error,
-        message: error.message,
-      );
-    }
-
-    notifyListeners();
-  }
-
-  Future<void> confirm({required String token}) async {
-    _state = _state.copyWith(stage: RegisterStage.confirming, message: null);
-    notifyListeners();
-
-    try {
-      final confirmed = await _api.confirm(token: token);
-      _state = _state.copyWith(
         stage: RegisterStage.success,
         confirmedUser: confirmed,
-        message: 'Account confirmed and registered successfully.',
+        message: 'Usuario registrado correctamente.',
       );
     } on RegisterApiException catch (error) {
       _state = _state.copyWith(

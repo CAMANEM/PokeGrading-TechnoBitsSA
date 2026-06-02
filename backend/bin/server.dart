@@ -12,6 +12,9 @@ import '../lib/application/app_router.dart';
 import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
+import '../lib/domain/user/user_repository.dart';
+import '../lib/persistence/user/memory_user_repository.dart';
+import '../lib/persistence/user/postgres_user_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -31,7 +34,20 @@ void main() async {
   log.info('   Environment: ${config.environment}');
   log.info('   Host       : ${config.host}:${config.port}');
 
-  final router = buildAppRouter(env, config, log);
+  late final UserRepository userRepository;
+  PostgresUserRepository? postgresRepository;
+
+  if (config.useMockRepositories) {
+    userRepository = MemoryUserRepository();
+    log.info(
+        'Using in-memory user repository because USE_MOCK_REPOSITORIES=true.');
+  } else {
+    postgresRepository = await PostgresUserRepository.connect(config.database);
+    userRepository = postgresRepository;
+    log.info('Using PostgreSQL user repository.');
+  }
+
+  final router = buildAppRouter(env, config, log, userRepository);
 
   final handler = const Pipeline()
       .addMiddleware(logRequests())
@@ -59,13 +75,18 @@ void main() async {
   log.info('✅ Server listening on http://$browserHost:${server.port}');
   log.info('   Health check: http://$browserHost:${server.port}/health');
 
-  _registerShutdownHandlers(server, log);
+  _registerShutdownHandlers(server, log, postgresRepository);
 }
 
-void _registerShutdownHandlers(HttpServer server, Logger log) {
+void _registerShutdownHandlers(
+    HttpServer server, Logger log, PostgresUserRepository? postgresRepository) {
   ProcessSignal.sigint.watch().listen((_) async {
     log.info('🛑 SIGINT signal received - Shutting down server...');
     await server.close(force: false);
+    if (postgresRepository != null) {
+      await postgresRepository.close();
+      log.info('   PostgreSQL connection closed.');
+    }
     log.info('   Server shut down successfully.');
     exit(0);
   });

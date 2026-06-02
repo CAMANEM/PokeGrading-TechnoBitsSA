@@ -8,7 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// PokéGrading Color Palette
 abstract class AppColors {
   // --- Primary Colors ---
-  static const primary = Color(0xFF6C63FF);       // Electric violet
+  static const primary = Color(0xFF6C63FF); // Electric violet
   static const primaryDark = Color(0xFF4A42E8);
   static const primaryLight = Color(0xFF9D97FF);
 
@@ -63,7 +63,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: AppColors.backgroundDark,
       textTheme: _buildTextTheme(AppColors.textPrimary),
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: AppColors.cardDark,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -119,28 +119,44 @@ class AppTheme {
   static TextTheme _buildTextTheme(Color baseColor) {
     return TextTheme(
       displayLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 48, fontWeight: FontWeight.w700, color: baseColor,
+        fontSize: 48,
+        fontWeight: FontWeight.w700,
+        color: baseColor,
       ),
       displayMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 36, fontWeight: FontWeight.w700, color: baseColor,
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: baseColor,
       ),
       headlineLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 28, fontWeight: FontWeight.w700, color: baseColor,
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: baseColor,
       ),
       headlineMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 22, fontWeight: FontWeight.w600, color: baseColor,
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        color: baseColor,
       ),
       titleLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 18, fontWeight: FontWeight.w600, color: baseColor,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: baseColor,
       ),
       bodyLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 16, fontWeight: FontWeight.w400, color: baseColor,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        color: baseColor,
       ),
       bodyMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 14, fontWeight: FontWeight.w400, color: baseColor,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: baseColor,
       ),
       labelLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 14, fontWeight: FontWeight.w600, color: baseColor,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: baseColor,
         letterSpacing: 0.5,
       ),
     );
