@@ -11,12 +11,60 @@ import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../navigation_history.dart';
 import 'create_card_api.dart';
 import 'create_card_provider.dart';
 import 'create_card_state.dart';
+
+_CreateCardDraft? _createCardDraft;
+
+class _CreateCardDraft {
+  final CreateCardStage stage;
+  final String set;
+  final String number;
+  final String edition;
+  final String language;
+  final String finish;
+  final String displayName;
+  final String hp;
+  final String illustrator;
+  final String year;
+  final String author;
+  final String? selectedLanguage;
+  final String? selectedRarity;
+  final String? selectedType;
+  final String? frontImageData;
+  final String? frontImageName;
+  final String? frontImageExtension;
+  final String? backImageData;
+  final String? backImageName;
+  final String? backImageExtension;
+
+  const _CreateCardDraft({
+    required this.stage,
+    required this.set,
+    required this.number,
+    required this.edition,
+    required this.language,
+    required this.finish,
+    required this.displayName,
+    required this.hp,
+    required this.illustrator,
+    required this.year,
+    required this.author,
+    required this.selectedLanguage,
+    required this.selectedRarity,
+    required this.selectedType,
+    required this.frontImageData,
+    required this.frontImageName,
+    required this.frontImageExtension,
+    required this.backImageData,
+    required this.backImageName,
+    required this.backImageExtension,
+  });
+}
 
 class CreateCardScreen extends StatefulWidget {
   const CreateCardScreen({super.key});
@@ -57,6 +105,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
   void initState() {
     super.initState();
     _provider = CreateCardProvider(CreateCardApi());
+    _restoreDraft();
   }
 
   @override
@@ -75,6 +124,78 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
     super.dispose();
   }
 
+  void _restoreDraft() {
+    final draft = _createCardDraft;
+    if (draft == null) {
+      return;
+    }
+
+    _setController.text = draft.set;
+    _numberController.text = draft.number;
+    _editionController.text = draft.edition;
+    _languageController.text = draft.language;
+    _finishController.text = draft.finish;
+    _displayNameController.text = draft.displayName;
+    _hpController.text = draft.hp;
+    _illustratorController.text = draft.illustrator;
+    _yearController.text = draft.year;
+    _authorController.text = draft.author;
+    _selectedLanguage = draft.selectedLanguage;
+    _selectedRarity = draft.selectedRarity;
+    _selectedType = draft.selectedType;
+    _selectedFrontImageData = draft.frontImageData;
+    _selectedFrontImageName = draft.frontImageName;
+    _selectedFrontImageExtension = draft.frontImageExtension;
+    _selectedBackImageData = draft.backImageData;
+    _selectedBackImageName = draft.backImageName;
+    _selectedBackImageExtension = draft.backImageExtension;
+
+    if (draft.stage != CreateCardStage.identity && _hasIdentityDraft(draft)) {
+      _provider.submitIdentity(
+        CardIdentityInput(
+          set: draft.set,
+          number: draft.number,
+          edition: draft.edition,
+          language: draft.language,
+          finish: draft.finish,
+        ),
+      );
+    }
+  }
+
+  bool _hasIdentityDraft(_CreateCardDraft draft) {
+    return draft.set.trim().isNotEmpty &&
+        draft.number.trim().isNotEmpty &&
+        draft.edition.trim().isNotEmpty &&
+        draft.language.trim().isNotEmpty &&
+        draft.finish.trim().isNotEmpty;
+  }
+
+  void _saveDraft(CreateCardStage stage) {
+    _createCardDraft = _CreateCardDraft(
+      stage: stage,
+      set: _setController.text,
+      number: _numberController.text,
+      edition: _editionController.text,
+      language: _languageController.text,
+      finish: _finishController.text,
+      displayName: _displayNameController.text,
+      hp: _hpController.text,
+      illustrator: _illustratorController.text,
+      year: _yearController.text,
+      author: _authorController.text,
+      selectedLanguage: _selectedLanguage,
+      selectedRarity: _selectedRarity,
+      selectedType: _selectedType,
+      frontImageData: _selectedFrontImageData,
+      frontImageName: _selectedFrontImageName,
+      frontImageExtension: _selectedFrontImageExtension,
+      backImageData: _selectedBackImageData,
+      backImageName: _selectedBackImageName,
+      backImageExtension: _selectedBackImageExtension,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -84,126 +205,145 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
         final busy = state.stage == CreateCardStage.submitting;
 
         return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.backgroundDark, AppColors.surfaceDark2],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 920),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Header(
-                      onBack: () {
-                        _provider.reset();
-                        context.go('/');
-                      },
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.backgroundDark, AppColors.surfaceDark2],
+              ),
+            ),
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 920),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Header(
+                          onBack: () {
+                            if (state.stage == CreateCardStage.image ||
+                                state.stage == CreateCardStage.error) {
+                              _provider.backToIdentity();
+                              return;
+                            }
+
+                            if (state.stage == CreateCardStage.submitting) {
+                              return;
+                            }
+
+                            _saveDraft(state.stage);
+                            goBackOrHome(context);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        _FlowProgress(stage: state.stage),
+                        const SizedBox(height: 16),
+                        if (state.message != null)
+                          _MessageBanner(message: state.message!),
+                        const SizedBox(height: 16),
+                        _buildStepCard(
+                          state: state,
+                          busy: busy,
+                          onSubmitIdentity: () {
+                            if (_identityFormKey.currentState?.validate() !=
+                                true) {
+                              return;
+                            }
+
+                            _provider.submitIdentity(
+                              CardIdentityInput(
+                                set: _setController.text,
+                                number: _numberController.text,
+                                edition: _editionController.text,
+                                language: _languageController.text,
+                                finish: _finishController.text,
+                              ),
+                            );
+                          },
+                          onSubmitImage: () async {
+                            if (_selectedFrontImageData == null ||
+                                _selectedBackImageData == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Debes cargar tanto la imagen frontal como la trasera')),
+                              );
+                              return;
+                            }
+
+                            final payload = CreateCardPayload(
+                              identity: CardIdentityInput(
+                                set: _setController.text,
+                                number: _numberController.text,
+                                edition: _editionController.text,
+                                language: _languageController.text,
+                                finish: _finishController.text,
+                              ),
+                              displayName: _displayNameController.text.trim(),
+                              rarity: _selectedRarity,
+                              pokemonType: _selectedType,
+                              hp: int.tryParse(_hpController.text.trim()),
+                              illustrator:
+                                  _illustratorController.text.trim().isEmpty
+                                      ? null
+                                      : _illustratorController.text.trim(),
+                              year: int.tryParse(_yearController.text.trim()),
+                              author: _authorController.text.trim().isEmpty
+                                  ? null
+                                  : _authorController.text.trim(),
+                              imageData: _selectedFrontImageData!,
+                              backImageData: _selectedBackImageData,
+                            );
+
+                            await _provider.submitImagePayload(payload);
+                          },
+                          onReset: () {
+                            _createCardDraft = null;
+                            _identityFormKey.currentState?.reset();
+                            _setController.clear();
+                            _numberController.clear();
+                            _editionController.clear();
+                            _languageController.clear();
+                            _finishController.clear();
+                            _displayNameController.clear();
+                            _hpController.clear();
+                            _illustratorController.clear();
+                            _yearController.clear();
+                            _authorController.clear();
+                            setState(() {
+                              _selectedFrontImageData = null;
+                              _selectedFrontImageName = null;
+                              _selectedFrontImageExtension = null;
+                              _selectedBackImageData = null;
+                              _selectedBackImageName = null;
+                              _selectedBackImageExtension = null;
+                              _selectedLanguage = null;
+                              _selectedRarity = null;
+                              _selectedType = null;
+                            });
+                            _provider.reset();
+                          },
+                          onRetryImage: _provider.retryFromImage,
+                          onPickFrontImage: () => _pickImage(isBack: false),
+                          onPickBackImage: () => _pickImage(isBack: true),
+                          selectedFrontImageName: _selectedFrontImageName,
+                          selectedFrontImageExtension:
+                              _selectedFrontImageExtension,
+                          selectedBackImageName: _selectedBackImageName,
+                          selectedBackImageExtension:
+                              _selectedBackImageExtension,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    _FlowProgress(stage: state.stage),
-                    const SizedBox(height: 16),
-                    if (state.message != null) _MessageBanner(message: state.message!),
-                    const SizedBox(height: 16),
-                    _buildStepCard(
-                      state: state,
-                      busy: busy,
-                      onSubmitIdentity: () {
-                        if (_identityFormKey.currentState?.validate() != true) {
-                          return;
-                        }
-
-                        _provider.submitIdentity(
-                          CardIdentityInput(
-                            set: _setController.text,
-                            number: _numberController.text,
-                            edition: _editionController.text,
-                            language: _languageController.text,
-                            finish: _finishController.text,
-                          ),
-                        );
-                      },
-                      onSubmitImage: () async {
-                        if (_selectedFrontImageData == null || _selectedBackImageData == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Debes cargar tanto la imagen frontal como la trasera')),
-                          );
-                          return;
-                        }
-
-                        final payload = CreateCardPayload(
-                          identity: CardIdentityInput(
-                            set: _setController.text,
-                            number: _numberController.text,
-                            edition: _editionController.text,
-                            language: _languageController.text,
-                            finish: _finishController.text,
-                          ),
-                          displayName: _displayNameController.text.trim(),
-                          rarity: _selectedRarity,
-                          pokemonType: _selectedType,
-                          hp: int.tryParse(_hpController.text.trim()),
-                          illustrator: _illustratorController.text.trim().isEmpty
-                              ? null
-                              : _illustratorController.text.trim(),
-                          year: int.tryParse(_yearController.text.trim()),
-                          author: _authorController.text.trim().isEmpty
-                              ? null
-                              : _authorController.text.trim(),
-                          imageData: _selectedFrontImageData!,
-                          backImageData: _selectedBackImageData,
-                        );
-
-                        await _provider.submitImagePayload(payload);
-                      },
-                      onReset: () {
-                        _identityFormKey.currentState?.reset();
-                        _setController.clear();
-                        _numberController.clear();
-                        _editionController.clear();
-                        _languageController.clear();
-                        _finishController.clear();
-                        _displayNameController.clear();
-                        _hpController.clear();
-                        _illustratorController.clear();
-                        _yearController.clear();
-                        _authorController.clear();
-                        setState(() {
-                          _selectedFrontImageData = null;
-                          _selectedFrontImageName = null;
-                          _selectedFrontImageExtension = null;
-                          _selectedBackImageData = null;
-                          _selectedBackImageName = null;
-                          _selectedBackImageExtension = null;
-                          _selectedLanguage = null;
-                          _selectedRarity = null;
-                          _selectedType = null;
-                        });
-                        _provider.reset();
-                      },
-                      onRetryImage: _provider.retryFromImage,
-                      onPickFrontImage: () => _pickImage(isBack: false),
-                      onPickBackImage: () => _pickImage(isBack: true),
-                      selectedFrontImageName: _selectedFrontImageName,
-                      selectedFrontImageExtension: _selectedFrontImageExtension,
-                      selectedBackImageName: _selectedBackImageName,
-                      selectedBackImageExtension: _selectedBackImageExtension,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }
@@ -231,11 +371,11 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
           editionController: _editionController,
           languageController: _languageController,
           finishController: _finishController,
-                          selectedLanguage: _selectedLanguage,
-                          onLanguageChanged: (value) => setState(() {
-                            _selectedLanguage = value;
-                            _languageController.text = value ?? '';
-                          }),
+          selectedLanguage: _selectedLanguage,
+          onLanguageChanged: (value) => setState(() {
+            _selectedLanguage = value;
+            _languageController.text = value ?? '';
+          }),
           displayNameController: _displayNameController,
           hpController: _hpController,
           illustratorController: _illustratorController,
@@ -436,7 +576,8 @@ class _StepBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: active ? AppColors.accent.withOpacity(0.2) : AppColors.surfaceDark,
+        color:
+            active ? AppColors.accent.withOpacity(0.2) : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active ? AppColors.accent : AppColors.borderDark,
@@ -462,15 +603,18 @@ class _MessageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isError = message.contains('rechazada') || message.contains('obligatorio');
+    final isError =
+        message.contains('rechazada') || message.contains('obligatorio');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: (isError ? AppColors.error : AppColors.success).withOpacity(0.12),
+        color:
+            (isError ? AppColors.error : AppColors.success).withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: (isError ? AppColors.error : AppColors.success).withOpacity(0.35),
+          color:
+              (isError ? AppColors.error : AppColors.success).withOpacity(0.35),
         ),
       ),
       child: Text(
@@ -622,7 +766,9 @@ class _IdentityForm extends StatelessWidget {
                       'Holo Rare',
                       'Ultra Rare',
                       'Secret Rare',
-                    ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                    ]
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
                     onChanged: onRarityChanged,
                   ),
                 ),
@@ -643,7 +789,9 @@ class _IdentityForm extends StatelessWidget {
                       'Metal',
                       'Dragon',
                       'Fairy',
-                    ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    ]
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
                     onChanged: onTypeChanged,
                   ),
                 ),
@@ -659,7 +807,8 @@ class _IdentityForm extends StatelessWidget {
                     keyboardType: TextInputType.number,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return null;
-                      if (int.tryParse(value.trim()) == null) return 'HP debe ser numérico';
+                      if (int.tryParse(value.trim()) == null)
+                        return 'HP debe ser numérico';
                       return null;
                     },
                   ),
@@ -686,7 +835,8 @@ class _IdentityForm extends StatelessWidget {
                       if (value == null || value.trim().isEmpty) return null;
                       final y = int.tryParse(value.trim());
                       if (y == null) return 'Año inválido';
-                      if (y < 1950 || y > DateTime.now().year) return 'Año fuera de rango';
+                      if (y < 1950 || y > DateTime.now().year)
+                        return 'Año fuera de rango';
                       return null;
                     },
                   ),
@@ -762,7 +912,10 @@ class _ImageForm extends StatelessWidget {
           // Front Image Section
           const Text(
             'Frente de la carta',
-            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -787,7 +940,10 @@ class _ImageForm extends StatelessWidget {
           // Back Image Section
           const Text(
             'Parte trasera de la carta',
-            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -830,7 +986,8 @@ class _ImageForm extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.upload_rounded),
-                  label: Text(busy ? 'Validando...' : 'Subir imágenes y agregar carta'),
+                  label: Text(
+                      busy ? 'Validando...' : 'Subir imágenes y agregar carta'),
                 ),
               ),
             ],
@@ -862,7 +1019,8 @@ class _SuccessCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+              Icon(Icons.check_circle_rounded,
+                  color: AppColors.success, size: 28),
               SizedBox(width: 10),
               Text(
                 'Carta registrada',
@@ -879,7 +1037,8 @@ class _SuccessCard extends StatelessWidget {
           const SizedBox(height: 8),
           _ResultRow(label: 'estado', value: result.cardStatus),
           const SizedBox(height: 8),
-          _ResultRow(label: 'creada', value: result.createdAt.toLocal().toString()),
+          _ResultRow(
+              label: 'creada', value: result.createdAt.toLocal().toString()),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: onReset,
@@ -912,7 +1071,8 @@ class _ResultRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           ),
         ),
       ],

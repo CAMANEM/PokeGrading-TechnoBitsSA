@@ -4,9 +4,9 @@
  This file contains the registration UI used by the frontend.
 */
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../navigation_history.dart';
 import 'register_api.dart';
 import 'register_provider.dart';
 import 'register_state.dart';
@@ -24,6 +24,26 @@ const supportedLanguages = {
   'es': 'Español',
   'en': 'English',
 };
+
+_RegisterDraft? _registerDraft;
+
+class _RegisterDraft {
+  final String email;
+  final String username;
+  final String password;
+  final String? selectedCountry;
+  final String? selectedLanguage;
+  final bool acceptedDisclosure;
+
+  const _RegisterDraft({
+    required this.email,
+    required this.username,
+    required this.password,
+    required this.selectedCountry,
+    required this.selectedLanguage,
+    required this.acceptedDisclosure,
+  });
+}
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -48,6 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _provider = RegisterProvider(RegisterApi());
+    _restoreDraft();
   }
 
   @override
@@ -57,6 +78,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _restoreDraft() {
+    final draft = _registerDraft;
+    if (draft == null) {
+      return;
+    }
+
+    _emailController.text = draft.email;
+    _usernameController.text = draft.username;
+    _passwordController.text = draft.password;
+    _selectedCountry = draft.selectedCountry;
+    _selectedLanguage = draft.selectedLanguage;
+    _acceptedDisclosure = draft.acceptedDisclosure;
+  }
+
+  void _saveDraft() {
+    _registerDraft = _RegisterDraft(
+      email: _emailController.text,
+      username: _usernameController.text,
+      password: _passwordController.text,
+      selectedCountry: _selectedCountry,
+      selectedLanguage: _selectedLanguage,
+      acceptedDisclosure: _acceptedDisclosure,
+    );
   }
 
   @override
@@ -84,7 +130,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _Header(onBack: () => context.go('/')),
+                        _Header(
+                          onBack: () {
+                            _saveDraft();
+                            goBackOrHome(context);
+                          },
+                        ),
                         const SizedBox(height: 24),
                         LayoutBuilder(
                           builder: (context, constraints) {
@@ -133,6 +184,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 );
                               },
                               onReset: () {
+                                _registerDraft = null;
                                 _registrationFormKey.currentState?.reset();
                                 _emailController.clear();
                                 _usernameController.clear();

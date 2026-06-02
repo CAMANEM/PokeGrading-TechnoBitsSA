@@ -7,6 +7,7 @@ class SubmitEvaluationProvider extends ChangeNotifier {
   SubmitEvaluationProvider(this._api);
 
   final SubmitEvaluationApi _api;
+  SubmitEvaluationPayload? _lastPayload;
 
   SubmitEvaluationState _state = const SubmitEvaluationState.initial();
 
@@ -15,6 +16,7 @@ class SubmitEvaluationProvider extends ChangeNotifier {
   Future<void> submit(
     SubmitEvaluationPayload payload,
   ) async {
+    _lastPayload = payload;
     _state = _state.copyWith(
       stage: SubmitEvaluationStage.submitting,
       message: null,
@@ -40,16 +42,23 @@ class SubmitEvaluationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void retry() {
-    _state = _state.copyWith(
-      stage: SubmitEvaluationStage.capture,
-      message: null,
-    );
+  Future<void> retry() async {
+    final payload = _lastPayload;
+    if (payload == null) {
+      _state = _state.copyWith(
+        stage: SubmitEvaluationStage.capture,
+        message: null,
+      );
 
-    notifyListeners();
+      notifyListeners();
+      return;
+    }
+
+    await submit(payload);
   }
 
   void reset() {
+    _lastPayload = null;
     _state = const SubmitEvaluationState.initial();
 
     notifyListeners();

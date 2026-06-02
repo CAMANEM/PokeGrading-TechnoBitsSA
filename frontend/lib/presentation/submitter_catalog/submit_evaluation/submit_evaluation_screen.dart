@@ -2,13 +2,33 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import 'submit_evaluation_api.dart';
 import 'submit_evaluation_provider.dart';
 import 'submit_evaluation_state.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../navigation_history.dart';
+
+_SubmitEvaluationDraft? _submitEvaluationDraft;
+
+class _SubmitEvaluationDraft {
+  final String? frontImageData;
+  final String? frontImageName;
+  final String? frontImageExtension;
+  final String? backImageData;
+  final String? backImageName;
+  final String? backImageExtension;
+
+  const _SubmitEvaluationDraft({
+    this.frontImageData,
+    this.frontImageName,
+    this.frontImageExtension,
+    this.backImageData,
+    this.backImageName,
+    this.backImageExtension,
+  });
+}
 
 class SubmitEvaluationScreen extends StatefulWidget {
   const SubmitEvaluationScreen({super.key});
@@ -33,12 +53,38 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   void initState() {
     super.initState();
     _provider = SubmitEvaluationProvider(SubmitEvaluationApi());
+    _restoreDraft();
   }
 
   @override
   void dispose() {
     _provider.dispose();
     super.dispose();
+  }
+
+  void _restoreDraft() {
+    final draft = _submitEvaluationDraft;
+    if (draft == null) {
+      return;
+    }
+
+    _selectedFrontImageData = draft.frontImageData;
+    _selectedFrontImageName = draft.frontImageName;
+    _selectedFrontImageExtension = draft.frontImageExtension;
+    _selectedBackImageData = draft.backImageData;
+    _selectedBackImageName = draft.backImageName;
+    _selectedBackImageExtension = draft.backImageExtension;
+  }
+
+  void _saveDraft() {
+    _submitEvaluationDraft = _SubmitEvaluationDraft(
+      frontImageData: _selectedFrontImageData,
+      frontImageName: _selectedFrontImageName,
+      frontImageExtension: _selectedFrontImageExtension,
+      backImageData: _selectedBackImageData,
+      backImageName: _selectedBackImageName,
+      backImageExtension: _selectedBackImageExtension,
+    );
   }
 
   @override
@@ -69,15 +115,18 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                       children: [
                         _Header(
                           onBack: () {
-                            _provider.reset();
-                            context.go('/');
+                            _saveDraft();
+                            goBackOrHome(context);
                           },
                         ),
                         const SizedBox(height: 24),
                         _FlowProgress(stage: state.stage),
                         const SizedBox(height: 16),
                         if (state.message != null)
-                          _MessageBanner(message: state.message!),
+                          _MessageBanner(
+                            message: state.message!,
+                            isError: state.stage == SubmitEvaluationStage.error,
+                          ),
                         const SizedBox(height: 16),
                         _buildStepCard(
                           state: state,
@@ -101,6 +150,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                             await _provider.submit(payload);
                           },
                           onReset: () {
+                            _submitEvaluationDraft = null;
                             setState(() {
                               _selectedFrontImageData = null;
                               _selectedFrontImageName = null;
@@ -138,7 +188,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
     required bool busy,
     required Future<void> Function() onSubmit,
     required VoidCallback onReset,
-    required VoidCallback onRetry,
+    required Future<void> Function() onRetry,
     required Future<void> Function() onPickFrontImage,
     required Future<void> Function() onPickBackImage,
     required String? selectedFrontImageName,
@@ -304,7 +354,7 @@ class _CaptureForm extends StatelessWidget {
   final String? selectedBackImageExtension;
   final bool busy;
   final bool isError;
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
   final Future<void> Function() onPickFrontImage;
   final Future<void> Function() onPickBackImage;
   final Future<void> Function() onSubmit;
@@ -395,9 +445,9 @@ class _CaptureForm extends StatelessWidget {
               if (isError)
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: busy ? null : onRetry,
+                    onPressed: busy ? null : () => onRetry(),
                     icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Reintentar imagen'),
+                    label: const Text('Reintentar envio'),
                   ),
                 ),
               if (isError) const SizedBox(width: 12),
@@ -425,23 +475,25 @@ class _CaptureForm extends StatelessWidget {
 
 class _MessageBanner extends StatelessWidget {
   final String message;
+  final bool isError;
 
-  const _MessageBanner({required this.message});
+  const _MessageBanner({
+    required this.message,
+    required this.isError,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isError =
-        message.contains('rechazada') || message.contains('obligatorio');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color:
-            (isError ? AppColors.error : AppColors.success).withOpacity(0.12),
+        color: (isError ? AppColors.error : AppColors.success)
+            .withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color:
-              (isError ? AppColors.error : AppColors.success).withOpacity(0.35),
+          color: (isError ? AppColors.error : AppColors.success)
+              .withValues(alpha: 0.35),
         ),
       ),
       child: Text(
@@ -466,8 +518,9 @@ class _StepBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color:
-            active ? AppColors.accent.withOpacity(0.2) : AppColors.surfaceDark,
+        color: active
+            ? AppColors.accent.withValues(alpha: 0.2)
+            : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active ? AppColors.accent : AppColors.borderDark,
@@ -537,7 +590,7 @@ class _SuccessCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.success.withOpacity(0.5)),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

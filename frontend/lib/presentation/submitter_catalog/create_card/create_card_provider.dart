@@ -99,4 +99,12 @@ class CreateCardProvider extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  void backToIdentity() {
+    _state = _state.copyWith(
+      stage: CreateCardStage.identity,
+      message: null,
+    );
+    notifyListeners();
+  }
 }
