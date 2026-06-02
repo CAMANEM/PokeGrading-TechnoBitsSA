@@ -117,7 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 });
                               },
                               onRegister: () async {
-                                if (_registrationFormKey.currentState?.validate() != true) {
+                                if (_registrationFormKey.currentState
+                                        ?.validate() !=
+                                    true) {
                                   return;
                                 }
 
@@ -233,7 +235,8 @@ class _IntroPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.verified_user_rounded, color: AppColors.accent, size: 34),
+          const Icon(Icons.verified_user_rounded,
+              color: AppColors.accent, size: 34),
           const SizedBox(height: 18),
           Text(
             'Registro directo',
@@ -293,7 +296,8 @@ class _FlowCard extends StatelessWidget {
         color: active ? AppColors.surfaceDark2 : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: active ? AppColors.accent.withOpacity(0.5) : AppColors.borderDark,
+          color:
+              active ? AppColors.accent.withOpacity(0.5) : AppColors.borderDark,
         ),
       ),
       child: Row(
@@ -302,11 +306,15 @@ class _FlowCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: active ? AppColors.accent : AppColors.primary.withOpacity(0.25),
+              color: active
+                  ? AppColors.accent
+                  : AppColors.primary.withOpacity(0.25),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              active ? Icons.check_rounded : Icons.radio_button_unchecked_rounded,
+              active
+                  ? Icons.check_rounded
+                  : Icons.radio_button_unchecked_rounded,
               color: active ? AppColors.textOnDark : AppColors.primaryLight,
               size: 20,
             ),
@@ -316,9 +324,14 @@ class _FlowCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                Text(title,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),
           ),
@@ -346,9 +359,12 @@ class _SuccessBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Cuenta activa', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w700)),
+          const Text('Cuenta activa',
+              style: TextStyle(
+                  color: AppColors.success, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('${user.username} <${user.email}>', style: const TextStyle(color: AppColors.textPrimary)),
+          Text('${user.username} <${user.email}>',
+              style: const TextStyle(color: AppColors.textPrimary)),
         ],
       ),
     );
@@ -402,16 +418,24 @@ class _FormPanel extends StatelessWidget {
         children: [
           Text(
             'Datos de registro',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppColors.textPrimary),
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(color: AppColors.textPrimary),
           ),
           const SizedBox(height: 12),
           Text(
             'Completa el formulario para crear tu cuenta sin envío de correo de confirmación.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
           if (authState.message != null) ...[
-            _MessageBanner(message: authState.message!, success: authState.stage == RegisterStage.success),
+            _MessageBanner(
+                message: authState.message!,
+                success: authState.stage == RegisterStage.success),
             const SizedBox(height: 18),
           ],
           Form(
@@ -431,6 +455,10 @@ class _FormPanel extends StatelessWidget {
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
                       return 'Ingresa un email válido';
                     }
+                    final lower = text.toLowerCase();
+                    if (!(lower.endsWith('.cr') || lower.endsWith('.com'))) {
+                      return 'El email debe terminar en .cr o .com';
+                    }
                     return null;
                   },
                 ),
@@ -444,7 +472,8 @@ class _FormPanel extends StatelessWidget {
                   validator: (value) {
                     final text = (value ?? '').trim();
                     if (text.isEmpty) return 'El username es obligatorio';
-                    if (text.length < 3) return 'Debe tener al menos 3 caracteres';
+                    if (text.length < 3)
+                      return 'Debe tener al menos 3 caracteres';
                     return null;
                   },
                 ),
@@ -459,9 +488,12 @@ class _FormPanel extends StatelessWidget {
                   validator: (value) {
                     final text = value ?? '';
                     if (text.isEmpty) return 'La contraseña es obligatoria';
-                    if (text.length < 8) return 'Debe tener al menos 8 caracteres';
-                    if (!RegExp(r'[A-Z]').hasMatch(text)) return 'Debe contener una mayúscula';
-                    if (!RegExp(r'\d').hasMatch(text)) return 'Debe contener un dígito';
+                    if (text.length < 8)
+                      return 'Debe tener al menos 8 caracteres';
+                    if (!RegExp(r'[A-Z]').hasMatch(text))
+                      return 'Debe contener una mayúscula';
+                    if (!RegExp(r'\d').hasMatch(text))
+                      return 'Debe contener un dígito';
                     return null;
                   },
                 ),
@@ -534,7 +566,8 @@ class _FormPanel extends StatelessWidget {
                     if (!acceptedDisclosure) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Debes aceptar el disclosure para continuar'),
+                          content: Text(
+                              'Debes aceptar el disclosure para continuar'),
                         ),
                       );
                       return;
@@ -545,7 +578,8 @@ class _FormPanel extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.send_rounded),
             label: const Text('Crear cuenta'),
@@ -574,15 +608,22 @@ class _MessageBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: success ? AppColors.success.withOpacity(0.15) : AppColors.error.withOpacity(0.15),
+        color: success
+            ? AppColors.success.withOpacity(0.15)
+            : AppColors.error.withOpacity(0.15),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: success ? AppColors.success.withOpacity(0.35) : AppColors.error.withOpacity(0.35),
+          color: success
+              ? AppColors.success.withOpacity(0.35)
+              : AppColors.error.withOpacity(0.35),
         ),
       ),
       child: Row(
         children: [
-          Icon(success ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+          Icon(
+              success
+                  ? Icons.check_circle_rounded
+                  : Icons.error_outline_rounded,
               color: success ? AppColors.success : AppColors.error),
           const SizedBox(width: 10),
           Expanded(

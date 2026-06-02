@@ -32,10 +32,14 @@ class UserValidators {
     if (value.isEmpty) {
       return 'Email is required';
     }
-
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
     if (!emailRegex.hasMatch(value)) {
       return 'Invalid email format';
+    }
+
+    final lower = value.toLowerCase();
+    if (!(lower.endsWith('.cr') || lower.endsWith('.com'))) {
+      return 'Email must end with .cr or .com';
     }
 
     return null;
