@@ -76,11 +76,11 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _Header(
-                          onBack: () {
-                            _provider.reset();
-                            context.go('/');
-                          },
-                        ),
+                            onBack: () {
+                              _provider.reset();
+                              context.go('/');
+                            },
+                            state: state),
                         const SizedBox(height: 24),
                         if (state.message != null)
                           _MessageBanner(
@@ -237,8 +237,9 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
+  final SearchCardState state;
 
-  const _Header({required this.onBack});
+  const _Header({required this.onBack, required this.state});
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +258,9 @@ class _Header extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Imagen PNG/JPG/HEIC.',
+              state.stage == SearchCardStage.capture
+                  ? 'Imagen PNG/JPG/HEIC.'
+                  : 'Ingrese datos de identidad',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondary,
                   ),

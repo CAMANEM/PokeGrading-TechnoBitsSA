@@ -17,6 +17,8 @@ import '../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart';
 import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
 import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
+import '../domain/submitter_catalog/search_card/search_logic.dart';
+import '../domain/submitter_catalog/search_card/confidence_score.dart';
 import '../persistence/user/confirmation_email_sender.dart';
 import '../persistence/user/memory_user_repository.dart';
 import '../persistence/user/mock_confirmation_email_sender.dart';
@@ -52,7 +54,6 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
 
   final catalogRepository = MockCatalogRepository();
   final createCardLogic = CreateCardLogic(repository: catalogRepository);
-  final createCardRouter = buildCreateCardRoutes(createCardLogic);
 
   final evaluationRepository = MockEvaluationRepository();
   final imageQualityService = ImageQualityService();
@@ -63,11 +64,20 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
       polyglotDetector: polyglotDetector);
   final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
 
+  final confidenceScore = ConfidenceScore();
+  final searchCardLogic = SearchLogic(
+    repository: catalogRepository,
+    imageQualityService: imageQualityService,
+    confidenceScore: confidenceScore,
+  );
+
+  final catalogRouter = buildCatalogRoutes(createCardLogic, searchCardLogic);
+
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
 
   router.mount('/api/v1/auth/', registerRouter.call);
-  router.mount('/api/v1/catalog/', createCardRouter.call);
+  router.mount('/api/v1/catalog/', catalogRouter.call);
   router.mount('/api/v1/', evaluationRouter.call);
 
   if (!config.useMockRepositories) {

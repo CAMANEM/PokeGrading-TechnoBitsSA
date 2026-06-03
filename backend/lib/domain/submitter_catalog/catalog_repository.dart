@@ -59,13 +59,5 @@ abstract class CatalogRepository {
 
   Future<PokemonCard?> findById(String id);
 
-  Future<List<PokemonCard>> findAllCards();
-
-  Future<PokemonCard?> searchByIdentity(
-    String? set,
-    String? number,
-    String? edition,
-    String? language,
-    String? finish,
-  );
+  Future<List<PokemonCard>> searchCards();
 }
