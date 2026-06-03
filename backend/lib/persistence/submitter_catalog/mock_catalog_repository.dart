@@ -96,6 +96,28 @@ class MockCatalogRepository implements CatalogRepository {
     return _cardsById[id];
   }
 
+  @override
+  Future<List<PokemonCard>> searchCards({
+    required String query,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final lowerQuery = query.toLowerCase().trim();
+    if (lowerQuery.isEmpty) {
+      return _cardsById.values.toList().skip(offset).take(limit).toList();
+    }
+
+    final results = _cardsById.values.where((card) {
+      final matchesSet = card.set.toLowerCase().contains(lowerQuery);
+      final matchesNumber = card.number.toLowerCase().contains(lowerQuery);
+      final matchesDisplayName = card.displayName?.toLowerCase().contains(lowerQuery) ?? false;
+      final matchesEdition = card.edition.toLowerCase().contains(lowerQuery);
+      return matchesSet || matchesNumber || matchesDisplayName || matchesEdition;
+    }).toList();
+
+    return results.skip(offset).take(limit).toList();
+  }
+
   String _identityKey({
     required String set,
     required String number,

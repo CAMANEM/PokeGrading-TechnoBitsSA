@@ -58,4 +58,10 @@ abstract class CatalogRepository {
   Future<PokemonCard> saveCard(AddPokemonCardInput input);
 
   Future<PokemonCard?> findById(String id);
+
+  Future<List<PokemonCard>> searchCards({
+    required String query,
+    int limit = 20,
+    int offset = 0,
+  });
 }

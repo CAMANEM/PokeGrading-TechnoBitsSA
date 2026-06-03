@@ -132,6 +132,7 @@ class CreateCardLogic {
   Future<CardCreatedResult> create(CreateCardCommand command) async {
     _validateIdentity(command);
     _validateImage(command.imageData);
+    _validateBackImage(command.backImageData);
 
     final duplicated = await repository.identityTupleExists(
       set: command.set,
@@ -171,6 +172,18 @@ class CreateCardLogic {
       cardId: created.id,
       status: created.status,
       createdAt: created.createdAt,
+    );
+  }
+
+  Future<List<PokemonCard>> searchCards({
+    required String query,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    return repository.searchCards(
+      query: query,
+      limit: limit,
+      offset: offset,
     );
   }
 
@@ -245,6 +258,22 @@ class CreateCardLogic {
 
   void _validateImage(String imageData) {
     final imageError = CatalogValidators.validateImageData(imageData);
+    if (imageError != null) {
+      throw CreateCardLogicException(
+        code: 'image_rejected',
+        message: imageError,
+      );
+    }
+  }
+
+  void _validateBackImage(String? backImageData) {
+    if (backImageData == null || backImageData.isEmpty) {
+      throw const CreateCardLogicException(
+        code: 'image_rejected',
+        message: 'Back image is required',
+      );
+    }
+    final imageError = CatalogValidators.validateImageData(backImageData);
     if (imageError != null) {
       throw CreateCardLogicException(
         code: 'image_rejected',

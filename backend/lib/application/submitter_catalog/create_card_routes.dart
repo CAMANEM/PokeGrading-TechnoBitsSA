@@ -7,6 +7,56 @@ import '../http_helpers.dart';
 Router buildCreateCardRoutes(CreateCardLogic createCardLogic) {
   final router = Router();
 
+  router.get('/cards/search', (Request request) async {
+    final query = request.url.queryParameters['q'] ?? '';
+    final limit = int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 20;
+    final offset = int.tryParse(request.url.queryParameters['offset'] ?? '') ?? 0;
+
+    try {
+      final results = await createCardLogic.searchCards(
+        query: query,
+        limit: limit,
+        offset: offset,
+      );
+
+      final cardsJson = results.map((card) => {
+        'card_id': card.id,
+        'set': card.set,
+        'number': card.number,
+        'edition': card.edition,
+        'language': card.language,
+        'finish': card.finish,
+        'display_name': card.displayName,
+        'rarity': card.rarity,
+        'type': card.pokemonType,
+        'hp': card.hp,
+        'illustrator': card.illustrator,
+        'year': card.year,
+        'status': card.status.name,
+        'created_at': card.createdAt.toIso8601String(),
+      }).toList();
+
+      return jsonResponse(
+        200,
+        {
+          'status': 'ok',
+          'message': 'Search results',
+          'total': results.length,
+          'cards': cardsJson,
+        },
+      );
+    } catch (error) {
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'search_failed',
+          'message': error.toString(),
+        },
+      );
+    }
+  });
+
   router.post('/cards', (Request request) async {
     final payload = await readJson(request);
     final set = (payload['set'] ?? '').toString();
