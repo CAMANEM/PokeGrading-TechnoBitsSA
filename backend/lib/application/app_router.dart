@@ -18,7 +18,7 @@ import '../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart';
 import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
 import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
-import '../persistence/submitter_catalog/mock_catalog_repository.dart';
+import '../domain/submitter_catalog/catalog_repository.dart';
 import '../persistence/submitter_catalog/mock_evaluation_repository.dart';
 import 'submitter_catalog/create_card_routes.dart';
 import 'user/register_routes.dart';
@@ -36,7 +36,7 @@ import 'submitter_catalog/submit_evaluation_routes.dart';
  - A `Router` with mounted routes: root, health, auth and catalog sub-routers.
 */
 Router buildAppRouter(
-    DotEnv env, AppConfig config, Logger log, UserRepository userRepository) {
+    DotEnv env, AppConfig config, Logger log, UserRepository userRepository, CatalogRepository catalogRepository) {
   final router = Router();
 
   final registerLogic = RegisterLogic(
@@ -44,7 +44,6 @@ Router buildAppRouter(
   );
   final registerRouter = buildRegisterRoutes(registerLogic);
 
-  final catalogRepository = MockCatalogRepository();
   final createCardLogic = CreateCardLogic(repository: catalogRepository);
   final createCardRouter = buildCreateCardRoutes(createCardLogic);
 

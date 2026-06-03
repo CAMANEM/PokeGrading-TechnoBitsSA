@@ -46,6 +46,15 @@ class AddPokemonCardInput {
 /*
  Abstract repository interface for catalog operations.
 */
+class CatalogIdentityConflictException implements Exception {
+  final String message;
+
+  const CatalogIdentityConflictException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 abstract class CatalogRepository {
   Future<bool> identityTupleExists({
     required String set,

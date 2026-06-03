@@ -203,6 +203,19 @@ flutter run -d chrome --web-port 3000
 
 ---
 
+# Consulta a DB desde el directorio principal del repo
+
+```bash
+docker exec -it pokegrading_postgres psql -U pokegrading_user -d pokegrading
+```
+```bash
+SELECT id_usuario, username, email, fecha_creacion FROM "USUARIO";
+```
+```bash
+\q
+```
+
+
 ## 📂 Estructura de Directorios
 
 ```

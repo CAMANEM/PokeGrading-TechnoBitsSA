@@ -5,6 +5,7 @@
  converts responses into frontend DTOs defined in `register_state.dart`.
  It throws `RegisterApiException` on non-successful results.
 */
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -35,18 +36,20 @@ class RegisterApi {
     required bool acceptedDisclosure,
   }) async {
     final uri = Uri.parse('${AppConfig.apiUrl}/auth/register');
-    final response = await _client.post(
-      uri,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'username': username,
-        'password': password,
-        'country': country,
-        'language': language,
-        'acceptedDisclosure': acceptedDisclosure,
-      }),
-    );
+    final response = await _client
+        .post(
+          uri,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'email': email,
+            'username': username,
+            'password': password,
+            'country': country,
+            'language': language,
+            'acceptedDisclosure': acceptedDisclosure,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
 
     final payload = _decodeResponse(response.body);
     if (response.statusCode == 201) {

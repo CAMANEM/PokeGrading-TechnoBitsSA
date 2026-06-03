@@ -108,6 +108,9 @@ class CreateCardLogic {
   /// Repository used to persist and query catalog data.
   final CatalogRepository repository;
 
+  static const String _identityConflictMessage =
+      'Identidad rechazada: ya existe una carta con la misma combinación de Set, Número, Edición, Idioma y Acabado.';
+
   /// Creates a new `CreateCardLogic` instance.
   /* Creates a new `CreateCardLogic` instance. */
   const CreateCardLogic({required this.repository}); 
@@ -144,34 +147,41 @@ class CreateCardLogic {
     if (duplicated) {
       throw const CreateCardLogicException(
         code: 'identity_rejected',
-        message: 'Identity rejected',
+        message: _identityConflictMessage,
       );
     }
 
-    final created = await repository.saveCard(
-      AddPokemonCardInput(
-        set: command.set,
-        number: command.number,
-        edition: command.edition,
-        language: command.language,
-        finish: command.finish,
-        displayName: command.displayName,
-        rarity: command.rarity,
-        pokemonType: command.pokemonType,
-        hp: command.hp,
-        illustrator: command.illustrator,
-        year: command.year,
-        author: command.author,
-        imageData: command.imageData,
-        backImageData: command.backImageData,
-      ),
-    );
+    try {
+      final created = await repository.saveCard(
+        AddPokemonCardInput(
+          set: command.set,
+          number: command.number,
+          edition: command.edition,
+          language: command.language,
+          finish: command.finish,
+          displayName: command.displayName,
+          rarity: command.rarity,
+          pokemonType: command.pokemonType,
+          hp: command.hp,
+          illustrator: command.illustrator,
+          year: command.year,
+          author: command.author,
+          imageData: command.imageData,
+          backImageData: command.backImageData,
+        ),
+      );
 
-    return CardCreatedResult(
-      cardId: created.id,
-      status: created.status,
-      createdAt: created.createdAt,
-    );
+      return CardCreatedResult(
+        cardId: created.id,
+        status: created.status,
+        createdAt: created.createdAt,
+      );
+    } on CatalogIdentityConflictException {
+      throw const CreateCardLogicException(
+        code: 'identity_rejected',
+        message: _identityConflictMessage,
+      );
+    }
   }
 
   // Private helpers validate parts of the command. These throw

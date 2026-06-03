@@ -33,7 +33,7 @@ class AppConfig {
   /// Builds [AppConfig] from environment variables.
   factory AppConfig.fromEnv(DotEnv env) {
     final environment = env['APP_ENV'] ?? 'development';
-    final useMock = (env['USE_MOCK_REPOSITORIES'] ?? 'false').toLowerCase() == 'true';
+    final useMock = (env['USE_MOCK_REPOSITORIES'] ?? 'true').toLowerCase() == 'true';
 
     return AppConfig(
       environment: environment,
@@ -86,14 +86,14 @@ class DatabaseConfig {
 
   factory DatabaseConfig.fromEnv(DotEnv env) {
     return DatabaseConfig(
-      host: env['DB_HOST'] ?? 'localhost',
-      port: int.tryParse(env['DB_PORT'] ?? '') ?? 5432,
-      name: env['DB_NAME'] ?? 'pokegrading',
-      user: env['DB_USER'] ?? 'pokegrading_user',
-      password: env['DB_PASSWORD'] ?? 'pokegrading_secret',
-      maxConnections: int.tryParse(env['DB_MAX_CONNECTIONS'] ?? '') ?? 10,
+      host: (env['DB_HOST'] ?? 'localhost').trim(),
+      port: int.tryParse(env['DB_PORT']?.trim() ?? '') ?? 5432,
+      name: (env['DB_NAME'] ?? 'pokegrading').trim(),
+      user: (env['DB_USER'] ?? 'pokegrading_user').trim(),
+      password: (env['DB_PASSWORD'] ?? 'pokegrading_secret').trim(),
+      maxConnections: int.tryParse(env['DB_MAX_CONNECTIONS']?.trim() ?? '') ?? 10,
       connectionTimeout: Duration(
-        seconds: int.tryParse(env['DB_CONNECTION_TIMEOUT'] ?? '') ?? 30,
+        seconds: int.tryParse(env['DB_CONNECTION_TIMEOUT']?.trim() ?? '') ?? 30,
       ),
     );
   }
