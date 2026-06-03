@@ -39,6 +39,20 @@ class MockCatalogRepository implements CatalogRepository {
 
   @override
   Future<PokemonCard> saveCard(AddPokemonCardInput input) async {
+    final key = _identityKey(
+      set: input.set,
+      number: input.number,
+      edition: input.edition,
+      language: input.language,
+      finish: input.finish,
+    );
+
+    if (_identityKeys.contains(key)) {
+      throw const CatalogIdentityConflictException(
+        'Identidad rechazada: ya existe una carta con la misma combinación de Set, Número, Edición, Idioma y Acabado.',
+      );
+    }
+
     final id = _idGenerator.generateCardId();
     final now = DateTime.now().toUtc();
     final card = PokemonCard(
@@ -76,14 +90,6 @@ class MockCatalogRepository implements CatalogRepository {
         }
       ],
       createdAt: now,
-    );
-
-    final key = _identityKey(
-      set: card.set,
-      number: card.number,
-      edition: card.edition,
-      language: card.language,
-      finish: card.finish,
     );
 
     _cardsById[id] = card;

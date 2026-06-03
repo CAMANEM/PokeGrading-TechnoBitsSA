@@ -49,6 +49,11 @@ class RegisterProvider extends ChangeNotifier {
         stage: RegisterStage.error,
         message: error.message,
       );
+    } catch (error) {
+      _state = _state.copyWith(
+        stage: RegisterStage.error,
+        message: 'No se pudo completar el registro: ${error.toString()}',
+      );
     }
 
     notifyListeners();

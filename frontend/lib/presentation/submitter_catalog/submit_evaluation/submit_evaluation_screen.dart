@@ -489,11 +489,11 @@ class _MessageBanner extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: (isError ? AppColors.error : AppColors.success)
-            .withValues(alpha: 0.12),
+            .withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: (isError ? AppColors.error : AppColors.success)
-              .withValues(alpha: 0.35),
+              .withOpacity(0.35),
         ),
       ),
       child: Text(
@@ -519,7 +519,7 @@ class _StepBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
         color: active
-            ? AppColors.accent.withValues(alpha: 0.2)
+            ? AppColors.accent.withOpacity(0.2)
             : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -590,7 +590,7 @@ class _SuccessCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.success.withOpacity(0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
