@@ -25,7 +25,7 @@ Router buildCatalogRoutes(
         final card = candidate.card;
 
         return {
-          'card_id': card.id,
+          'id': card.id,
           'name': card.displayName,
           'confidence': candidate.confidence,
         };
@@ -104,7 +104,7 @@ Router buildCatalogRoutes(
         {
           'status': 'single_candidate',
           'candidate': {
-            'card_id': candidate.card.id,
+            'id': candidate.card.id,
             'name': candidate.card.displayName,
             'confidence': candidate.confidence,
           },

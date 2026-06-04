@@ -28,7 +28,7 @@ class SearchCardApi {
   SearchCardApi({http.Client? client}) : _client = client ?? http.Client();
 
   Future<SearchCardResult> searchByImage(SearchCardPayload payload) async {
-    final uri = Uri.parse('${AppConfig.apiUrl}/catalog/search/image');
+    final uri = Uri.parse('${AppConfig.apiUrl}/catalog/cards/search/image');
     final correlationId = const Uuid().v4();
     final headers = {
       'content-type': 'application/json',
@@ -80,7 +80,7 @@ class SearchCardApi {
   }
 
   Future<SearchCardResult> searchManual(ManualSearchPayload payload) async {
-    final uri = Uri.parse('${AppConfig.apiUrl}/catalog/search/manual');
+    final uri = Uri.parse('${AppConfig.apiUrl}/catalog/cards/search/manual');
     final correlationId = const Uuid().v4();
     final headers = {
       'content-type': 'application/json',
