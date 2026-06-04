@@ -4,7 +4,6 @@ import 'confidence_score.dart';
 import 'search_trace.dart';
 import 'search_trace_repository.dart';
 import 'visual_features.dart';
-import '../submit_evaluation/image_quality_service.dart';
 import '../catalog_repository.dart';
 import '../pokemon_card.dart';
 
