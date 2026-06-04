@@ -69,6 +69,7 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
     repository: catalogRepository,
     imageQualityService: imageQualityService,
     confidenceScore: confidenceScore,
+    confidenceAutoAcceptThreshold: config.confidenceAutoAcceptThreshold,
   );
 
   final catalogRouter = buildCatalogRoutes(createCardLogic, searchCardLogic);
@@ -136,6 +137,9 @@ Response _handleHealth(Request request, AppConfig config) {
   "version": "${config.version}",
   "environment": "${config.environment}",
   "correlation_id": "$correlationId",
+  "config": {
+    "confidence_auto_accept": ${config.confidenceAutoAcceptThreshold}
+  },
   "timestamp": "${DateTime.now().toUtc().toIso8601String()}"
 }''';
 

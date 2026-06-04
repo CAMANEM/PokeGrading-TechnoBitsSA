@@ -93,13 +93,13 @@ class SearchLogic {
       );
     }
 
-    final candidates = <SearchCandidate>[];
-
     var searchCards = await repository.findByVisualFeatures(queryFeatures);
 
     if (searchCards.isEmpty) {
       searchCards = await repository.searchCards();
     }
+
+    final candidates = <SearchCandidate>[];
 
     for (final card in searchCards) {
       final score = card.visualFeatures != null
@@ -128,6 +128,22 @@ class SearchLogic {
       );
     }
 
+    if (candidates.first.confidence < 20.0) {
+      final fuzzyName = searchCards.first.displayName ?? '';
+      final fuzzyResults = await repository.fuzzySearchCards(fuzzyName);
+
+      if (fuzzyResults.isNotEmpty) {
+        final fuzzyCandidates = fuzzyResults.map((card) {
+          return SearchCandidate(card: card, confidence: 25.0);
+        }).toList();
+
+        return SearchCardResult(
+          type: SearchResultType.multipleCandidates,
+          candidates: fuzzyCandidates.take(3).toList(),
+        );
+      }
+    }
+
     return SearchCardResult(
       type: SearchResultType.multipleCandidates,
       candidates: candidates.take(3).toList(),
@@ -148,6 +164,20 @@ class SearchLogic {
             type: SearchResultType.singleCandidate,
             candidates: [SearchCandidate(card: card, confidence: 100.0)]);
       }
+    }
+
+    final fuzzyQuery = '${command.set} ${command.number}';
+    final fuzzyResults = await repository.fuzzySearchCards(fuzzyQuery);
+
+    if (fuzzyResults.isNotEmpty) {
+      final fuzzyCandidates = fuzzyResults.map((card) {
+        return SearchCandidate(card: card, confidence: 60.0);
+      }).toList();
+
+      return SearchCardResult(
+        type: SearchResultType.multipleCandidates,
+        candidates: fuzzyCandidates.take(3).toList(),
+      );
     }
 
     return SearchCardResult(

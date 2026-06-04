@@ -29,10 +29,18 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   String? _selectedBackImageName;
   String? _selectedBackImageExtension;
 
+  String? _cardId;
+
   @override
   void initState() {
     super.initState();
     _provider = SubmitEvaluationProvider(SubmitEvaluationApi());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cardId ??= GoRouterState.of(context).uri.queryParameters['card_id'];
   }
 
   @override
@@ -96,6 +104,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                             final payload = SubmitEvaluationPayload(
                               frontImageData: _selectedFrontImageData!,
                               backImageData: _selectedBackImageData!,
+                              cardId: _cardId,
                             );
 
                             await _provider.submit(payload);

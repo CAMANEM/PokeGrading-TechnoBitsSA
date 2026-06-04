@@ -12,12 +12,14 @@ Router buildSubmitEvaluationRoutes(
     final payload = await readJson(request);
     final frontImageData = payload['front_image_data'].toString();
     final backImageData = (payload['back_image_data'] ?? '').toString();
+    final cardId = payload['card_id']?.toString();
 
     try {
       final result = await submitEvaluationLogic.submit(
         SubmitEvaluationCommand(
           frontImageData: frontImageData,
           backImageData: backImageData,
+          cardId: cardId,
         ),
       );
 

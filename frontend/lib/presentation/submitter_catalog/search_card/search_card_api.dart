@@ -109,9 +109,24 @@ class SearchCardApi {
           CandidateCard(
             id: body['candidate']['id'].toString(),
             name: body['candidate']['name'].toString(),
-            confidence: 1.0,
+            confidence: (body['candidate']['confidence'] as num?)?.toDouble() ?? 1.0,
           ),
         ],
+      );
+    } else if (response.statusCode == 201) {
+      final raw = body['candidates'] as List<dynamic>? ?? [];
+
+      return SearchCardResult(
+        nextStage: SearchCardStage.showingCandidates,
+        candidates: raw
+            .map(
+              (c) => CandidateCard(
+                id: c['id'].toString(),
+                name: c['name'].toString(),
+                confidence: (c['confidence'] as num).toDouble(),
+              ),
+            )
+            .toList(),
       );
     }
 

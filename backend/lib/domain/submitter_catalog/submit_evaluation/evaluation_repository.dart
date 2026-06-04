@@ -6,12 +6,14 @@ class AddEvaluationInput {
 
   final double frontImageScore;
   final double backImageScore;
+  final String? cardId;
 
   const AddEvaluationInput({
     required this.frontImageData,
     required this.backImageData,
     required this.frontImageScore,
     required this.backImageScore,
+    this.cardId,
   });
 }
 

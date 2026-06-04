@@ -9,10 +9,12 @@ enum SubmitEvaluationStage {
 class SubmitEvaluationPayload {
   final String frontImageData;
   final String backImageData;
+  final String? cardId;
 
   const SubmitEvaluationPayload({
     required this.frontImageData,
     required this.backImageData,
+    this.cardId,
   });
 }
 

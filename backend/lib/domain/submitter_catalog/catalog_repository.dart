@@ -65,4 +65,6 @@ abstract class CatalogRepository {
   Future<List<PokemonCard>> searchCards();
 
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query);
+
+  Future<List<PokemonCard>> fuzzySearchCards(String query);
 }

@@ -71,6 +71,15 @@ class SearchCardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void goToManualSearch() {
+    _state = _state.copyWith(
+      stage: SearchCardStage.manualSearch,
+      message: null,
+    );
+
+    notifyListeners();
+  }
+
   void retry() {
     _state = _state.copyWith(
       stage: SearchCardStage.capture,

@@ -172,6 +172,13 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
       case SearchCardStage.success:
         return _CandidateResults(
           candidates: state.candidates,
+          isSingle: state.stage == SearchCardStage.success,
+          onEvaluate: (candidate) {
+            context.go('/evaluations?card_id=${candidate.id}');
+          },
+          onManualSearch: () {
+            _provider.goToManualSearch();
+          },
         );
       case SearchCardStage.manualSearch:
         return _ManualSearchForm(
@@ -279,24 +286,69 @@ class _Header extends StatelessWidget {
 
 class _CandidateResults extends StatelessWidget {
   final List<CandidateCard> candidates;
+  final bool isSingle;
+  final void Function(CandidateCard) onEvaluate;
+  final VoidCallback onManualSearch;
 
   const _CandidateResults({
     required this.candidates,
+    required this.isSingle,
+    required this.onEvaluate,
+    required this.onManualSearch,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: candidates.map((candidate) {
-        return Card(
-          child: ListTile(
-            title: Text(candidate.name),
-            subtitle: Text(
-              'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
+    if (isSingle && candidates.length == 1) {
+      final candidate = candidates.first;
+      return _FormCard(
+        title: 'Carta identificada',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              candidate.name,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
             ),
-          ),
-        );
-      }).toList(),
+            const SizedBox(height: 8),
+            Text(
+              'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
+              style: const TextStyle(color: AppColors.success),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => onEvaluate(candidate),
+              icon: const Icon(Icons.rate_review_rounded),
+              label: const Text('Evaluar carta'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        ...candidates.map((candidate) {
+          return Card(
+            child: ListTile(
+              title: Text(candidate.name),
+              subtitle: Text(
+                'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => onEvaluate(candidate),
+            ),
+          );
+        }),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onManualSearch,
+          icon: const Icon(Icons.search_rounded),
+          label: const Text('No encontré mi carta'),
+        ),
+      ],
     );
   }
 }

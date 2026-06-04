@@ -3,6 +3,8 @@ import 'package:image/image.dart' as img;
 
 enum ImageHashType { averageHash, differenceHash }
 
+enum ScoringStrategy { linear, quadratic }
+
 class VisualFeatures {
   final String? averageHashHex;
   final String? differenceHashHex;
@@ -82,7 +84,8 @@ class VisualFeatureExtractor {
     return count;
   }
 
-  double similarity(VisualFeatures a, VisualFeatures b) {
+  double similarity(VisualFeatures a, VisualFeatures b,
+      {ScoringStrategy strategy = ScoringStrategy.quadratic}) {
     int totalBits = 0;
     int totalDistance = 0;
 
@@ -98,7 +101,15 @@ class VisualFeatureExtractor {
     }
 
     if (totalBits == 0) return 0.0;
-    return 100.0 - 100.0 * (totalDistance / totalBits);
+
+    final ratio = totalDistance / totalBits;
+
+    switch (strategy) {
+      case ScoringStrategy.linear:
+        return 100.0 - 100.0 * ratio;
+      case ScoringStrategy.quadratic:
+        return 100.0 * (1.0 - ratio * ratio);
+    }
   }
 
   double similarityWithStored(VisualFeatures stored, String queryImageData) {

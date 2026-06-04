@@ -131,6 +131,39 @@ class MockCatalogRepository implements CatalogRepository {
         .toList();
   }
 
+  @override
+  Future<List<PokemonCard>> fuzzySearchCards(String query) async {
+    final lowerQuery = query.toLowerCase().trim();
+    if (lowerQuery.isEmpty) return [];
+
+    final results = <_FuzzyMatch>[];
+    final terms = lowerQuery.split(RegExp(r'\s+'));
+
+    for (final card in _cardsById.values) {
+      int score = 0;
+      final cardSet = card.set.toLowerCase();
+      final cardNumber = card.number.toLowerCase();
+      final cardName = card.displayName?.toLowerCase() ?? '';
+
+      for (final term in terms) {
+        if (cardSet == term) score += 10;
+        else if (cardSet.contains(term)) score += 5;
+        if (cardNumber == term) score += 10;
+        else if (cardNumber.startsWith(term)) score += 4;
+        if (cardName == term) score += 8;
+        else if (cardName.contains(term)) score += 3;
+      }
+
+      if (score > 0) {
+        results.add(_FuzzyMatch(card: card, score: score));
+      }
+    }
+
+    results.sort((a, b) => b.score.compareTo(a.score));
+
+    return results.map((r) => r.card).toList();
+  }
+
   void _indexCard(PokemonCard card) {
     final features = card.visualFeatures;
     if (features == null) return;
@@ -163,4 +196,11 @@ class MockCatalogRepository implements CatalogRepository {
         .map((value) => value.trim().toLowerCase())
         .join('|');
   }
+}
+
+class _FuzzyMatch {
+  final PokemonCard card;
+  final int score;
+
+  const _FuzzyMatch({required this.card, required this.score});
 }

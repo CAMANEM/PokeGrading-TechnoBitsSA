@@ -33,6 +33,7 @@ class MockEvaluationRepository implements EvaluationRepository {
       backImageScore: input.backImageScore,
       status: EvaluationStatus.pending,
       createdAt: now,
+      cardId: input.cardId,
     );
 
     _requests[id] = request;

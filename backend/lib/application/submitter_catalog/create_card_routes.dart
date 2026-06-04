@@ -107,19 +107,31 @@ Router buildCatalogRoutes(
         );
       }
 
-      final candidate = result.candidates.first;
+      final cardsJson = result.candidates.map((candidate) {
+        return {
+          'id': candidate.card.id,
+          'name': candidate.card.displayName,
+          'confidence': candidate.confidence,
+        };
+      }).toList();
 
-      return jsonResponse(
-        200,
-        {
-          'status': 'single_candidate',
-          'candidate': {
-            'id': candidate.card.id,
-            'name': candidate.card.displayName,
-            'confidence': candidate.confidence,
-          },
-        },
-      );
+      switch (result.type) {
+        case SearchResultType.singleCandidate:
+          return jsonResponse(200, {
+            'status': 'single_candidate',
+            'candidate': cardsJson.first,
+          });
+        case SearchResultType.multipleCandidates:
+          return jsonResponse(201, {
+            'status': 'multiple_candidates',
+            'candidates': cardsJson,
+          });
+        default:
+          return jsonResponse(404, {
+            'status': 'card_not_found',
+            'message': 'No card matches the provided identity',
+          });
+      }
     } on SearchEvaluationLogicException catch (error) {
       return jsonResponse(
         404,

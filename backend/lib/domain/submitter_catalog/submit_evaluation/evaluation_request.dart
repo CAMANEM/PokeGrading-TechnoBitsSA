@@ -17,6 +17,7 @@ class EvaluationRequest {
   final EvaluationStatus status;
 
   final DateTime createdAt;
+  final String? cardId;
 
   const EvaluationRequest({
     required this.id,
@@ -26,5 +27,6 @@ class EvaluationRequest {
     required this.backImageScore,
     required this.status,
     required this.createdAt,
+    this.cardId,
   });
 }
