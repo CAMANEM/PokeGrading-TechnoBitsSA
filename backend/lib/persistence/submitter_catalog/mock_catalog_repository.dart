@@ -103,7 +103,7 @@ class MockCatalogRepository implements CatalogRepository {
   }
 
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
-    final candidateIds = <String>{};
+    final scores = <String, int>{};
 
     for (final hash in [query.averageHashHex, query.differenceHashHex]) {
       if (hash == null || hash.length != 16) continue;
@@ -113,12 +113,19 @@ class MockCatalogRepository implements CatalogRepository {
         final prefix = hash == query.averageHashHex ? 'ahash' : 'dhash';
         final key = '$prefix:chunk$i:$chunk';
         final ids = _featureIndex[key];
-        if (ids != null) candidateIds.addAll(ids);
+        if (ids != null) {
+          for (final id in ids) {
+            scores.update(id, (v) => v + 1, ifAbsent: () => 1);
+          }
+        }
       }
     }
 
-    return candidateIds
-        .map((id) => _cardsById[id])
+    final sortedIds = scores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return sortedIds
+        .map((e) => _cardsById[e.key])
         .where((card) => card != null)
         .cast<PokemonCard>()
         .toList();

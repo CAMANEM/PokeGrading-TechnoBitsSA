@@ -20,4 +20,8 @@ class ConfidenceScore {
       VisualFeatures features, String imageData) {
     return _extractor.similarityWithStored(features, imageData);
   }
+
+  double similarityBetweenFeatures(VisualFeatures a, VisualFeatures b) {
+    return _extractor.similarity(a, b);
+  }
 }

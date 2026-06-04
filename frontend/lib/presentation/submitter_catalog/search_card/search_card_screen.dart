@@ -292,7 +292,7 @@ class _CandidateResults extends StatelessWidget {
           child: ListTile(
             title: Text(candidate.name),
             subtitle: Text(
-              'Confianza: ${(candidate.confidence * 100).toStringAsFixed(1)}%',
+              'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
             ),
           ),
         );
