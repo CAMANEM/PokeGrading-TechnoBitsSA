@@ -102,6 +102,7 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
 
                             final payload = SearchCardPayload(
                               imageData: _selectedImageData!,
+                              mode: 0,
                             );
 
                             await _provider.searchByImage(payload);
@@ -178,6 +179,16 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
           },
           onManualSearch: () {
             _provider.goToManualSearch();
+          },
+          onSpecializedSearch: () async {
+            if (_selectedImageData == null) {
+              return;
+            }
+
+            final payload =
+                SearchCardPayload(imageData: _selectedImageData!, mode: 1);
+
+            await _provider.searchByImage(payload);
           },
         );
       case SearchCardStage.manualSearch:
@@ -265,9 +276,16 @@ class _Header extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              state.stage == SearchCardStage.capture
-                  ? 'Imagen PNG/JPG/HEIC.'
-                  : 'Ingrese datos de identidad',
+              switch (state.stage) {
+                SearchCardStage.capture ||
+                SearchCardStage.searching ||
+                SearchCardStage.error =>
+                  'Suba una imagen PNG, JPEG o HEIC',
+                SearchCardStage.success => 'Carta encontrada',
+                SearchCardStage.showingCandidates => 'Candidatos encontrados',
+                SearchCardStage.manualSearch =>
+                  '${state.message}. Ingrese datos de identidad',
+              },
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -289,13 +307,14 @@ class _CandidateResults extends StatelessWidget {
   final bool isSingle;
   final void Function(CandidateCard) onEvaluate;
   final VoidCallback onManualSearch;
+  final VoidCallback onSpecializedSearch;
 
-  const _CandidateResults({
-    required this.candidates,
-    required this.isSingle,
-    required this.onEvaluate,
-    required this.onManualSearch,
-  });
+  const _CandidateResults(
+      {required this.candidates,
+      required this.isSingle,
+      required this.onEvaluate,
+      required this.onManualSearch,
+      required this.onSpecializedSearch});
 
   @override
   Widget build(BuildContext context) {
@@ -316,12 +335,6 @@ class _CandidateResults extends StatelessWidget {
             Text(
               'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
               style: const TextStyle(color: AppColors.success),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => onEvaluate(candidate),
-              icon: const Icon(Icons.rate_review_rounded),
-              label: const Text('Evaluar carta'),
             ),
           ],
         ),
@@ -344,9 +357,9 @@ class _CandidateResults extends StatelessWidget {
         }),
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: onManualSearch,
+          onPressed: onSpecializedSearch,
           icon: const Icon(Icons.search_rounded),
-          label: const Text('No encontré mi carta'),
+          label: const Text('Iniciar busqueda especializada'),
         ),
       ],
     );

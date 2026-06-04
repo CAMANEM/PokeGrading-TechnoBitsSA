@@ -69,7 +69,6 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
   final searchTraceRepository = MockSearchTraceRepository();
   final searchCardLogic = SearchLogic(
     repository: catalogRepository,
-    imageQualityService: imageQualityService,
     confidenceScore: confidenceScore,
     confidenceAutoAcceptThreshold: config.confidenceAutoAcceptThreshold,
     traceRepository: searchTraceRepository,

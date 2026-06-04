@@ -7,8 +7,7 @@ import '../../domain/submitter_catalog/search_card/search_trace_repository.dart'
 import '../http_helpers.dart';
 
 Router buildCatalogRoutes(
-    CreateCardLogic createCardLogic,
-    SearchLogic searchLogic,
+    CreateCardLogic createCardLogic, SearchLogic searchLogic,
     {SearchTraceRepository? searchTraceRepository}) {
   final router = Router();
 
@@ -16,11 +15,13 @@ Router buildCatalogRoutes(
     final payload = await readJson(request);
 
     final imageData = (payload['image_data'] ?? '').toString();
+    final mode = (payload['mode'] ?? 0);
 
     try {
       final result = await searchLogic.searchByImg(
         SearchByImageCommand(
           imageData: imageData,
+          mode: mode,
         ),
       );
 
@@ -58,16 +59,16 @@ Router buildCatalogRoutes(
             400,
             {
               'status': 'manual_search_required',
-              'message': 'Image quality insufficient for identification',
+              'message': result.reason,
             },
           );
         case SearchResultType.notFound:
-          return jsonResponse(401,
-              {'status': 'card_not_found', 'message': 'Card does not exist'});
+          return jsonResponse(
+              404, {'status': 'card_not_found', 'message': result.reason});
       }
     } on SearchEvaluationLogicException catch (error) {
       return jsonResponse(
-        400,
+        404,
         {
           'status': 'error',
           'error': error.code,

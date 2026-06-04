@@ -37,6 +37,7 @@ class SearchCardApi {
 
     final bodyMap = <String, dynamic>{
       'image_data': payload.imageData,
+      'mode': payload.mode,
     };
 
     final response = await _client.post(
@@ -72,10 +73,15 @@ class SearchCardApi {
             )
             .toList(),
       );
-    } else {
-      return const SearchCardResult(
+    } else if (response.statusCode == 400) {
+      return SearchCardResult(
         nextStage: SearchCardStage.manualSearch,
+        candidates: [],
+        reason: body['message'],
       );
+    } else {
+      return SearchCardResult(
+          nextStage: SearchCardStage.capture, reason: body['message']);
     }
   }
 
@@ -109,7 +115,8 @@ class SearchCardApi {
           CandidateCard(
             id: body['candidate']['id'].toString(),
             name: body['candidate']['name'].toString(),
-            confidence: (body['candidate']['confidence'] as num?)?.toDouble() ?? 1.0,
+            confidence:
+                (body['candidate']['confidence'] as num?)?.toDouble() ?? 1.0,
           ),
         ],
       );

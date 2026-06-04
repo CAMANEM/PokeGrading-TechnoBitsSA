@@ -26,9 +26,9 @@ class SearchCardProvider extends ChangeNotifier {
       final result = await _api.searchByImage(payload);
 
       _state = _state.copyWith(
-        stage: result.nextStage,
-        candidates: result.candidates,
-      );
+          stage: result.nextStage,
+          candidates: result.candidates,
+          message: result.reason);
     } on SearchCardApiException catch (error) {
       _state = _state.copyWith(
         stage: SearchCardStage.error,

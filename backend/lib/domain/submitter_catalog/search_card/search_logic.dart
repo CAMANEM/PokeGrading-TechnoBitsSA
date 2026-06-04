@@ -24,9 +24,11 @@ class SearchEvaluationLogicException implements Exception {
 
 class SearchByImageCommand {
   final String imageData;
+  final int mode;
 
   const SearchByImageCommand({
     required this.imageData,
+    required this.mode,
   });
 }
 
@@ -66,16 +68,16 @@ class SearchCandidate {
 class SearchCardResult {
   final SearchResultType type;
   final List<SearchCandidate> candidates;
+  final String? reason;
 
-  const SearchCardResult({
-    required this.type,
-    this.candidates = const <SearchCandidate>[],
-  });
+  const SearchCardResult(
+      {required this.type,
+      this.candidates = const <SearchCandidate>[],
+      this.reason});
 }
 
 class SearchLogic {
   final CatalogRepository repository;
-  final ImageQualityService imageQualityService;
   final ConfidenceScore confidenceScore;
   final VisualFeatureExtractor featureExtractor;
   final double confidenceAutoAcceptThreshold;
@@ -83,7 +85,6 @@ class SearchLogic {
 
   SearchLogic(
       {required this.repository,
-      required this.imageQualityService,
       required this.confidenceScore,
       this.confidenceAutoAcceptThreshold = 90.0,
       this.traceRepository})
@@ -101,9 +102,9 @@ class SearchLogic {
         decisionReason: 'Failed to extract visual features from image',
       );
       return SearchCardResult(
-        type: SearchResultType.manualSearchRequired,
-        candidates: [],
-      );
+          type: SearchResultType.manualSearchRequired,
+          candidates: [],
+          reason: "No se pudieron extraer caracteristicas visuales");
     }
 
     var searchCards = await repository.findByVisualFeatures(queryFeatures);
@@ -116,10 +117,19 @@ class SearchLogic {
 
     for (final card in searchCards) {
       final score = card.visualFeatures != null
-          ? confidenceScore.similarityBetweenFeatures(
-              queryFeatures, card.visualFeatures!)
+          ? command.mode == 1
+              ? confidenceScore.specializedSimilarityBetweenFeatures(
+                  queryFeatures,
+                  card.visualFeatures!,
+                )
+              : confidenceScore.similarityBetweenFeatures(
+                  queryFeatures,
+                  card.visualFeatures!,
+                )
           : confidenceScore.similarity(
-              command.imageData, card.imageData);
+              command.imageData,
+              card.imageData,
+            );
 
       scored.add(SearchCandidate(card: card, confidence: score));
     }
@@ -151,9 +161,9 @@ class SearchLogic {
         decisionReason: 'No candidates matched the visual features',
       );
       return SearchCardResult(
-        type: SearchResultType.notFound,
-        candidates: [],
-      );
+          type: SearchResultType.notFound,
+          candidates: [],
+          reason: "Ninguna carta fue encontrada");
     }
 
     if (scored.first.confidence < 20.0) {
@@ -252,11 +262,12 @@ class SearchLogic {
       queryMetadata: metadata,
       candidates: [],
       decision: 'not_found',
-      decisionReason:
-          'No exact or fuzzy match found for query "$fuzzyQuery"',
+      decisionReason: 'No exact or fuzzy match found for query "$fuzzyQuery"',
     );
     return SearchCardResult(
-        type: SearchResultType.notFound, candidates: <SearchCandidate>[]);
+        type: SearchResultType.notFound,
+        candidates: <SearchCandidate>[],
+        reason: "No se encontro ninguna carta");
   }
 
   Future<void> _recordTrace({

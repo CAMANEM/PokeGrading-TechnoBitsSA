@@ -21,8 +21,9 @@ class CandidateCard {
 
 class SearchCardPayload {
   final String imageData;
+  final int mode;
 
-  const SearchCardPayload({required this.imageData});
+  const SearchCardPayload({required this.imageData, required this.mode});
 }
 
 class ManualSearchPayload {
@@ -44,11 +45,10 @@ class ManualSearchPayload {
 class SearchCardResult {
   final SearchCardStage nextStage;
   final List<CandidateCard> candidates;
+  final String? reason;
 
-  const SearchCardResult({
-    required this.nextStage,
-    this.candidates = const [],
-  });
+  const SearchCardResult(
+      {required this.nextStage, this.candidates = const [], this.reason});
 }
 
 class SearchCardState {
