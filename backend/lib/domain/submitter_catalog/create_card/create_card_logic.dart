@@ -29,6 +29,7 @@
 import '../catalog_repository.dart';
 import '../catalog_validators.dart';
 import '../pokemon_card.dart';
+import '../search_card/visual_features.dart';
 
 /// Represents an error produced by `CreateCardLogic`.
 ///
@@ -105,15 +106,16 @@ class CardCreatedResult {
 }
 
 class CreateCardLogic {
-  /// Repository used to persist and query catalog data.
   final CatalogRepository repository;
+  final VisualFeatureExtractor featureExtractor;
 
   static const String _identityConflictMessage =
       'Identidad rechazada: ya existe una carta con la misma combinación de Set, Número, Edición, Idioma y Acabado.';
 
   /// Creates a new `CreateCardLogic` instance.
   /* Creates a new `CreateCardLogic` instance. */
-  const CreateCardLogic({required this.repository}); 
+  const CreateCardLogic({required this.repository})
+      : featureExtractor = const VisualFeatureExtractor();
 
   /*
    Validates the provided `command`, ensures the identity tuple is unique
@@ -135,6 +137,7 @@ class CreateCardLogic {
   Future<CardCreatedResult> create(CreateCardCommand command) async {
     _validateIdentity(command);
     _validateImage(command.imageData);
+    _validateBackImage(command.backImageData);
 
     final duplicated = await repository.identityTupleExists(
       set: command.set,
@@ -152,6 +155,8 @@ class CreateCardLogic {
     }
 
     try {
+      final features = featureExtractor.extract(command.imageData);
+
       final created = await repository.saveCard(
         AddPokemonCardInput(
           set: command.set,
@@ -168,6 +173,7 @@ class CreateCardLogic {
           author: command.author,
           imageData: command.imageData,
           backImageData: command.backImageData,
+          visualFeatures: features,
         ),
       );
 
@@ -182,6 +188,10 @@ class CreateCardLogic {
         message: _identityConflictMessage,
       );
     }
+  }
+
+  Future<List<PokemonCard>> searchCards() async {
+    return repository.searchCards();
   }
 
   // Private helpers validate parts of the command. These throw
@@ -229,32 +239,53 @@ class CreateCardLogic {
 
     final rarityError = CatalogValidators.validateRarity(command.rarity);
     if (rarityError != null) {
-      throw CreateCardLogicException(code: 'identity_rejected', message: rarityError);
+      throw CreateCardLogicException(
+          code: 'identity_rejected', message: rarityError);
     }
 
     final typeError = CatalogValidators.validateType(command.pokemonType);
     if (typeError != null) {
-      throw CreateCardLogicException(code: 'identity_rejected', message: typeError);
+      throw CreateCardLogicException(
+          code: 'identity_rejected', message: typeError);
     }
 
     final hpError = CatalogValidators.validateHp(command.hp);
     if (hpError != null) {
-      throw CreateCardLogicException(code: 'identity_rejected', message: hpError);
+      throw CreateCardLogicException(
+          code: 'identity_rejected', message: hpError);
     }
 
     final yearError = CatalogValidators.validateYear(command.year);
     if (yearError != null) {
-      throw CreateCardLogicException(code: 'identity_rejected', message: yearError);
+      throw CreateCardLogicException(
+          code: 'identity_rejected', message: yearError);
     }
 
     final authorError = CatalogValidators.validateAuthor(command.author);
     if (authorError != null) {
-      throw CreateCardLogicException(code: 'identity_rejected', message: authorError);
+      throw CreateCardLogicException(
+          code: 'identity_rejected', message: authorError);
     }
   }
 
   void _validateImage(String imageData) {
     final imageError = CatalogValidators.validateImageData(imageData);
+    if (imageError != null) {
+      throw CreateCardLogicException(
+        code: 'image_rejected',
+        message: imageError,
+      );
+    }
+  }
+
+  void _validateBackImage(String? backImageData) {
+    if (backImageData == null || backImageData.isEmpty) {
+      throw const CreateCardLogicException(
+        code: 'image_rejected',
+        message: 'Back image is required',
+      );
+    }
+    final imageError = CatalogValidators.validateImageData(backImageData);
     if (imageError != null) {
       throw CreateCardLogicException(
         code: 'image_rejected',

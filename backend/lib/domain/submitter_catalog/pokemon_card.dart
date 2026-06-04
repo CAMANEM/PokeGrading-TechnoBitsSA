@@ -1,19 +1,5 @@
-/*
- Domain entity representing a submitted Pokemon card.
+import 'search_card/visual_features.dart';
 
- `PokemonCard` is an immutable value object that contains identity fields
- (set, number, edition, language, finish), image payloads and optional
- metadata. The `status` field represents the moderation workflow state and
- `audit` holds an append-only list of events recorded by persistence or
- business logic.
-*/
-
-/*
- Represents the moderation/validation status of a Pokemon card.
- - `pendingValidation`: newly created and awaiting validation by the system or human reviewer.
- - `validated`: accepted into the reference catalog.
- - `rejected`: rejected due to identity/image/metadata validation.
-*/
 enum PokemonCardStatus {
   pendingValidation,
   validated,
@@ -36,6 +22,7 @@ class PokemonCard {
   final int? year;
   final String? createdBy;
   final String? backImageData;
+  final VisualFeatures? visualFeatures;
   final PokemonCardStatus status;
   final bool isActive;
   final List<Map<String, dynamic>> audit;
@@ -57,16 +44,13 @@ class PokemonCard {
     this.year,
     this.createdBy,
     this.backImageData,
+    this.visualFeatures,
     this.status = PokemonCardStatus.pendingValidation,
     this.isActive = true,
     this.audit = const [],
     required this.createdAt,
   });
 
-  /*
-   Returns a copy of the card with specified fields replaced. Useful
-   when updating metadata or status while preserving immutability.
-  */
   PokemonCard copyWith({
     String? id,
     String? set,
@@ -83,6 +67,7 @@ class PokemonCard {
     int? year,
     String? createdBy,
     String? backImageData,
+    VisualFeatures? visualFeatures,
     PokemonCardStatus? status,
     bool? isActive,
     List<Map<String, dynamic>>? audit,
@@ -104,6 +89,7 @@ class PokemonCard {
       year: year ?? this.year,
       createdBy: createdBy ?? this.createdBy,
       backImageData: backImageData ?? this.backImageData,
+      visualFeatures: visualFeatures ?? this.visualFeatures,
       status: status ?? this.status,
       isActive: isActive ?? this.isActive,
       audit: audit ?? this.audit,

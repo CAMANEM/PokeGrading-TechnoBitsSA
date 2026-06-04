@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'submit_evaluation_api.dart';
 import 'submit_evaluation_provider.dart';
@@ -49,11 +50,19 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   String? _selectedBackImageName;
   String? _selectedBackImageExtension;
 
+  String? _cardId;
+
   @override
   void initState() {
     super.initState();
     _provider = SubmitEvaluationProvider(SubmitEvaluationApi());
     _restoreDraft();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cardId ??= GoRouterState.of(context).uri.queryParameters['card_id'];
   }
 
   @override
@@ -145,6 +154,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                             final payload = SubmitEvaluationPayload(
                               frontImageData: _selectedFrontImageData!,
                               backImageData: _selectedBackImageData!,
+                              cardId: _cardId,
                             );
 
                             await _provider.submit(payload);
@@ -488,12 +498,12 @@ class _MessageBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: (isError ? AppColors.error : AppColors.success)
-            .withOpacity(0.12),
+        color:
+            (isError ? AppColors.error : AppColors.success).withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: (isError ? AppColors.error : AppColors.success)
-              .withOpacity(0.35),
+          color:
+              (isError ? AppColors.error : AppColors.success).withOpacity(0.35),
         ),
       ),
       child: Text(
@@ -518,9 +528,8 @@ class _StepBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: active
-            ? AppColors.accent.withOpacity(0.2)
-            : AppColors.surfaceDark,
+        color:
+            active ? AppColors.accent.withOpacity(0.2) : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active ? AppColors.accent : AppColors.borderDark,

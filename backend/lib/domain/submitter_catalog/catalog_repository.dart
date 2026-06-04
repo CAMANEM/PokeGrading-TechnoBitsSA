@@ -5,6 +5,7 @@
  identity tuple collisions, persist a new `PokemonCard` and query by id.
 */
 import 'pokemon_card.dart';
+import 'search_card/visual_features.dart';
 
 /*
  Input DTO used by the repository to persist a new Pokemon card.
@@ -24,6 +25,7 @@ class AddPokemonCardInput {
   final String? author;
   final String imageData;
   final String? backImageData;
+  final VisualFeatures? visualFeatures;
 
   const AddPokemonCardInput({
     required this.set,
@@ -40,6 +42,7 @@ class AddPokemonCardInput {
     this.year,
     this.author,
     this.backImageData,
+    this.visualFeatures,
   });
 }
 
@@ -67,4 +70,10 @@ abstract class CatalogRepository {
   Future<PokemonCard> saveCard(AddPokemonCardInput input);
 
   Future<PokemonCard?> findById(String id);
+
+  Future<List<PokemonCard>> searchCards();
+
+  Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query);
+
+  Future<List<PokemonCard>> fuzzySearchCards(String query);
 }

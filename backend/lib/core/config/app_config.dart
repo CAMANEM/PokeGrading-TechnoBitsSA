@@ -18,6 +18,7 @@ class AppConfig {
   final DatabaseConfig database;
   final EmailConfig email;
   final bool useMockRepositories;
+  final double confidenceAutoAcceptThreshold;
 
   const AppConfig({
     required this.environment,
@@ -28,6 +29,7 @@ class AppConfig {
     required this.database,
     required this.email,
     required this.useMockRepositories,
+    this.confidenceAutoAcceptThreshold = 90.0,
   });
 
   /// Builds [AppConfig] from environment variables.
@@ -44,6 +46,8 @@ class AppConfig {
       database: DatabaseConfig.fromEnv(env),
       email: EmailConfig.fromEnv(env),
       useMockRepositories: useMock,
+      confidenceAutoAcceptThreshold:
+          double.tryParse(env['CONFIDENCE_AUTO_ACCEPT'] ?? '') ?? 90.0,
     );
   }
 

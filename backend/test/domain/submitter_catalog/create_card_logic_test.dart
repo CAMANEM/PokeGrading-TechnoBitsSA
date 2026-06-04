@@ -1,3 +1,4 @@
+import 'package:pokegrading_backend/domain/submitter_catalog/search_card/visual_features.dart';
 import 'package:test/test.dart';
 
 import 'package:pokegrading_backend/domain/submitter_catalog/catalog_repository.dart';
@@ -131,6 +132,24 @@ class _SpyCatalogRepository implements CatalogRepository {
   @override
   Future<PokemonCard?> findById(String id) async {
     return null;
+  }
+
+  @override
+  Future<List<PokemonCard>> searchCards() async {
+    // TODO: implement searchCards
+    return [];
+  }
+
+  @override
+  Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
+    // TODO: implement findByVisualFeatures
+    return [];
+  }
+
+  @override
+  Future<List<PokemonCard>> fuzzySearchCards(String query) async {
+    // TODO: implement fuzzySearchCards
+    return [];
   }
 
   String _identityKey({

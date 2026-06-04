@@ -15,6 +15,9 @@ import '../lib/core/middleware/correlation_middleware.dart';
 import '../lib/domain/user/user_repository.dart';
 import '../lib/persistence/user/memory_user_repository.dart';
 import '../lib/persistence/user/postgres_user_repository.dart';
+import '../lib/domain/submitter_catalog/catalog_repository.dart';
+import '../lib/persistence/submitter_catalog/mock_catalog_repository.dart';
+import '../lib/persistence/submitter_catalog/postgres_catalog_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -35,19 +38,30 @@ void main() async {
   log.info('   Host       : ${config.host}:${config.port}');
 
   late final UserRepository userRepository;
-  PostgresUserRepository? postgresRepository;
+  PostgresUserRepository? postgresUserRepository;
+
+  late final CatalogRepository catalogRepository;
+  PostgresCatalogRepository? postgresCatalogRepository;
 
   if (config.useMockRepositories) {
     userRepository = MemoryUserRepository();
+    catalogRepository = MockCatalogRepository();
     log.info(
         'Using in-memory user repository because USE_MOCK_REPOSITORIES=true.');
   } else {
-    postgresRepository = await PostgresUserRepository.connect(config.database);
-    userRepository = postgresRepository;
+    postgresUserRepository =
+        await PostgresUserRepository.connect(config.database);
+
+    postgresCatalogRepository =
+        await PostgresCatalogRepository.connect(config.database);
+
+    userRepository = postgresUserRepository;
+    catalogRepository = postgresCatalogRepository;
     log.info('Using PostgreSQL user repository.');
   }
 
-  final router = buildAppRouter(env, config, log, userRepository);
+  final router =
+      buildAppRouter(env, config, log, userRepository, catalogRepository);
 
   final handler = const Pipeline()
       .addMiddleware(logRequests())
@@ -75,7 +89,7 @@ void main() async {
   log.info('✅ Server listening on http://$browserHost:${server.port}');
   log.info('   Health check: http://$browserHost:${server.port}/health');
 
-  _registerShutdownHandlers(server, log, postgresRepository);
+  _registerShutdownHandlers(server, log, postgresUserRepository);
 }
 
 void _registerShutdownHandlers(

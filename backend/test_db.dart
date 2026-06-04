@@ -1,13 +1,15 @@
-import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:postgres/postgres.dart';
 
-void main() async {
+Future<void> main() async {
   final env = DotEnv();
   env.load(['../.env']);
-  
-  print('Connecting to \${env['DB_HOST']}:\${env['DB_PORT']} as \${env['DB_USER']}...');
-  
+
+  print(
+    'Connecting to ${env["DB_HOST"]}:${env["DB_PORT"]} '
+    'as ${env["DB_USER"]}...',
+  );
+
   try {
     final connection = await Connection.open(
       Endpoint(
@@ -17,11 +19,15 @@ void main() async {
         username: env['DB_USER'],
         password: env['DB_PASSWORD'],
       ),
-      settings: ConnectionSettings(sslMode: SslMode.disable),
+      settings: const ConnectionSettings(
+        sslMode: SslMode.disable,
+      ),
     );
+
     print('Connected successfully!');
+
     await connection.close();
   } catch (e) {
-    print('Error: \$e');
+    print('Error: $e');
   }
 }

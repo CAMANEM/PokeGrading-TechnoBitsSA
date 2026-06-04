@@ -21,10 +21,12 @@ class SubmitEvaluationLogicException implements Exception {
 class SubmitEvaluationCommand {
   final String frontImageData;
   final String backImageData;
+  final String? cardId;
 
   const SubmitEvaluationCommand({
     required this.frontImageData,
     required this.backImageData,
+    this.cardId,
   });
 }
 
@@ -130,6 +132,7 @@ class SubmitEvaluationLogic {
         backImageData: command.backImageData,
         frontImageScore: frontScore.score,
         backImageScore: backScore.score,
+        cardId: command.cardId,
       ),
     );
 

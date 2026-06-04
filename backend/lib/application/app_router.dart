@@ -19,7 +19,10 @@ import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart
 import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
 import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
 import '../domain/submitter_catalog/catalog_repository.dart';
+import '../domain/submitter_catalog/search_card/search_logic.dart';
+import '../domain/submitter_catalog/search_card/confidence_score.dart';
 import '../persistence/submitter_catalog/mock_evaluation_repository.dart';
+import '../persistence/submitter_catalog/mock_search_trace_repository.dart';
 import 'submitter_catalog/create_card_routes.dart';
 import 'user/register_routes.dart';
 import 'submitter_catalog/submit_evaluation_routes.dart';
@@ -35,8 +38,8 @@ import 'submitter_catalog/submit_evaluation_routes.dart';
  Returns:
  - A `Router` with mounted routes: root, health, auth and catalog sub-routers.
 */
-Router buildAppRouter(
-    DotEnv env, AppConfig config, Logger log, UserRepository userRepository, CatalogRepository catalogRepository) {
+Router buildAppRouter(DotEnv env, AppConfig config, Logger log,
+    UserRepository userRepository, CatalogRepository catalogRepository) {
   final router = Router();
 
   final registerLogic = RegisterLogic(
@@ -45,7 +48,6 @@ Router buildAppRouter(
   final registerRouter = buildRegisterRoutes(registerLogic);
 
   final createCardLogic = CreateCardLogic(repository: catalogRepository);
-  final createCardRouter = buildCreateCardRoutes(createCardLogic);
 
   final evaluationRepository = MockEvaluationRepository();
   final imageQualityService = ImageQualityService();
@@ -56,11 +58,26 @@ Router buildAppRouter(
       polyglotDetector: polyglotDetector);
   final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
 
+  final confidenceScore = ConfidenceScore();
+  final searchTraceRepository = MockSearchTraceRepository();
+  final searchCardLogic = SearchLogic(
+    repository: catalogRepository,
+    confidenceScore: confidenceScore,
+    confidenceAutoAcceptThreshold: config.confidenceAutoAcceptThreshold,
+    traceRepository: searchTraceRepository,
+  );
+
+  final catalogRouter = buildCatalogRoutes(
+    createCardLogic,
+    searchCardLogic,
+    searchTraceRepository: searchTraceRepository,
+  );
+
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
 
   router.mount('/api/v1/auth/', registerRouter.call);
-  router.mount('/api/v1/catalog/', createCardRouter.call);
+  router.mount('/api/v1/catalog/', catalogRouter.call);
   router.mount('/api/v1/', evaluationRouter.call);
 
   if (!config.useMockRepositories) {
@@ -90,6 +107,9 @@ Response _handleHealth(Request request, AppConfig config) {
   "version": "${config.version}",
   "environment": "${config.environment}",
   "correlation_id": "$correlationId",
+  "config": {
+    "confidence_auto_accept": ${config.confidenceAutoAcceptThreshold}
+  },
   "timestamp": "${DateTime.now().toUtc().toIso8601String()}"
 }''';
 
