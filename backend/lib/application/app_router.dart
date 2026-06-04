@@ -26,6 +26,7 @@ import '../persistence/user/resend_confirmation_email_sender.dart';
 import '../persistence/user/smtp_confirmation_email_sender.dart';
 import '../persistence/submitter_catalog/mock_catalog_repository.dart';
 import '../persistence/submitter_catalog/mock_evaluation_repository.dart';
+import '../persistence/submitter_catalog/mock_search_trace_repository.dart';
 import 'submitter_catalog/create_card_routes.dart';
 import 'user/register_routes.dart';
 import 'submitter_catalog/submit_evaluation_routes.dart';
@@ -65,14 +66,20 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log) {
   final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
 
   final confidenceScore = ConfidenceScore();
+  final searchTraceRepository = MockSearchTraceRepository();
   final searchCardLogic = SearchLogic(
     repository: catalogRepository,
     imageQualityService: imageQualityService,
     confidenceScore: confidenceScore,
     confidenceAutoAcceptThreshold: config.confidenceAutoAcceptThreshold,
+    traceRepository: searchTraceRepository,
   );
 
-  final catalogRouter = buildCatalogRoutes(createCardLogic, searchCardLogic);
+  final catalogRouter = buildCatalogRoutes(
+    createCardLogic,
+    searchCardLogic,
+    searchTraceRepository: searchTraceRepository,
+  );
 
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));

@@ -3,10 +3,13 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../../domain/submitter_catalog/search_card/search_logic.dart';
+import '../../domain/submitter_catalog/search_card/search_trace_repository.dart';
 import '../http_helpers.dart';
 
 Router buildCatalogRoutes(
-    CreateCardLogic createCardLogic, SearchLogic searchLogic) {
+    CreateCardLogic createCardLogic,
+    SearchLogic searchLogic,
+    {SearchTraceRepository? searchTraceRepository}) {
   final router = Router();
 
   router.post('/cards/search/image', (Request request) async {
@@ -224,6 +227,30 @@ Router buildCatalogRoutes(
       );
     }
   });
+
+  if (searchTraceRepository != null) {
+    router.get('/search-traces', (Request request) async {
+      final traces = await searchTraceRepository.findRecent(50);
+      final json = traces.map((t) {
+        return {
+          'id': t.id,
+          'timestamp': t.timestamp.toIso8601String(),
+          'method': t.method,
+          'candidates': t.candidates
+              .map((c) => {
+                    'card_id': c.cardId,
+                    'display_name': c.displayName,
+                    'confidence': c.confidence,
+                  })
+              .toList(),
+          'decision': t.decision,
+          'decision_reason': t.decisionReason,
+        };
+      }).toList();
+
+      return jsonResponse(200, {'traces': json});
+    });
+  }
 
   return router;
 }

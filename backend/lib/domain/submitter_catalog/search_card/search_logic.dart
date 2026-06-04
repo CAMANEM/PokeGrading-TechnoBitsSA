@@ -1,4 +1,8 @@
+import 'package:uuid/uuid.dart';
+
 import 'confidence_score.dart';
+import 'search_trace.dart';
+import 'search_trace_repository.dart';
 import 'visual_features.dart';
 import '../submit_evaluation/image_quality_service.dart';
 import '../catalog_repository.dart';
@@ -75,18 +79,27 @@ class SearchLogic {
   final ConfidenceScore confidenceScore;
   final VisualFeatureExtractor featureExtractor;
   final double confidenceAutoAcceptThreshold;
+  final SearchTraceRepository? traceRepository;
 
-  const SearchLogic(
+  SearchLogic(
       {required this.repository,
       required this.imageQualityService,
       required this.confidenceScore,
-      this.confidenceAutoAcceptThreshold = 90.0})
+      this.confidenceAutoAcceptThreshold = 90.0,
+      this.traceRepository})
       : featureExtractor = const VisualFeatureExtractor();
 
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
     final queryFeatures = featureExtractor.extract(command.imageData);
 
     if (queryFeatures.isEmpty) {
+      await _recordTrace(
+        method: 'image',
+        queryFeatures: queryFeatures,
+        candidates: [],
+        decision: 'manual_search_required',
+        decisionReason: 'Failed to extract visual features from image',
+      );
       return SearchCardResult(
         type: SearchResultType.manualSearchRequired,
         candidates: [],
@@ -99,7 +112,7 @@ class SearchLogic {
       searchCards = await repository.searchCards();
     }
 
-    final candidates = <SearchCandidate>[];
+    final scored = <SearchCandidate>[];
 
     for (final card in searchCards) {
       final score = card.visualFeatures != null
@@ -108,27 +121,42 @@ class SearchLogic {
           : confidenceScore.similarity(
               command.imageData, card.imageData);
 
-      candidates.add(SearchCandidate(card: card, confidence: score));
+      scored.add(SearchCandidate(card: card, confidence: score));
     }
 
-    candidates.sort((a, b) => b.confidence.compareTo(a.confidence));
+    scored.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-    if (candidates.isNotEmpty &&
-        candidates.first.confidence >= confidenceAutoAcceptThreshold) {
+    if (scored.isNotEmpty &&
+        scored.first.confidence >= confidenceAutoAcceptThreshold) {
+      await _recordTrace(
+        method: 'image',
+        queryFeatures: queryFeatures,
+        candidates: scored,
+        decision: 'auto_accept',
+        decisionReason:
+            'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% >= threshold $confidenceAutoAcceptThreshold%',
+      );
       return SearchCardResult(
         type: SearchResultType.singleCandidate,
-        candidates: [candidates.first],
+        candidates: [scored.first],
       );
     }
 
-    if (candidates.isEmpty) {
+    if (scored.isEmpty) {
+      await _recordTrace(
+        method: 'image',
+        queryFeatures: queryFeatures,
+        candidates: [],
+        decision: 'not_found',
+        decisionReason: 'No candidates matched the visual features',
+      );
       return SearchCardResult(
         type: SearchResultType.notFound,
         candidates: [],
       );
     }
 
-    if (candidates.first.confidence < 20.0) {
+    if (scored.first.confidence < 20.0) {
       final fuzzyName = searchCards.first.displayName ?? '';
       final fuzzyResults = await repository.fuzzySearchCards(fuzzyName);
 
@@ -137,6 +165,14 @@ class SearchLogic {
           return SearchCandidate(card: card, confidence: 25.0);
         }).toList();
 
+        await _recordTrace(
+          method: 'image',
+          queryFeatures: queryFeatures,
+          candidates: scored,
+          decision: 'fuzzy_fallback',
+          decisionReason:
+              'Top confidence ${scored.first.confidence.toStringAsFixed(1)}% < 20%, escalated to fuzzy search by "$fuzzyName"',
+        );
         return SearchCardResult(
           type: SearchResultType.multipleCandidates,
           candidates: fuzzyCandidates.take(3).toList(),
@@ -144,14 +180,30 @@ class SearchLogic {
       }
     }
 
+    await _recordTrace(
+      method: 'image',
+      queryFeatures: queryFeatures,
+      candidates: scored,
+      decision: 'multiple_candidates',
+      decisionReason:
+          'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% below threshold, showing top 3',
+    );
     return SearchCardResult(
       type: SearchResultType.multipleCandidates,
-      candidates: candidates.take(3).toList(),
+      candidates: scored.take(3).toList(),
     );
   }
 
   Future<SearchCardResult> searchByMetadata(
       SearchByMetadataCommand command) async {
+    final metadata = SearchMetadataEntry(
+      set: command.set,
+      number: command.number,
+      edition: command.edition,
+      language: command.language,
+      finish: command.finish,
+    );
+
     final readCards = await repository.searchCards();
 
     for (final card in readCards) {
@@ -160,9 +212,16 @@ class SearchLogic {
           (command.edition == card.edition) &&
           (command.language == card.language) &&
           (command.finish == card.finish)) {
+        final candidates = [SearchCandidate(card: card, confidence: 100.0)];
+        await _recordTrace(
+          method: 'manual',
+          queryMetadata: metadata,
+          candidates: candidates,
+          decision: 'auto_accept',
+          decisionReason: 'Exact identity match found for card ${card.id}',
+        );
         return SearchCardResult(
-            type: SearchResultType.singleCandidate,
-            candidates: [SearchCandidate(card: card, confidence: 100.0)]);
+            type: SearchResultType.singleCandidate, candidates: candidates);
       }
     }
 
@@ -174,13 +233,60 @@ class SearchLogic {
         return SearchCandidate(card: card, confidence: 60.0);
       }).toList();
 
+      await _recordTrace(
+        method: 'manual',
+        queryMetadata: metadata,
+        candidates: fuzzyCandidates,
+        decision: 'fuzzy_fallback',
+        decisionReason:
+            'No exact match, fuzzy search by "$fuzzyQuery" returned ${fuzzyCandidates.length} results',
+      );
       return SearchCardResult(
         type: SearchResultType.multipleCandidates,
         candidates: fuzzyCandidates.take(3).toList(),
       );
     }
 
+    await _recordTrace(
+      method: 'manual',
+      queryMetadata: metadata,
+      candidates: [],
+      decision: 'not_found',
+      decisionReason:
+          'No exact or fuzzy match found for query "$fuzzyQuery"',
+    );
     return SearchCardResult(
         type: SearchResultType.notFound, candidates: <SearchCandidate>[]);
+  }
+
+  Future<void> _recordTrace({
+    required String method,
+    VisualFeatures? queryFeatures,
+    SearchMetadataEntry? queryMetadata,
+    required List<SearchCandidate> candidates,
+    required String decision,
+    String? decisionReason,
+  }) async {
+    final repo = traceRepository;
+    if (repo == null) return;
+
+    final trace = SearchTrace(
+      id: const Uuid().v4(),
+      timestamp: DateTime.now().toUtc(),
+      method: method,
+      queryFeatures: queryFeatures,
+      queryMetadata: queryMetadata,
+      candidates: candidates.map((c) {
+        return ScoredCandidateEntry(
+          cardId: c.card.id,
+          displayName: c.card.displayName,
+          confidence: c.confidence,
+        );
+      }).toList(),
+      decision: decision,
+      decisionReason: decisionReason,
+    );
+
+    await repo.save(trace);
   }
 }
