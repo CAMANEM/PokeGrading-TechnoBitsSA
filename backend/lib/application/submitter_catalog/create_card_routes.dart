@@ -97,6 +97,16 @@ Router buildCatalogRoutes(
         ),
       );
 
+      if (result.candidates.isEmpty) {
+        return jsonResponse(
+          404,
+          {
+            'status': 'card_not_found',
+            'message': 'No card matches the provided identity',
+          },
+        );
+      }
+
       final candidate = result.candidates.first;
 
       return jsonResponse(

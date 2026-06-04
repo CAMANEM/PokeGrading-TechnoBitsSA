@@ -1,7 +1,12 @@
+import 'package:logging/logging.dart';
+
 import 'confidence_score.dart';
+import 'visual_features.dart';
 import '../submit_evaluation/image_quality_service.dart';
 import '../catalog_repository.dart';
 import '../pokemon_card.dart';
+
+final _log = Logger('SearchLogic');
 
 class SearchEvaluationLogicException implements Exception {
   /// Short error code for programmatic handling.
@@ -72,47 +77,72 @@ class SearchLogic {
   final CatalogRepository repository;
   final ImageQualityService imageQualityService;
   final ConfidenceScore confidenceScore;
+  final VisualFeatureExtractor featureExtractor;
+  final double confidenceAutoAcceptThreshold;
 
   const SearchLogic(
       {required this.repository,
       required this.imageQualityService,
-      required this.confidenceScore});
+      required this.confidenceScore,
+      this.confidenceAutoAcceptThreshold = 90.0})
+      : featureExtractor = const VisualFeatureExtractor();
 
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
-    final quality = await imageQualityService.calculateScore(
-      command.imageData,
-    );
+    final queryFeatures = featureExtractor.extract(command.imageData);
 
-    if (quality.score < 60) {
+    _log.info('Features extracted — aHash: ${queryFeatures.averageHashHex?.substring(0, 8)}..., dHash: ${queryFeatures.differenceHashHex?.substring(0, 8)}..., isEmpty: ${queryFeatures.isEmpty}');
+
+    if (queryFeatures.isEmpty) {
+      _log.info('→ manualSearchRequired (features empty)');
       return SearchCardResult(
         type: SearchResultType.manualSearchRequired,
         candidates: [],
       );
     }
 
-    final readCards = await repository.searchCards();
-
     final candidates = <SearchCandidate>[];
 
-    for (final card in readCards) {
-      candidates.add(
-        SearchCandidate(
-          card: card,
-          confidence: confidenceScore.similarity(
-            command.imageData,
-            card.imageData,
+    final indexedCards = await repository.findByVisualFeatures(queryFeatures);
+
+    if (indexedCards.isNotEmpty) {
+      for (final card in indexedCards) {
+        candidates.add(
+          SearchCandidate(
+            card: card,
+            confidence: confidenceScore.similarityAgainstFeatures(
+              card.visualFeatures ?? queryFeatures,
+              command.imageData,
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } else {
+      final readCards = await repository.searchCards();
+
+      for (final card in readCards) {
+        candidates.add(
+          SearchCandidate(
+            card: card,
+            confidence: card.visualFeatures != null
+                ? confidenceScore.similarityAgainstFeatures(
+                    card.visualFeatures!,
+                    command.imageData,
+                  )
+                : confidenceScore.similarity(
+                    command.imageData,
+                    card.imageData,
+                  ),
+          ),
+        );
+      }
     }
 
     candidates.sort(
       (a, b) => b.confidence.compareTo(a.confidence),
     );
 
-    const threshold = 90.0;
-
-    if (candidates.isNotEmpty && candidates.first.confidence >= threshold) {
+    if (candidates.isNotEmpty &&
+        candidates.first.confidence >= confidenceAutoAcceptThreshold) {
       return SearchCardResult(
         type: SearchResultType.singleCandidate,
         candidates: [candidates.first],

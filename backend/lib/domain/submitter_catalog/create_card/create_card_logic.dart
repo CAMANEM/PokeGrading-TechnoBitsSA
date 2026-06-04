@@ -29,6 +29,7 @@
 import '../catalog_repository.dart';
 import '../catalog_validators.dart';
 import '../pokemon_card.dart';
+import '../search_card/visual_features.dart';
 
 /// Represents an error produced by `CreateCardLogic`.
 ///
@@ -105,12 +106,11 @@ class CardCreatedResult {
 }
 
 class CreateCardLogic {
-  /// Repository used to persist and query catalog data.
   final CatalogRepository repository;
+  final VisualFeatureExtractor featureExtractor;
 
-  /// Creates a new `CreateCardLogic` instance.
-  /* Creates a new `CreateCardLogic` instance. */
-  const CreateCardLogic({required this.repository});
+  const CreateCardLogic({required this.repository})
+      : featureExtractor = const VisualFeatureExtractor();
 
   /*
    Validates the provided `command`, ensures the identity tuple is unique
@@ -149,6 +149,8 @@ class CreateCardLogic {
       );
     }
 
+    final features = featureExtractor.extract(command.imageData);
+
     final created = await repository.saveCard(
       AddPokemonCardInput(
         set: command.set,
@@ -165,6 +167,7 @@ class CreateCardLogic {
         author: command.author,
         imageData: command.imageData,
         backImageData: command.backImageData,
+        visualFeatures: features,
       ),
     );
 

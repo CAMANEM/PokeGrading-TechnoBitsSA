@@ -101,6 +101,12 @@ class VisualFeatureExtractor {
     return 100.0 - 100.0 * (totalDistance / totalBits);
   }
 
+  double similarityWithStored(VisualFeatures stored, String queryImageData) {
+    final queryFeatures = extract(queryImageData);
+    if (queryFeatures.isEmpty || stored.isEmpty) return 0.0;
+    return similarity(queryFeatures, stored);
+  }
+
   img.Image? _decodeImage(String imageData) {
     try {
       final base64Part =

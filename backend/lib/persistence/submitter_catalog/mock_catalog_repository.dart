@@ -1,23 +1,18 @@
-/*
- Mock in-memory implementation of `CatalogRepository` for development and tests.
-
- Behavior:
- - Generates card IDs using an `IdGenerator` (UUID by default).
- - Persists `PokemonCard` instances in a memory map and tracks identity
-   tuples to prevent duplicates.
- - Records a simple `audit` entry when a card is created.
-*/
 import '../../domain/submitter_catalog/catalog_repository.dart';
 import '../../domain/submitter_catalog/pokemon_card.dart';
+import '../../domain/submitter_catalog/search_card/visual_features.dart';
 import 'id_generator.dart';
 
 class MockCatalogRepository implements CatalogRepository {
   final IdGenerator _idGenerator;
+  final VisualFeatureExtractor _extractor;
   final Map<String, PokemonCard> _cardsById = <String, PokemonCard>{};
   final Set<String> _identityKeys = <String>{};
+  final Map<String, List<String>> _featureIndex = <String, List<String>>{};
 
-  MockCatalogRepository({IdGenerator? idGenerator})
-      : _idGenerator = idGenerator ?? UuidIdGenerator();
+  MockCatalogRepository({IdGenerator? idGenerator, VisualFeatureExtractor? extractor})
+      : _idGenerator = idGenerator ?? UuidIdGenerator(),
+        _extractor = extractor ?? const VisualFeatureExtractor();
 
   @override
   Future<bool> identityTupleExists({
@@ -41,6 +36,10 @@ class MockCatalogRepository implements CatalogRepository {
   Future<PokemonCard> saveCard(AddPokemonCardInput input) async {
     final id = _idGenerator.generateCardId();
     final now = DateTime.now().toUtc();
+
+    final features = input.visualFeatures ??
+        _extractor.extract(input.imageData);
+
     final card = PokemonCard(
       id: id,
       set: input.set.trim(),
@@ -59,6 +58,7 @@ class MockCatalogRepository implements CatalogRepository {
       year: input.year,
       createdBy: input.author,
       backImageData: input.backImageData,
+      visualFeatures: features,
       status: PokemonCardStatus.pendingValidation,
       isActive: true,
       audit: [
@@ -88,6 +88,7 @@ class MockCatalogRepository implements CatalogRepository {
 
     _cardsById[id] = card;
     _identityKeys.add(key);
+    _indexCard(card);
     return card;
   }
 
@@ -99,6 +100,49 @@ class MockCatalogRepository implements CatalogRepository {
   @override
   Future<List<PokemonCard>> searchCards() async {
     return _cardsById.values.toList();
+  }
+
+  Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
+    final candidateIds = <String>{};
+
+    for (final hash in [query.averageHashHex, query.differenceHashHex]) {
+      if (hash == null || hash.length != 16) continue;
+
+      for (int i = 0; i < 4; i++) {
+        final chunk = hash.substring(i * 4, (i + 1) * 4);
+        final prefix = hash == query.averageHashHex ? 'ahash' : 'dhash';
+        final key = '$prefix:chunk$i:$chunk';
+        final ids = _featureIndex[key];
+        if (ids != null) candidateIds.addAll(ids);
+      }
+    }
+
+    return candidateIds
+        .map((id) => _cardsById[id])
+        .where((card) => card != null)
+        .cast<PokemonCard>()
+        .toList();
+  }
+
+  void _indexCard(PokemonCard card) {
+    final features = card.visualFeatures;
+    if (features == null) return;
+
+    for (final entry in [
+      if (features.averageHashHex != null)
+        MapEntry('ahash', features.averageHashHex!),
+      if (features.differenceHashHex != null)
+        MapEntry('dhash', features.differenceHashHex!),
+    ]) {
+      final hash = entry.value;
+      if (hash.length != 16) continue;
+
+      for (int i = 0; i < 4; i++) {
+        final chunk = hash.substring(i * 4, (i + 1) * 4);
+        final key = '${entry.key}:chunk$i:$chunk';
+        _featureIndex.putIfAbsent(key, () => <String>[]).add(card.id);
+      }
+    }
   }
 
   String _identityKey({
