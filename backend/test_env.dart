@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:dotenv/dotenv.dart';
+
 void main() {
   final env = DotEnv();
   env.load(['../.env']);
