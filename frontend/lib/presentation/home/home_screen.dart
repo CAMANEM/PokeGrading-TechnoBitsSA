@@ -179,7 +179,7 @@ class _WelcomeCard extends StatelessWidget {
           const _InfoRow(
             icon: Icons.architecture_rounded,
             label: 'Layer Architecture',
-            value: 'Presentation → Application → Domain → Persistance → Data',
+            value: 'Presentation → Application → ...',
           ),
           const SizedBox(height: 8),
           const _InfoRow(
