@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../domain/user/user.dart';
 import '../../domain/user/user_repository.dart';
 
+/// @brief MemoryUserRepository
 class MemoryUserRepository implements UserRepository {
   final Map<String, User> _usersById = {};
   final Uuid _uuid;

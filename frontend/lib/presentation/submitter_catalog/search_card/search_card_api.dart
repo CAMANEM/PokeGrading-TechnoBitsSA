@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -13,6 +16,8 @@ import 'search_card_state.dart';
  includes a `X-Correlation-ID` header to help correlate client-side actions
  with server logs. It converts successful responses into `CreateCardResult`.
 */
+
+/// @brief SearchCardApiException
 class SearchCardApiException implements Exception {
   final String message;
 
@@ -22,6 +27,7 @@ class SearchCardApiException implements Exception {
   String toString() => message;
 }
 
+/// @brief SearchCardApi
 class SearchCardApi {
   final http.Client _client;
 

@@ -1,9 +1,13 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../../core/config/app_config.dart';
 
+/// @brief HomeApi
 class HomeApi {
   final http.Client _client;
 

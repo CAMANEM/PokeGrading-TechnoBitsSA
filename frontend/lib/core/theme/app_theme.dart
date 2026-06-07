@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 // ============================================================
 // PokéGrading — Design System / Theme (Core)
 // Defines colors, typography, and component styles.

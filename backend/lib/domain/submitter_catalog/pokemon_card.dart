@@ -1,11 +1,16 @@
+/// @file
+/// @brief
+
 import 'search_card/visual_features.dart';
 
+/// @brief PokemonCardStatus
 enum PokemonCardStatus {
   pendingValidation,
   validated,
   rejected,
 }
 
+/// @brief PokemonCard
 class PokemonCard {
   final String id;
   final String set;

@@ -1,5 +1,9 @@
+/// @file
+/// @brief
+
 import 'visual_features.dart';
 
+/// @brief ConfidenceScore
 class ConfidenceScore {
   final VisualFeatureExtractor _extractor;
 

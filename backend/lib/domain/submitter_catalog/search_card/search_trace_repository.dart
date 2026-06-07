@@ -1,5 +1,9 @@
+/// @file
+/// @brief
+
 import 'search_trace.dart';
 
+/// @brief SearchTraceRepository
 abstract class SearchTraceRepository {
   Future<void> save(SearchTrace trace);
 

@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 enum SubmitEvaluationStage {
   capture,
   validating,
@@ -6,6 +9,7 @@ enum SubmitEvaluationStage {
   error,
 }
 
+/// @brief SubmitEvaluationPayload
 class SubmitEvaluationPayload {
   final String frontImageData;
   final String backImageData;
@@ -18,6 +22,7 @@ class SubmitEvaluationPayload {
   });
 }
 
+/// @brief SubmitEvaluationResult
 class SubmitEvaluationResult {
   final String evaluationId;
   final String status;
@@ -32,6 +37,7 @@ class SubmitEvaluationResult {
   });
 }
 
+/// @brief SubmitEvaluationState
 class SubmitEvaluationState {
   final SubmitEvaluationStage stage;
   final SubmitEvaluationResult? result;

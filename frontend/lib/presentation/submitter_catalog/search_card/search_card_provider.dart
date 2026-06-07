@@ -1,8 +1,12 @@
+/// @file
+/// @brief
+
 import 'package:flutter/foundation.dart';
 
 import 'search_card_api.dart';
 import 'search_card_state.dart';
 
+/// @brief SearchCardProvider
 class SearchCardProvider extends ChangeNotifier {
   SearchCardProvider(this._api);
 

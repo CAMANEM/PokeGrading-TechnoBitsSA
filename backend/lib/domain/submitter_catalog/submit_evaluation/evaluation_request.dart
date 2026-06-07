@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 enum EvaluationStatus {
   pending,
   underReview,
@@ -5,6 +8,7 @@ enum EvaluationStatus {
   rejected,
 }
 
+/// @brief EvaluationRequest
 class EvaluationRequest {
   final String id;
 

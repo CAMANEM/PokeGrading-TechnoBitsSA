@@ -11,6 +11,7 @@ import '../../domain/submitter_catalog/submit_evaluation/evaluation_repository.d
 import '../../domain/submitter_catalog/submit_evaluation/evaluation_request.dart';
 import 'id_generator.dart';
 
+/// @brief MockEvaluationRepository
 class MockEvaluationRepository implements EvaluationRepository {
   final IdGenerator _idGenerator;
   final Map<String, EvaluationRequest> _requests =

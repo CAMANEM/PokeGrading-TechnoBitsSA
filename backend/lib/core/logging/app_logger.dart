@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 // ============================================================
 // PokéGrading — Global Logger (Core)
 // Structured logging with correlation_id support.

@@ -8,6 +8,8 @@
  - `CreateCardResult`: successful creation response from backend.
  - `CreateCardState`: immutable state object consumed by UI widgets.
 */
+
+/// @brief CreateCardStage
 enum CreateCardStage {
   identity,
   image,
@@ -16,6 +18,7 @@ enum CreateCardStage {
   error,
 }
 
+/// @brief CardIdentityInput
 class CardIdentityInput {
   final String set;
   final String number;
@@ -32,6 +35,7 @@ class CardIdentityInput {
   });
 }
 
+/// @brief CreateCardPayload
 class CreateCardPayload {
   final CardIdentityInput identity;
   final String? displayName;
@@ -58,6 +62,7 @@ class CreateCardPayload {
   });
 }
 
+/// @brief CreateCardResult
 class CreateCardResult {
   final String cardId;
   final String cardStatus;
@@ -70,6 +75,7 @@ class CreateCardResult {
   });
 }
 
+/// @brief CreateCardState
 class CreateCardState {
   final CreateCardStage stage;
   final CardIdentityInput? identity;

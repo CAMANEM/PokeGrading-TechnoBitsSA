@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -7,6 +10,7 @@ import '../../core/config/app_config.dart';
 import '../../domain/user/user.dart';
 import '../../domain/user/user_repository.dart';
 
+/// @brief PostgresUserRepository
 class PostgresUserRepository implements UserRepository {
   final Connection _connection;
 

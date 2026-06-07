@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 class EvaluationValidators {
   static final RegExp _imagePattern = RegExp(
     r'^data:image\/(png|jpe?g|heic);base64,',

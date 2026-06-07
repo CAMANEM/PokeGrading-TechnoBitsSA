@@ -1,5 +1,9 @@
+/// @file
+/// @brief
+
 import 'visual_features.dart';
 
+/// @brief ScoredCandidateEntry
 class ScoredCandidateEntry {
   final String cardId;
   final String? displayName;
@@ -12,6 +16,7 @@ class ScoredCandidateEntry {
   });
 }
 
+/// @brief SearchMetadataEntry
 class SearchMetadataEntry {
   final String set;
   final String number;
@@ -28,6 +33,7 @@ class SearchMetadataEntry {
   });
 }
 
+/// @brief SearchTrace
 class SearchTrace {
   final String id;
   final DateTime timestamp;

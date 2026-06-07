@@ -105,6 +105,7 @@ class CardCreatedResult {
   });
 }
 
+/// @brief CreateCardLogic
 class CreateCardLogic {
   final CatalogRepository repository;
   final VisualFeatureExtractor featureExtractor;

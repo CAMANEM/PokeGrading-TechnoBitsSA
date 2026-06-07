@@ -6,6 +6,7 @@
  - `RegisterState`: immutable state object used by `RegisterProvider`.
 */
 
+/// @brief RegisterStage
 enum RegisterStage {
   idle,
   submitting,
@@ -13,6 +14,7 @@ enum RegisterStage {
   error,
 }
 
+/// @brief ConfirmedUserData
 class ConfirmedUserData {
   final String id;
   final String email;
@@ -25,6 +27,7 @@ class ConfirmedUserData {
   });
 }
 
+/// @brief RegisterState
 class RegisterState {
   final RegisterStage stage;
   final ConfirmedUserData? confirmedUser;

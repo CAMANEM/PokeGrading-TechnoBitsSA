@@ -1,8 +1,12 @@
+/// @file
+/// @brief
+
 import '../../domain/submitter_catalog/catalog_repository.dart';
 import '../../domain/submitter_catalog/pokemon_card.dart';
 import '../../domain/submitter_catalog/search_card/visual_features.dart';
 import 'id_generator.dart';
 
+/// @brief MockCatalogRepository
 class MockCatalogRepository implements CatalogRepository {
   final IdGenerator _idGenerator;
   final VisualFeatureExtractor _extractor;
@@ -204,6 +208,7 @@ class MockCatalogRepository implements CatalogRepository {
   }
 }
 
+/// @brief _FuzzyMatch
 class _FuzzyMatch {
   final PokemonCard card;
   final int score;

@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:flutter/foundation.dart';
 
 import 'create_card_api.dart';
@@ -10,6 +13,8 @@ import 'create_card_state.dart';
 
  It updates `CreateCardState` and notifies listeners for UI updates.
 */
+
+/// @brief CreateCardProvider
 class CreateCardProvider extends ChangeNotifier {
   CreateCardProvider(this._api);
 

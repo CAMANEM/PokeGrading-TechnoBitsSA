@@ -6,6 +6,8 @@
  returns `null` when the value is valid or a short human-friendly error
  message when invalid.
 */
+
+/// @brief UserValidators
 class UserValidators {
   static const supportedCountries = {
     'CR',

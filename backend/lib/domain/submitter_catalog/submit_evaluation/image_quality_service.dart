@@ -1,6 +1,10 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 import 'package:image/image.dart' as img;
 
+/// @brief ImageQualityResult
 class ImageQualityResult {
   final double score;
   final double sharpnessScore;
@@ -17,6 +21,7 @@ class ImageQualityResult {
   bool get accepted => rejectionReasons.isEmpty;
 }
 
+/// @brief ImageQualityService
 class ImageQualityService {
   img.Image decodeImageData(String imageData) {
     final base64Part = imageData.split(',').last;

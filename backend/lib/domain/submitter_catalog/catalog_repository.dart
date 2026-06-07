@@ -10,6 +10,8 @@ import 'search_card/visual_features.dart';
 /*
  Input DTO used by the repository to persist a new Pokemon card.
 */
+
+/// @brief AddPokemonCardInput
 class AddPokemonCardInput {
   final String set;
   final String number;
@@ -49,6 +51,8 @@ class AddPokemonCardInput {
 /*
  Abstract repository interface for catalog operations.
 */
+
+/// @brief CatalogIdentityConflictException
 class CatalogIdentityConflictException implements Exception {
   final String message;
 
@@ -58,6 +62,7 @@ class CatalogIdentityConflictException implements Exception {
   String toString() => message;
 }
 
+/// @brief CatalogRepository
 abstract class CatalogRepository {
   Future<bool> identityTupleExists({
     required String set,

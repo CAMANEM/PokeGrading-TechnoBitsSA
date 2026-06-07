@@ -1,8 +1,12 @@
+/// @file
+/// @brief
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pokegrading_frontend/presentation/submitter_catalog/submit_evaluation/submit_evaluation_api.dart';
 import 'package:pokegrading_frontend/presentation/submitter_catalog/submit_evaluation/submit_evaluation_provider.dart';
 import 'package:pokegrading_frontend/presentation/submitter_catalog/submit_evaluation/submit_evaluation_state.dart';
 
+/// @brief _RetryEvaluationApi
 class _RetryEvaluationApi extends SubmitEvaluationApi {
   final submittedPayloads = <SubmitEvaluationPayload>[];
 

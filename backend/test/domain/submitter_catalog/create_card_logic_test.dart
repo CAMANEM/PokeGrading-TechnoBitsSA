@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:pokegrading_backend/domain/submitter_catalog/search_card/visual_features.dart';
 import 'package:test/test.dart';
 
@@ -81,6 +84,7 @@ String _validImageData() {
   return 'data:image/png;base64,${List.filled(5200, 'A').join()}';
 }
 
+/// @brief _SpyCatalogRepository
 class _SpyCatalogRepository implements CatalogRepository {
   final Set<String> _identityKeys = <String>{};
   int saveCallCount = 0;
@@ -165,6 +169,7 @@ class _SpyCatalogRepository implements CatalogRepository {
   }
 }
 
+/// @brief _FixedIdGenerator
 class _FixedIdGenerator implements IdGenerator {
   final List<String> _ids;
   int _index = 0;

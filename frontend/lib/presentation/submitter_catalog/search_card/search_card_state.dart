@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 enum SearchCardStage {
   capture,
   searching,
@@ -7,6 +10,7 @@ enum SearchCardStage {
   error
 }
 
+/// @brief CandidateCard
 class CandidateCard {
   final String id;
   final String name;
@@ -19,6 +23,7 @@ class CandidateCard {
   });
 }
 
+/// @brief SearchCardPayload
 class SearchCardPayload {
   final String imageData;
   final int mode;
@@ -26,6 +31,7 @@ class SearchCardPayload {
   const SearchCardPayload({required this.imageData, required this.mode});
 }
 
+/// @brief ManualSearchPayload
 class ManualSearchPayload {
   final String set;
   final String number;
@@ -42,6 +48,7 @@ class ManualSearchPayload {
   });
 }
 
+/// @brief SearchCardResult
 class SearchCardResult {
   final SearchCardStage nextStage;
   final List<CandidateCard> candidates;
@@ -51,6 +58,7 @@ class SearchCardResult {
       {required this.nextStage, this.candidates = const [], this.reason});
 }
 
+/// @brief SearchCardState
 class SearchCardState {
   final SearchCardStage stage;
   final CandidateCard? selectedCandidate;

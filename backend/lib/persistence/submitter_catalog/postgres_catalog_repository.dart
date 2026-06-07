@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
@@ -5,6 +8,7 @@ import '../../domain/submitter_catalog/catalog_repository.dart';
 import '../../domain/submitter_catalog/pokemon_card.dart';
 import '../../domain/submitter_catalog/search_card/visual_features.dart';
 
+/// @brief PostgresCatalogRepository
 class PostgresCatalogRepository implements CatalogRepository {
   final Connection _connection;
 

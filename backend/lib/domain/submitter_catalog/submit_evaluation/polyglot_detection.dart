@@ -1,6 +1,10 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 import 'dart:typed_data';
 
+/// @brief PolyglotDetectionResult
 class PolyglotDetectionResult {
   final bool isPolyglot;
   final List<String> indicators;
@@ -11,6 +15,7 @@ class PolyglotDetectionResult {
   });
 }
 
+/// @brief PolyglotDetector
 class PolyglotDetector {
   bool _containsExecutableHeader(Uint8List bytes) {
     final data = latin1.decode(

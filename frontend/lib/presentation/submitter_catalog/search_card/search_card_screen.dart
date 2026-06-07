@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -10,6 +13,7 @@ import 'search_card_state.dart';
 
 import '../../../core/theme/app_theme.dart';
 
+/// @brief SearchCardScreen
 class SearchCardScreen extends StatefulWidget {
   const SearchCardScreen({super.key});
 
@@ -17,6 +21,7 @@ class SearchCardScreen extends StatefulWidget {
   State<SearchCardScreen> createState() => _SearchCardScreenState();
 }
 
+/// @brief _SearchCardScreenState
 class _SearchCardScreenState extends State<SearchCardScreen> {
   late final SearchCardProvider _provider;
 
@@ -253,6 +258,7 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
   }
 }
 
+/// @brief _Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
   final SearchCardState state;
@@ -302,6 +308,7 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// @brief _CandidateResults
 class _CandidateResults extends StatelessWidget {
   final List<CandidateCard> candidates;
   final bool isSingle;
@@ -366,6 +373,7 @@ class _CandidateResults extends StatelessWidget {
   }
 }
 
+/// @brief _ManualSearchForm
 class _ManualSearchForm extends StatelessWidget {
   final TextEditingController setController;
   final TextEditingController numberController;
@@ -430,6 +438,7 @@ class _ManualSearchForm extends StatelessWidget {
   }
 }
 
+/// @brief _FormCard
 class _FormCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -463,6 +472,7 @@ class _FormCard extends StatelessWidget {
   }
 }
 
+/// @brief _CaptureForm
 class _CaptureForm extends StatelessWidget {
   final String? selectedImageName;
   final String? selectedImageExtension;
@@ -554,6 +564,7 @@ class _CaptureForm extends StatelessWidget {
   }
 }
 
+/// @brief _MessageBanner
 class _MessageBanner extends StatelessWidget {
   final String message;
   final SearchCardState state;

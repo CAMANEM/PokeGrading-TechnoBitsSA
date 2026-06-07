@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/config/app_config.dart';
 import 'submit_evaluation_state.dart';
 
+/// @brief SubmitEvaluationApiException
 class SubmitEvaluationApiException implements Exception {
   final String message;
 
@@ -15,6 +19,7 @@ class SubmitEvaluationApiException implements Exception {
   String toString() => message;
 }
 
+/// @brief SubmitEvaluationApi
 class SubmitEvaluationApi {
   final http.Client _client;
 

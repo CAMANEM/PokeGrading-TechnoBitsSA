@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 // ============================================================
 // PokéGrading — Application Configuration (Core)
 // Reads environment variables and exposes them in a typed way.

@@ -1,16 +1,22 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 import 'package:image/image.dart' as img;
 
+/// @brief ImageHashType
 enum ImageHashType {
   averageHash,
   differenceHash,
 }
 
+/// @brief ScoringStrategy
 enum ScoringStrategy {
   linear,
   quadratic,
 }
 
+/// @brief VisualFeatures
 class VisualFeatures {
   final String? averageHashHex;
   final String? differenceHashHex;
@@ -31,6 +37,7 @@ class VisualFeatures {
   bool get isEmpty => averageHashHex == null && differenceHashHex == null;
 }
 
+/// @brief VisualFeatureExtractor
 class VisualFeatureExtractor {
   const VisualFeatureExtractor();
 

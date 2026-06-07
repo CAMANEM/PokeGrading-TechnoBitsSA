@@ -5,6 +5,8 @@
  language, finish), image payloads and optional metadata (rarity, type, hp,
  year, author). Methods return `null` on success or an error message on failure.
 */
+
+/// @brief CatalogValidators
 class CatalogValidators {
   static final RegExp _imageDataUrlPattern = RegExp(
     r'^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=\r\n]+$',

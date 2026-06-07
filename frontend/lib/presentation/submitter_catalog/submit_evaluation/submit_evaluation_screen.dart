@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +16,7 @@ import '../../navigation_history.dart';
 
 _SubmitEvaluationDraft? _submitEvaluationDraft;
 
+/// @brief _SubmitEvaluationDraft
 class _SubmitEvaluationDraft {
   final String? frontImageData;
   final String? frontImageName;
@@ -31,6 +35,7 @@ class _SubmitEvaluationDraft {
   });
 }
 
+/// @brief SubmitEvaluationScreen
 class SubmitEvaluationScreen extends StatefulWidget {
   const SubmitEvaluationScreen({super.key});
 
@@ -38,6 +43,7 @@ class SubmitEvaluationScreen extends StatefulWidget {
   State<SubmitEvaluationScreen> createState() => _SubmitEvaluationScreenState();
 }
 
+/// @brief _SubmitEvaluationScreenState
 class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   late final SubmitEvaluationProvider _provider;
 
@@ -285,6 +291,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   }
 }
 
+/// @brief _Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
 
@@ -324,6 +331,7 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// @brief _FormCard
 class _FormCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -357,6 +365,7 @@ class _FormCard extends StatelessWidget {
   }
 }
 
+/// @brief _CaptureForm
 class _CaptureForm extends StatelessWidget {
   final String? selectedFrontImageName;
   final String? selectedFrontImageExtension;
@@ -483,6 +492,7 @@ class _CaptureForm extends StatelessWidget {
   }
 }
 
+/// @brief _MessageBanner
 class _MessageBanner extends StatelessWidget {
   final String message;
   final bool isError;
@@ -517,6 +527,7 @@ class _MessageBanner extends StatelessWidget {
   }
 }
 
+/// @brief _StepBadge
 class _StepBadge extends StatelessWidget {
   final String label;
   final bool active;
@@ -548,6 +559,7 @@ class _StepBadge extends StatelessWidget {
   }
 }
 
+/// @brief _FlowProgress
 class _FlowProgress extends StatelessWidget {
   final SubmitEvaluationStage stage;
 
@@ -585,6 +597,7 @@ class _FlowProgress extends StatelessWidget {
   }
 }
 
+/// @brief _SuccessCard
 class _SuccessCard extends StatelessWidget {
   final SubmitEvaluationResult result;
   final VoidCallback onReset;

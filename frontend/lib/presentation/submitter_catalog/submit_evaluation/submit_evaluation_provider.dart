@@ -1,8 +1,12 @@
+/// @file
+/// @brief
+
 import 'package:flutter/foundation.dart';
 
 import 'submit_evaluation_state.dart';
 import 'submit_evaluation_api.dart';
 
+/// @brief SubmitEvaluationProvider
 class SubmitEvaluationProvider extends ChangeNotifier {
   SubmitEvaluationProvider(this._api);
 

@@ -27,6 +27,7 @@ const supportedLanguages = {
 
 _RegisterDraft? _registerDraft;
 
+/// @brief _RegisterDraft
 class _RegisterDraft {
   final String email;
   final String username;
@@ -45,6 +46,7 @@ class _RegisterDraft {
   });
 }
 
+/// @brief RegisterScreen
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -52,6 +54,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+/// @brief _RegisterScreenState
 class _RegisterScreenState extends State<RegisterScreen> {
   late final RegisterProvider _provider;
 
@@ -231,6 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
+/// @brief _Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
 
@@ -270,6 +274,7 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// @brief _IntroPanel
 class _IntroPanel extends StatelessWidget {
   final ConfirmedUserData? confirmedUser;
 
@@ -329,6 +334,7 @@ class _IntroPanel extends StatelessWidget {
   }
 }
 
+/// @brief _FlowCard
 class _FlowCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -393,6 +399,7 @@ class _FlowCard extends StatelessWidget {
   }
 }
 
+/// @brief _SuccessBox
 class _SuccessBox extends StatelessWidget {
   final ConfirmedUserData user;
 
@@ -423,6 +430,7 @@ class _SuccessBox extends StatelessWidget {
   }
 }
 
+/// @brief _FormPanel
 class _FormPanel extends StatelessWidget {
   final RegisterState authState;
   final GlobalKey<FormState> registrationFormKey;
@@ -649,6 +657,7 @@ class _FormPanel extends StatelessWidget {
   }
 }
 
+/// @brief _MessageBanner
 class _MessageBanner extends StatelessWidget {
   final String message;
   final bool success;

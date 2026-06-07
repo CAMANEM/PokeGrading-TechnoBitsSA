@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 // ============================================================
 // PokéGrading — Correlation ID Middleware (Core)
 // Injects a unique correlation_id in each HTTP request to

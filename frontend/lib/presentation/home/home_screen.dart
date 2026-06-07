@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -5,6 +8,7 @@ import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import 'home_api.dart';
 
+/// @brief HomeScreen
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -12,6 +16,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// @brief _HomeScreenState
 class _HomeScreenState extends State<HomeScreen> {
   final _homeApi = HomeApi();
   late Future<Map<String, dynamic>> _healthFuture;
@@ -58,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// @brief _PokeGradingLogo
 class _PokeGradingLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -127,6 +133,7 @@ class _PokeGradingLogo extends StatelessWidget {
   }
 }
 
+/// @brief _WelcomeCard
 class _WelcomeCard extends StatelessWidget {
   final ThemeData theme;
   const _WelcomeCard({required this.theme});
@@ -223,6 +230,7 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
+/// @brief _InfoRow
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -257,6 +265,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+/// @brief _HealthCheckCard
 class _HealthCheckCard extends StatelessWidget {
   final Future<Map<String, dynamic>> healthFuture;
   final VoidCallback onRefresh;
@@ -400,6 +409,7 @@ class _HealthCheckCard extends StatelessWidget {
   }
 }
 
+/// @brief _StackInfoRow
 class _StackInfoRow extends StatelessWidget {
   const _StackInfoRow();
 

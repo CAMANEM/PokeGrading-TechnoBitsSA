@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:uuid/uuid.dart';
 
 /*
@@ -7,10 +10,13 @@ import 'package:uuid/uuid.dart';
 + default `UuidIdGenerator` produces UUID v4 strings suitable for tests and
  rapid prototyping.
 */
+
+/// @brief IdGenerator
 abstract class IdGenerator {
   String generateCardId();
 }
 
+/// @brief UuidIdGenerator
 class UuidIdGenerator implements IdGenerator {
   final Uuid _uuid;
 

@@ -1,6 +1,10 @@
+/// @file
+/// @brief
+
 import '../../domain/submitter_catalog/search_card/search_trace.dart';
 import '../../domain/submitter_catalog/search_card/search_trace_repository.dart';
 
+/// @brief MockSearchTraceRepository
 class MockSearchTraceRepository implements SearchTraceRepository {
   final List<SearchTrace> _traces = [];
 

@@ -11,6 +11,8 @@
  Represents the registration lifecycle of a user.
  - `active`: the user is active and allowed to log in.
 */
+
+/// @brief UserRegistrationStatus
 enum UserRegistrationStatus {
   active,
 }
@@ -19,6 +21,8 @@ enum UserRegistrationStatus {
  Represents the role assigned to a user. Roles affect authorization checks
  and permitted actions within the system.
 */
+
+/// @brief UserRole
 enum UserRole { submitter, reviewer, admin, b2bServiceAccount }
 
 /*
@@ -29,6 +33,8 @@ enum UserRole { submitter, reviewer, admin, b2bServiceAccount }
  - `acceptedDisclosure`: indicates whether the user accepted required terms.
  - `role` and `status` control authorization and registration lifecycle.
 */
+
+/// @brief User
 class User {
   final String id;
   final String email;

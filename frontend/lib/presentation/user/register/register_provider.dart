@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:flutter/foundation.dart';
 
 import 'register_api.dart';
@@ -10,6 +13,8 @@ import 'register_state.dart';
  and notifies listeners. UI code should listen to this provider to reflect
  progress, errors and success states.
 */
+
+/// @brief RegisterProvider
 class RegisterProvider extends ChangeNotifier {
   RegisterProvider(this._api);
 

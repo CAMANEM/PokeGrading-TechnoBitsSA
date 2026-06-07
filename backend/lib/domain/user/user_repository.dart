@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'user.dart';
 
 /*
@@ -6,6 +9,8 @@ import 'user.dart';
  Implementations are expected to handle uniqueness checks and directly create
  user accounts without a confirmation token flow.
 */
+
+/// @brief UserRepository
 abstract class UserRepository {
   Future<bool> emailExists(String email);
   Future<bool> usernameExists(String username);

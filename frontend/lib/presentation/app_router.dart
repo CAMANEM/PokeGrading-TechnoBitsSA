@@ -47,6 +47,7 @@ final appRouter = GoRouter(
   errorBuilder: (context, state) => _NotFoundScreen(error: state.error),
 );
 
+/// @brief _NotFoundScreen
 class _NotFoundScreen extends StatelessWidget {
   final Exception? error;
   const _NotFoundScreen({this.error});

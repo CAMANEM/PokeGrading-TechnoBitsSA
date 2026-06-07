@@ -1,9 +1,13 @@
+/// @file
+/// @brief
+
 import 'evaluation_repository.dart';
 import 'evaluation_request.dart';
 import 'evaluation_validators.dart';
 import 'image_quality_service.dart';
 import 'polyglot_detection.dart';
 
+/// @brief SubmitEvaluationLogicException
 class SubmitEvaluationLogicException implements Exception {
   /// Short error code for programmatic handling.
   final String code;
@@ -18,6 +22,7 @@ class SubmitEvaluationLogicException implements Exception {
   String toString() => 'SubmitEvaluationLogicException($code): $message';
 }
 
+/// @brief SubmitEvaluationCommand
 class SubmitEvaluationCommand {
   final String frontImageData;
   final String backImageData;
@@ -30,6 +35,7 @@ class SubmitEvaluationCommand {
   });
 }
 
+/// @brief EvaluationSubmittedResult
 class EvaluationSubmittedResult {
   final String submissionId;
 
@@ -49,6 +55,7 @@ class EvaluationSubmittedResult {
   });
 }
 
+/// @brief SubmitEvaluationLogic
 class SubmitEvaluationLogic {
   final EvaluationRepository repository;
   final ImageQualityService imageQualityService;

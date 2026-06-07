@@ -14,6 +14,7 @@ void main() {
   runApp(const PokeGradingApp());
 }
 
+/// @brief PokeGradingApp
 class PokeGradingApp extends StatelessWidget {
   const PokeGradingApp({super.key});
 

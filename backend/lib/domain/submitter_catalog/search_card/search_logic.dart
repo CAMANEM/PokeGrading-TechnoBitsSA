@@ -1,3 +1,6 @@
+/// @file
+/// @brief
+
 import 'package:uuid/uuid.dart';
 
 import 'confidence_score.dart';
@@ -7,6 +10,7 @@ import 'visual_features.dart';
 import '../catalog_repository.dart';
 import '../pokemon_card.dart';
 
+/// @brief SearchEvaluationLogicException
 class SearchEvaluationLogicException implements Exception {
   /// Short error code for programmatic handling.
   final String code;
@@ -21,6 +25,7 @@ class SearchEvaluationLogicException implements Exception {
   String toString() => 'SubmitEvaluationLogicException($code): $message';
 }
 
+/// @brief SearchByImageCommand
 class SearchByImageCommand {
   final String imageData;
   final int mode;
@@ -31,6 +36,7 @@ class SearchByImageCommand {
   });
 }
 
+/// @brief SearchByMetadataCommand
 class SearchByMetadataCommand {
   final String set;
   final String number;
@@ -47,6 +53,7 @@ class SearchByMetadataCommand {
   });
 }
 
+/// @brief SearchResultType
 enum SearchResultType {
   manualSearchRequired,
   singleCandidate,
@@ -54,6 +61,7 @@ enum SearchResultType {
   notFound
 }
 
+/// @brief SearchCandidate
 class SearchCandidate {
   final PokemonCard card;
   final double confidence;
@@ -64,6 +72,7 @@ class SearchCandidate {
   });
 }
 
+/// @brief SearchCardResult
 class SearchCardResult {
   final SearchResultType type;
   final List<SearchCandidate> candidates;
@@ -75,6 +84,7 @@ class SearchCardResult {
       this.reason});
 }
 
+/// @brief SearchLogic
 class SearchLogic {
   final CatalogRepository repository;
   final ConfidenceScore confidenceScore;

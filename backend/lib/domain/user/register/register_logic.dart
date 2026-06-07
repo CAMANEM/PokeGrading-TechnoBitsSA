@@ -23,6 +23,8 @@ import '../user_validators.dart';
  `email_exists`) and `message` provides a human-readable explanation for
  logs and client error messages.
 */
+
+/// @brief RegisterLogicException
 class RegisterLogicException implements Exception {
   final String code;
   final String message;
@@ -36,6 +38,8 @@ class RegisterLogicException implements Exception {
 /*
  Value object returned after successful registration.
 */
+
+/// @brief ConfirmedUser
 class ConfirmedUser {
   final String id;
   final String email;
@@ -62,6 +66,8 @@ class ConfirmedUser {
  `register(...)` validates inputs, ensures uniqueness of email/username,
  and creates an active user in the repository.
 */
+
+/// @brief RegisterLogic
 class RegisterLogic {
   final UserRepository repository;
 

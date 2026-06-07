@@ -1,5 +1,9 @@
+/// @file
+/// @brief
+
 import 'evaluation_request.dart';
 
+/// @brief AddEvaluationInput
 class AddEvaluationInput {
   final String frontImageData;
   final String backImageData;
@@ -17,6 +21,7 @@ class AddEvaluationInput {
   });
 }
 
+/// @brief SecurityAuditEvent
 class SecurityAuditEvent {
   final String eventType;
   final String details;
@@ -29,6 +34,7 @@ class SecurityAuditEvent {
   });
 }
 
+/// @brief EvaluationRepository
 abstract class EvaluationRepository {
   Future<EvaluationRequest> saveEvaluation(
     AddEvaluationInput input,

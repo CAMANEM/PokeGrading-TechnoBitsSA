@@ -20,6 +20,7 @@ import 'create_card_state.dart';
 
 _CreateCardDraft? _createCardDraft;
 
+/// @brief _CreateCardDraft
 class _CreateCardDraft {
   final CreateCardStage stage;
   final String set;
@@ -66,6 +67,7 @@ class _CreateCardDraft {
   });
 }
 
+/// @brief CreateCardScreen
 class CreateCardScreen extends StatefulWidget {
   const CreateCardScreen({super.key});
 
@@ -73,6 +75,7 @@ class CreateCardScreen extends StatefulWidget {
   State<CreateCardScreen> createState() => _CreateCardScreenState();
 }
 
+/// @brief _CreateCardScreenState
 class _CreateCardScreenState extends State<CreateCardScreen> {
   late final CreateCardProvider _provider;
 
@@ -491,6 +494,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
   }
 }
 
+/// @brief _Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
 
@@ -530,6 +534,7 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// @brief _FlowProgress
 class _FlowProgress extends StatelessWidget {
   final CreateCardStage stage;
 
@@ -565,6 +570,7 @@ class _FlowProgress extends StatelessWidget {
   }
 }
 
+/// @brief _StepBadge
 class _StepBadge extends StatelessWidget {
   final String label;
   final bool active;
@@ -596,6 +602,7 @@ class _StepBadge extends StatelessWidget {
   }
 }
 
+/// @brief _MessageBanner
 class _MessageBanner extends StatelessWidget {
   final String message;
 
@@ -628,6 +635,7 @@ class _MessageBanner extends StatelessWidget {
   }
 }
 
+/// @brief _IdentityForm
 class _IdentityForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController setController;
@@ -872,6 +880,7 @@ class _IdentityForm extends StatelessWidget {
   }
 }
 
+/// @brief _ImageForm
 class _ImageForm extends StatelessWidget {
   final String? selectedFrontImageName;
   final String? selectedFrontImageExtension;
@@ -998,6 +1007,7 @@ class _ImageForm extends StatelessWidget {
   }
 }
 
+/// @brief _SuccessCard
 class _SuccessCard extends StatelessWidget {
   final CreateCardResult result;
   final VoidCallback onReset;
@@ -1051,6 +1061,7 @@ class _SuccessCard extends StatelessWidget {
   }
 }
 
+/// @brief _ResultRow
 class _ResultRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1080,6 +1091,7 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
+/// @brief _FormCard
 class _FormCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -1113,6 +1125,7 @@ class _FormCard extends StatelessWidget {
   }
 }
 
+/// @brief _InputField
 class _InputField extends StatelessWidget {
   final TextEditingController controller;
   final String label;

@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/config/app_config.dart';
 import 'register_state.dart';
 
+/// @brief RegisterApiException
 class RegisterApiException implements Exception {
   final String message;
 
@@ -22,6 +23,7 @@ class RegisterApiException implements Exception {
   String toString() => message;
 }
 
+/// @brief RegisterApi
 class RegisterApi {
   final http.Client _client;
 
