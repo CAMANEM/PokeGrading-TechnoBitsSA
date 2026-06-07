@@ -1,11 +1,14 @@
 /// @file
 /// @brief
 
+import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import '../../domain/user/register/register_logic.dart';
 import '../http_helpers.dart';
+
+final _log = Logger('PokéGrading.Routes.Register');
 
 Router buildRegisterRoutes(RegisterLogic registerLogic) {
   final router = Router();
@@ -50,7 +53,8 @@ Router buildRegisterRoutes(RegisterLogic registerLogic) {
           'message': error.message,
         },
       );
-    } catch (error) {
+    } catch (error, stack) {
+      _log.severe('Registration failed: $error\n$stack');
       return jsonResponse(
         502,
         {

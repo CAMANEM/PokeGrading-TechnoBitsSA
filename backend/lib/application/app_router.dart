@@ -1,10 +1,8 @@
 /*
- Application router and dependency wiring.
+  Application router and dependency wiring.
 
- This module constructs the root `Router` instance for the backend, mounts
- sub-routers for versioned API groups and performs lightweight dependency
- wiring for demo/mock implementations. Production wiring (SQL repositories,
- real SMTP) can replace the in-memory and mock providers used here.
+  This module constructs the root `Router` instance for the backend, mounts
+  sub-routers for versioned API groups and performs dependency wiring.
 */
 import 'package:dotenv/dotenv.dart';
 import 'package:logging/logging.dart';
@@ -18,28 +16,39 @@ import '../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart';
 import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
 import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
+import '../domain/submitter_catalog/submit_evaluation/evaluation_repository.dart';
 import '../domain/submitter_catalog/catalog_repository.dart';
 import '../domain/submitter_catalog/search_card/search_logic.dart';
 import '../domain/submitter_catalog/search_card/confidence_score.dart';
-import '../persistence/submitter_catalog/mock_evaluation_repository.dart';
-import '../persistence/submitter_catalog/mock_search_trace_repository.dart';
+import '../domain/submitter_catalog/search_card/search_trace_repository.dart';
 import 'submitter_catalog/create_card_routes.dart';
 import 'user/register_routes.dart';
 import 'submitter_catalog/submit_evaluation_routes.dart';
 
 /*
- Builds and returns the main router with all registered routes and DI wiring.
+  Builds and returns the main router with all registered routes and DI wiring.
 
- Parameters:
- - `env`: DotEnv with environment variables (used to detect Resend API key).
- - `config`: application configuration (controls mock vs real repos, versioning).
- - `log`: logger used for startup messages.
+  Parameters:
+  - `env`: DotEnv with environment variables.
+  - `config`: application configuration.
+  - `log`: logger used for startup messages.
+  - `userRepository`: repository for user persistence.
+  - `catalogRepository`: repository for catalog persistence.
+  - `evaluationRepository`: repository for evaluation requests.
+  - `searchTraceRepository`: repository for search traces (optional).
 
- Returns:
- - A `Router` with mounted routes: root, health, auth and catalog sub-routers.
+  Returns:
+  - A `Router` with mounted routes: root, health, auth, catalog, and evaluations.
 */
-Router buildAppRouter(DotEnv env, AppConfig config, Logger log,
-    UserRepository userRepository, CatalogRepository catalogRepository) {
+Router buildAppRouter(
+  DotEnv env,
+  AppConfig config,
+  Logger log,
+  UserRepository userRepository,
+  CatalogRepository catalogRepository,
+  EvaluationRepository evaluationRepository,
+  SearchTraceRepository? searchTraceRepository,
+) {
   final router = Router();
 
   final registerLogic = RegisterLogic(
@@ -49,7 +58,6 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log,
 
   final createCardLogic = CreateCardLogic(repository: catalogRepository);
 
-  final evaluationRepository = MockEvaluationRepository();
   final imageQualityService = ImageQualityService();
   final polyglotDetector = PolyglotDetector();
   final evaluationLogic = SubmitEvaluationLogic(
@@ -59,7 +67,6 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log,
   final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
 
   final confidenceScore = ConfidenceScore();
-  final searchTraceRepository = MockSearchTraceRepository();
   final searchCardLogic = SearchLogic(
     repository: catalogRepository,
     confidenceScore: confidenceScore,
@@ -79,12 +86,6 @@ Router buildAppRouter(DotEnv env, AppConfig config, Logger log,
   router.mount('/api/v1/auth/', registerRouter.call);
   router.mount('/api/v1/catalog/', catalogRouter.call);
   router.mount('/api/v1/', evaluationRouter.call);
-
-  if (!config.useMockRepositories) {
-    log.warning(
-      'PostgreSQL user repository is not available yet; using in-memory user repository.',
-    );
-  }
 
   router.all('/<ignored|.*>', _handleNotFound);
 

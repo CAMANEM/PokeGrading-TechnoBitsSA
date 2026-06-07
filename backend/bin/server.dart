@@ -16,11 +16,17 @@ import '../lib/core/config/app_config.dart';
 import '../lib/core/logging/app_logger.dart';
 import '../lib/core/middleware/correlation_middleware.dart';
 import '../lib/domain/user/user_repository.dart';
+import '../lib/domain/submitter_catalog/catalog_repository.dart';
+import '../lib/domain/submitter_catalog/submit_evaluation/evaluation_repository.dart';
+import '../lib/domain/submitter_catalog/search_card/search_trace_repository.dart';
 import '../lib/persistence/user/memory_user_repository.dart';
 import '../lib/persistence/user/postgres_user_repository.dart';
-import '../lib/domain/submitter_catalog/catalog_repository.dart';
 import '../lib/persistence/submitter_catalog/mock_catalog_repository.dart';
 import '../lib/persistence/submitter_catalog/postgres_catalog_repository.dart';
+import '../lib/persistence/submitter_catalog/mock_evaluation_repository.dart';
+import '../lib/persistence/submitter_catalog/postgres_evaluation_repository.dart';
+import '../lib/persistence/submitter_catalog/mock_search_trace_repository.dart';
+import '../lib/persistence/submitter_catalog/postgres_search_trace_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -46,25 +52,44 @@ void main() async {
   late final CatalogRepository catalogRepository;
   PostgresCatalogRepository? postgresCatalogRepository;
 
+  late final EvaluationRepository evaluationRepository;
+  PostgresEvaluationRepository? postgresEvaluationRepository;
+
+  late final SearchTraceRepository? searchTraceRepository;
+  PostgresSearchTraceRepository? postgresSearchTraceRepository;
+
   if (config.useMockRepositories) {
     userRepository = MemoryUserRepository();
     catalogRepository = MockCatalogRepository();
-    log.info(
-        'Using in-memory user repository because USE_MOCK_REPOSITORIES=true.');
+    evaluationRepository = MockEvaluationRepository();
+    searchTraceRepository = MockSearchTraceRepository();
+    log.info('Using all in-memory/mock repositories.');
   } else {
     postgresUserRepository =
         await PostgresUserRepository.connect(config.database);
-
     postgresCatalogRepository =
         await PostgresCatalogRepository.connect(config.database);
+    postgresEvaluationRepository =
+        await PostgresEvaluationRepository.connect(config.database);
+    postgresSearchTraceRepository =
+        await PostgresSearchTraceRepository.connect(config.database);
 
     userRepository = postgresUserRepository;
     catalogRepository = postgresCatalogRepository;
-    log.info('Using PostgreSQL user repository.');
+    evaluationRepository = postgresEvaluationRepository;
+    searchTraceRepository = postgresSearchTraceRepository;
+    log.info('Using PostgreSQL repositories.');
   }
 
-  final router =
-      buildAppRouter(env, config, log, userRepository, catalogRepository);
+  final router = buildAppRouter(
+    env,
+    config,
+    log,
+    userRepository,
+    catalogRepository,
+    evaluationRepository,
+    searchTraceRepository,
+  );
 
   final handler = const Pipeline()
       .addMiddleware(logRequests())
@@ -92,18 +117,31 @@ void main() async {
   log.info('✅ Server listening on http://$browserHost:${server.port}');
   log.info('   Health check: http://$browserHost:${server.port}/health');
 
-  _registerShutdownHandlers(server, log, postgresUserRepository);
+  _registerShutdownHandlers(
+    server,
+    log,
+    postgresUserRepository,
+    postgresCatalogRepository,
+    postgresEvaluationRepository,
+    postgresSearchTraceRepository,
+  );
 }
 
 void _registerShutdownHandlers(
-    HttpServer server, Logger log, PostgresUserRepository? postgresRepository) {
+    HttpServer server,
+    Logger log,
+    PostgresUserRepository? postgresUserRepo,
+    PostgresCatalogRepository? postgresCatalogRepo,
+    PostgresEvaluationRepository? postgresEvalRepo,
+    PostgresSearchTraceRepository? postgresTraceRepo) {
   ProcessSignal.sigint.watch().listen((_) async {
     log.info('🛑 SIGINT signal received - Shutting down server...');
     await server.close(force: false);
-    if (postgresRepository != null) {
-      await postgresRepository.close();
-      log.info('   PostgreSQL connection closed.');
-    }
+    if (postgresUserRepo != null) await postgresUserRepo.close();
+    if (postgresCatalogRepo != null) await postgresCatalogRepo.close();
+    if (postgresEvalRepo != null) await postgresEvalRepo.close();
+    if (postgresTraceRepo != null) await postgresTraceRepo.close();
+    log.info('   All PostgreSQL connections closed.');
     log.info('   Server shut down successfully.');
     exit(0);
   });

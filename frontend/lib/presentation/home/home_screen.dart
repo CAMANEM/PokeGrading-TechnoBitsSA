@@ -122,7 +122,7 @@ class _PokeGradingLogo extends StatelessWidget {
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Text(
-            'v${AppConfig.appVersion} — Sprint 1',
+            'v${AppConfig.appVersion} — Sprint 2',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.primaryLight,
                 ),

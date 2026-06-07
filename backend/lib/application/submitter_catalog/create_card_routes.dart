@@ -1,6 +1,7 @@
 /// @file
 /// @brief
 
+import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -8,6 +9,8 @@ import '../../domain/submitter_catalog/create_card/create_card_logic.dart';
 import '../../domain/submitter_catalog/search_card/search_logic.dart';
 import '../../domain/submitter_catalog/search_card/search_trace_repository.dart';
 import '../http_helpers.dart';
+
+final _log = Logger('PokéGrading.Routes.Catalog');
 
 Router buildCatalogRoutes(
     CreateCardLogic createCardLogic, SearchLogic searchLogic,
@@ -220,7 +223,8 @@ Router buildCatalogRoutes(
           'message': error.message,
         },
       );
-    } catch (error) {
+    } catch (error, stack) {
+      _log.severe('Catalog add failed: $error\n$stack');
       return jsonResponse(
         500,
         {

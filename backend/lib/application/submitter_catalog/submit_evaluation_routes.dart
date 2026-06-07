@@ -1,11 +1,14 @@
 /// @file
 /// @brief
 
+import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import '../../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
 import '../http_helpers.dart';
+
+final _log = Logger('PokéGrading.Routes.Evaluation');
 
 Router buildSubmitEvaluationRoutes(
     SubmitEvaluationLogic submitEvaluationLogic) {
@@ -44,7 +47,8 @@ Router buildSubmitEvaluationRoutes(
           'message': error.message,
         },
       );
-    } catch (error) {
+    } catch (error, stack) {
+      _log.severe('Evaluation submission failed: $error\n$stack');
       return jsonResponse(
         500,
         {
