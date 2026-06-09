@@ -30,7 +30,7 @@ class SubmitEvaluationApi {
   Future<SubmitEvaluationResult> submit(
     SubmitEvaluationPayload payload,
   ) async {
-    final uri = Uri.parse('${AppConfig.apiUrl}/evaluations');
+    final uri = Uri.parse('${AppConfig.apiUrl}/scoring/evaluations');
 
     final correlationId = const Uuid().v4();
 
@@ -48,6 +48,12 @@ class SubmitEvaluationApi {
         estimatedTime: body['estimated_time']?.toString(),
       );
     }
+
+    print('''
+HTTP Error:
+Status: ${response.statusCode}
+Body: ${response.body}
+''');
 
     throw SubmitEvaluationApiException(
       body['message']?.toString() ?? 'Error al enviar la evaluación',

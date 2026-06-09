@@ -10,20 +10,17 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import '../core/config/app_config.dart';
-import '../domain/user/register/register_logic.dart';
-import '../domain/user/user_repository.dart';
-import '../domain/submitter_catalog/create_card/create_card_logic.dart';
-import '../domain/submitter_catalog/submit_evaluation/image_quality_service.dart';
-import '../domain/submitter_catalog/submit_evaluation/polyglot_detection.dart';
-import '../domain/submitter_catalog/submit_evaluation/evaluation_logic.dart';
-import '../domain/submitter_catalog/submit_evaluation/evaluation_repository.dart';
-import '../domain/submitter_catalog/catalog_repository.dart';
-import '../domain/submitter_catalog/search_card/search_logic.dart';
-import '../domain/submitter_catalog/search_card/confidence_score.dart';
-import '../domain/submitter_catalog/search_card/search_trace_repository.dart';
-import 'submitter_catalog/create_card_routes.dart';
-import 'user/register_routes.dart';
-import 'submitter_catalog/submit_evaluation_routes.dart';
+import 'routes/catalog_routes.dart';
+import 'routes/auth_routes.dart';
+import 'routes/evaluation_routes.dart';
+import '../domain/authentication/register_logic.dart';
+import '../domain/catalog/create_card_logic.dart';
+import '../domain/catalog/search_card_logic.dart';
+import '../domain/scoring/evaluation_logic.dart';
+import '../persistence/user_data_provider/auth_repository.dart';
+import '../persistence/card_data_provider/catalog_repository.dart';
+import '../persistence/card_data_provider/search_trace_repository.dart';
+import '../persistence/card_data_provider/evaluation_repository.dart';
 
 /*
   Builds and returns the main router with all registered routes and DI wiring.
@@ -54,38 +51,28 @@ Router buildAppRouter(
   final registerLogic = RegisterLogic(
     repository: userRepository,
   );
-  final registerRouter = buildRegisterRoutes(registerLogic);
+  final registerRouter = buildAuthRoutes(registerLogic);
 
   final createCardLogic = CreateCardLogic(repository: catalogRepository);
-
-  final imageQualityService = ImageQualityService();
-  final polyglotDetector = PolyglotDetector();
-  final evaluationLogic = SubmitEvaluationLogic(
-      repository: evaluationRepository,
-      imageQualityService: imageQualityService,
-      polyglotDetector: polyglotDetector);
-  final evaluationRouter = buildSubmitEvaluationRoutes(evaluationLogic);
-
-  final confidenceScore = ConfidenceScore();
-  final searchCardLogic = SearchLogic(
+  final searchCardLogic = SearchCardLogic(
     repository: catalogRepository,
-    confidenceScore: confidenceScore,
-    confidenceAutoAcceptThreshold: config.confidenceAutoAcceptThreshold,
     traceRepository: searchTraceRepository,
   );
-
   final catalogRouter = buildCatalogRoutes(
     createCardLogic,
     searchCardLogic,
     searchTraceRepository: searchTraceRepository,
   );
 
+  final evaluationLogic = EvaluationLogic(repository: evaluationRepository);
+  final evaluationRouter = buildEvaluationRoutes(evaluationLogic);
+
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
 
   router.mount('/api/v1/auth/', registerRouter.call);
   router.mount('/api/v1/catalog/', catalogRouter.call);
-  router.mount('/api/v1/', evaluationRouter.call);
+  router.mount('/api/v1/scoring/', evaluationRouter.call);
 
   router.all('/<ignored|.*>', _handleNotFound);
 
@@ -108,9 +95,6 @@ Response _handleHealth(Request request, AppConfig config) {
   "version": "${config.version}",
   "environment": "${config.environment}",
   "correlation_id": "$correlationId",
-  "config": {
-    "confidence_auto_accept": ${config.confidenceAutoAcceptThreshold}
-  },
   "timestamp": "${DateTime.now().toUtc().toIso8601String()}"
 }''';
 
