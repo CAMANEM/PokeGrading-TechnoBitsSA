@@ -5,6 +5,8 @@
  language, finish), image payloads and optional metadata (rarity, type, hp,
  year, author). Methods return `null` on success or an error message on failure.
 */
+import '../image_services/image_quality_service.dart';
+import '../image_services/polyglot_detection.dart';
 
 /// @brief CatalogValidators
 class CatalogValidators {
@@ -85,6 +87,17 @@ class CatalogValidators {
     final base64Part = normalized.split(',').last;
     if (base64Part.length < 5 * 1024) {
       return 'Image rejected: resolution or size insufficient';
+    }
+
+    final iqs = ImageQualityService.calculateScore(value);
+    if (iqs.score < ImageQualityService.acceptedThreshold) {
+      return 'Image rejected: IQS not satisfied'
+          'Reasons: ${iqs.rejectionReasons.join(', ')}';
+    }
+
+    final polyglot = PolyglotDetector.inspect(value);
+    if (polyglot.isPolyglot) {
+      return 'Image rejected: ${polyglot.indicators.join(', ')} detected';
     }
 
     return null;

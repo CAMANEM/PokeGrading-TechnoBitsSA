@@ -14,7 +14,7 @@ import '../../persistence/card_data_provider/search_trace_repository.dart';
 /// @brief SearchByImageCommand
 class SearchByImageCommand {
   final String imageData;
-  final int mode;
+  final ConfidenceType mode;
 
   const SearchByImageCommand({
     required this.imageData,
@@ -56,7 +56,7 @@ class SearchCardResult {
 /// @brief SearchLogic
 class SearchCardLogic {
   final CatalogRepository repository;
-  final double acceptedConfidence = 90.0;
+  static const double acceptedConfidence = 90.0;
   final SearchTraceRepository? traceRepository;
 
   SearchCardLogic({required this.repository, this.traceRepository});
@@ -87,20 +87,8 @@ class SearchCardLogic {
     final scored = <SearchCandidate>[];
 
     for (final card in searchCards) {
-      final score = card.visualFeatures != null
-          ? command.mode == 1
-              ? ConfidenceScore.specializedSimilarityBetweenFeatures(
-                  queryFeatures,
-                  card.visualFeatures!,
-                )
-              : ConfidenceScore.similarityBetweenFeatures(
-                  queryFeatures,
-                  card.visualFeatures!,
-                )
-          : ConfidenceScore.similarity(
-              command.imageData,
-              card.imageData,
-            );
+      final score = ConfidenceScore.calculateConfidence(
+          queryFeatures, card.visualFeatures!, command.mode);
 
       scored.add(SearchCandidate(card: card, confidence: score));
     }

@@ -43,7 +43,7 @@ class SearchCardApi {
 
     final bodyMap = <String, dynamic>{
       'image_data': payload.imageData,
-      'mode': payload.mode,
+      'mode': payload.mode.name,
     };
 
     final response = await _client.post(

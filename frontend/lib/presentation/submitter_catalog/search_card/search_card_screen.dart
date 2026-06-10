@@ -107,7 +107,7 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
 
                             final payload = SearchCardPayload(
                               imageData: _selectedImageData!,
-                              mode: 0,
+                              mode: ConfidenceType.fast,
                             );
 
                             await _provider.searchByImage(payload);
@@ -190,8 +190,9 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
               return;
             }
 
-            final payload =
-                SearchCardPayload(imageData: _selectedImageData!, mode: 1);
+            final payload = SearchCardPayload(
+                imageData: _selectedImageData!,
+                mode: ConfidenceType.specialized);
 
             await _provider.searchByImage(payload);
           },

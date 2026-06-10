@@ -10,6 +10,8 @@ enum SearchCardStage {
   error
 }
 
+enum ConfidenceType { fast, specialized }
+
 /// @brief CandidateCard
 class CandidateCard {
   final String id;
@@ -26,7 +28,7 @@ class CandidateCard {
 /// @brief SearchCardPayload
 class SearchCardPayload {
   final String imageData;
-  final int mode;
+  final ConfidenceType mode;
 
   const SearchCardPayload({required this.imageData, required this.mode});
 }

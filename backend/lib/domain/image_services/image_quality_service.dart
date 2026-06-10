@@ -25,7 +25,7 @@ class ImageQualityResult {
 class ImageQualityService {
   static const int acceptedThreshold = 60;
 
-  static img.Image decodeImageData(String imageData) {
+  static img.Image _decodeImageData(String imageData) {
     final base64Part = imageData.split(',').last;
 
     final bytes = base64Decode(base64Part);
@@ -39,7 +39,7 @@ class ImageQualityService {
     return image;
   }
 
-  static double calculateSharpnessScore(img.Image image) {
+  static double _calculateSharpnessScore(img.Image image) {
     final gray = img.grayscale(image);
 
     final laplacian = img.convolution(
@@ -80,7 +80,7 @@ class ImageQualityService {
     return (variance / 150).clamp(0, 1);
   }
 
-  static double calculateBrightnessScore(img.Image image) {
+  static double _calculateBrightnessScore(img.Image image) {
     double total = 0;
     const minAcceptance = 80;
     const maxAcceptance = 180;
@@ -104,10 +104,10 @@ class ImageQualityService {
   }
 
   static ImageQualityResult calculateScore(String imageData) {
-    final image = decodeImageData(imageData);
+    final image = _decodeImageData(imageData);
 
-    final sharpness = calculateSharpnessScore(image); // 0-1
-    final brightness = calculateBrightnessScore(image); // 0-1
+    final sharpness = _calculateSharpnessScore(image); // 0-1
+    final brightness = _calculateBrightnessScore(image); // 0-1
 
     final overall = (sharpness + brightness) / 2;
 

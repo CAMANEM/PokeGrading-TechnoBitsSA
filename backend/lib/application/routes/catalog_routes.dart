@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../domain/catalog/create_card_logic.dart';
 import '../../domain/catalog/search_card_logic.dart';
 import '../../domain/catalog/catalog_models.dart';
+import '../../domain/image_services/confidence_score.dart';
 
 import '../../persistence/card_data_provider/search_trace_repository.dart';
 import '../../shared/exception_service/exception_handler.dart';
@@ -24,7 +25,11 @@ Router buildCatalogRoutes(
     final payload = await readJson(request);
 
     final imageData = (payload['image_data'] ?? '').toString();
-    final mode = (payload['mode'] ?? 0);
+    final mode = switch (payload['mode']) {
+      'fast' => ConfidenceType.fast,
+      'specialized' => ConfidenceType.specialized,
+      _ => ConfidenceType.fast
+    };
 
     try {
       final result = await searchCardLogic.searchByImg(
