@@ -23,6 +23,8 @@ class ImageQualityResult {
 
 /// @brief ImageQualityService
 class ImageQualityService {
+  static const int acceptedThreshold = 60;
+
   static img.Image decodeImageData(String imageData) {
     final base64Part = imageData.split(',').last;
 
@@ -69,12 +71,19 @@ class ImageQualityService {
 
     final mean = sum / n;
 
-    return (((sumSq / n) - (mean * mean)) / 1000).clamp(0, 1);
+    final variance = (sumSq / n) - (mean * mean);
+
+    if (variance >= 150) {
+      return 1.0;
+    }
+
+    return (variance / 150).clamp(0, 1);
   }
 
   static double calculateBrightnessScore(img.Image image) {
     double total = 0;
-    const ideal = 140;
+    const minAcceptance = 80;
+    const maxAcceptance = 180;
 
     for (final pixel in image) {
       total += 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
@@ -82,9 +91,16 @@ class ImageQualityService {
 
     double brightness = total / (image.width * image.height);
 
-    final diff = (brightness - ideal).abs();
+    if (brightness >= minAcceptance || brightness <= maxAcceptance) {
+      return 1.0;
+    }
 
-    return (1 - diff / ideal).clamp(0, 1);
+    if (brightness < minAcceptance) {
+      return (brightness / minAcceptance).clamp(0, 1);
+    }
+
+    return (1 - (brightness - maxAcceptance) / (255 - maxAcceptance))
+        .clamp(0, 1);
   }
 
   static ImageQualityResult calculateScore(String imageData) {
@@ -101,21 +117,15 @@ class ImageQualityService {
 
     final reasons = <String>[];
 
-    if (sharpness100 < 60) {
+    if (sharpness100 < acceptedThreshold) {
       reasons.add(
-        'Image is blurry (Sharpness: ${sharpness100.toStringAsFixed(1)}/100)',
+        'Imagen borrosa (Nitidez: ${sharpness100.toStringAsFixed(1)}/100)',
       );
     }
 
-    if (brightness100 < 60) {
+    if (brightness100 < acceptedThreshold) {
       reasons.add(
-        'Image is obscure (Brightness: ${brightness100.toStringAsFixed(1)}/100)',
-      );
-    }
-
-    if (overall100 < 60) {
-      reasons.add(
-        'Image Quality Score is below acceptance (${overall100.toStringAsFixed(1)}/100)',
+        'Imagen oscura (Brillo: ${brightness100.toStringAsFixed(1)}/100)',
       );
     }
 

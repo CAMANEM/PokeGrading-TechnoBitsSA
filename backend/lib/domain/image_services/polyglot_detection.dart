@@ -2,7 +2,6 @@
 /// @brief
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 /// @brief PolyglotDetectionResult
 class PolyglotDetectionResult {
@@ -17,15 +16,6 @@ class PolyglotDetectionResult {
 
 /// @brief PolyglotDetector
 class PolyglotDetector {
-  static bool _containsExecutableHeader(Uint8List bytes) {
-    final data = latin1.decode(
-      bytes,
-      allowInvalid: true,
-    );
-
-    return data.contains('MZ') || data.contains('\u007fELF');
-  }
-
   static PolyglotDetectionResult inspect(String imageData) {
     final base64Part = imageData.split(',').last;
 
@@ -56,10 +46,6 @@ class PolyglotDetector {
 
     if (content.contains('<html')) {
       indicators.add('embedded_html');
-    }
-
-    if (_containsExecutableHeader(bytes)) {
-      indicators.add('embedded_executable');
     }
 
     return PolyglotDetectionResult(

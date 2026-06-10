@@ -58,11 +58,11 @@ class EvaluationLogic {
       command.frontImageData,
     );
 
-    if (frontScore.score < 60) {
+    if (frontScore.score < ImageQualityService.acceptedThreshold) {
       _throwEvaluationError(
         _evaluationErrorCode,
-        'Front image obtained ${frontScore.score.toStringAsFixed(1)} for IQS. '
-        'Reasons: ${frontScore.rejectionReasons.join(", ")}',
+        'Imagen frontal no supera el IQS (${frontScore.score.toStringAsFixed(1)}/100). '
+        'Motivos: ${frontScore.rejectionReasons.join(", ")}',
       );
     }
 
@@ -70,11 +70,11 @@ class EvaluationLogic {
       command.backImageData,
     );
 
-    if (backScore.score < 60) {
+    if (backScore.score < ImageQualityService.acceptedThreshold) {
       _throwEvaluationError(
         _evaluationErrorCode,
-        'Back image obtained ${backScore.score.toStringAsFixed(1)} for IQS. '
-        'Reasons: ${backScore.rejectionReasons.join(", ")}',
+        'Imagen trasera no supera el IQS (${backScore.score.toStringAsFixed(1)}/100). '
+        'Motivos: ${backScore.rejectionReasons.join(", ")}',
       );
     }
 
@@ -92,7 +92,8 @@ class EvaluationLogic {
 
       _throwEvaluationError(
         _evaluationErrorCode,
-        'Malicious file detected in Front Image',
+        'Se detecto una archivo malicioso para la imagen frontal. '
+        'Indicadores: ${frontPolyglotResult.indicators.join(', ')}',
       );
     }
 
@@ -109,7 +110,8 @@ class EvaluationLogic {
 
       _throwEvaluationError(
         _evaluationErrorCode,
-        'Malicious file detected in Back Image',
+        'Se detecto un archivo malicioso para la imagen trasera. '
+        'Indicadores: ${backPolyglotResult.indicators.join(', ')}',
       );
     }
 
