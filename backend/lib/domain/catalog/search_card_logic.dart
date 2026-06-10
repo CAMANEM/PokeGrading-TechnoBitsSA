@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../image_services/confidence_score.dart';
 import 'search_trace.dart';
 import '../image_services/visual_features.dart';
+import '../image_services/image_quality_service.dart';
 import 'catalog_models.dart';
 
 import '../../persistence/card_data_provider/catalog_repository.dart';
@@ -63,8 +64,11 @@ class SearchCardLogic {
 
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
     final queryFeatures = VisualFeatureExtractor.extract(command.imageData);
+    final iqsBelow =
+        ImageQualityService.calculateScore(command.imageData).score <
+            ImageQualityService.acceptedThreshold;
 
-    if (queryFeatures.isEmpty) {
+    if (queryFeatures.isEmpty || iqsBelow) {
       await _recordTrace(
         method: 'image',
         queryFeatures: queryFeatures,
