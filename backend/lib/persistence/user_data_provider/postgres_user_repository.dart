@@ -8,13 +8,15 @@ import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
 import '../../domain/authentication/auth_models.dart';
+import '../lookup/lookup_resolver.dart';
 import 'auth_repository.dart';
 
 /// @brief PostgresUserRepository
 class PostgresUserRepository implements UserRepository {
   final Connection _connection;
+  final LookupResolver _lookups;
 
-  PostgresUserRepository._(this._connection);
+  PostgresUserRepository._(this._connection, this._lookups);
 
   /// Creates and opens a PostgreSQL connection using the provided config.
   static Future<PostgresUserRepository> connect(DatabaseConfig config) async {
@@ -36,13 +38,13 @@ class PostgresUserRepository implements UserRepository {
       settings: settings,
     );
 
-    return PostgresUserRepository._(connection);
+    return PostgresUserRepository._(connection, LookupResolver(connection));
   }
 
   @override
   Future<bool> emailExists(String email) async {
     final result = await _connection.execute(
-      'SELECT COUNT(1) FROM "USUARIO" WHERE LOWER("email") = LOWER(\$1)',
+      'SELECT COUNT(1) FROM submitter WHERE LOWER(email) = LOWER(\$1)',
       parameters: [email.trim()],
     );
     return (result.first.first as int) > 0;
@@ -51,7 +53,7 @@ class PostgresUserRepository implements UserRepository {
   @override
   Future<bool> usernameExists(String username) async {
     final result = await _connection.execute(
-      'SELECT COUNT(1) FROM "USUARIO" WHERE LOWER("username") = LOWER(\$1)',
+      'SELECT COUNT(1) FROM submitter WHERE LOWER(username) = LOWER(\$1)',
       parameters: [username.trim()],
     );
     return (result.first.first as int) > 0;
@@ -68,33 +70,36 @@ class PostgresUserRepository implements UserRepository {
   }) async {
     final passwordHash = _hashPassword(password);
     final createdAt = DateTime.now().toUtc();
+    final countryId =
+        await _lookups.resolveCountryId(country, insertIfMissing: true);
+    final languageId =
+        await _lookups.resolveLanguageId(language, insertIfMissing: true);
 
     final id = await _connection.runTx<int>((tx) async {
-      final result = await tx.execute(
-        'SELECT COALESCE(MAX("id_usuario"), 0) + 1 FROM "USUARIO"',
-      );
-      final nextId = result.first.first as int;
+      final lookups = LookupResolver(tx);
+      final resolvedCountryId = countryId ??
+          await lookups.resolveCountryId(country, insertIfMissing: true);
+      final resolvedLanguageId = languageId ??
+          await lookups.resolveLanguageId(language, insertIfMissing: true);
 
-      await tx.execute(
-        'INSERT INTO "USUARIO" ('
-        '"id_usuario", "username", "password_hash", "email", "rol", '
-        '"pais_residencia", "idioma", "fecha_creacion"'
-        ') VALUES ('
-        '\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8'
-        ')',
+      final result = await tx.execute(
+        '''
+        INSERT INTO submitter (
+          username, password_hash, email, country_id, language_id, registration_date
+        ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6)
+        RETURNING id
+        ''',
         parameters: [
-          nextId,
           username.trim(),
           passwordHash,
           email.trim(),
-          'submitter',
-          country.trim(),
-          language.trim(),
+          resolvedCountryId,
+          resolvedLanguageId,
           createdAt,
         ],
       );
 
-      return nextId;
+      return result.first.first as int;
     });
 
     return User(

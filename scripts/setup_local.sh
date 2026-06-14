@@ -28,6 +28,10 @@ DB_PASSWORD=pokegrading_secret
 DB_MAX_CONNECTIONS=10
 DB_CONNECTION_TIMEOUT=30
 
+MONGO_URI=mongodb://mongodb:27017/pokegrading_images
+MONGO_DB_NAME=pokegrading_images
+MONGO_PORT=27017
+
 # SMTP (not required for local dev without email confirmation)
 SMTP_HOST=
 SMTP_PORT=587
@@ -47,7 +51,7 @@ set -a
 source .env
 set +a
 
-echo "Starting PostgreSQL (docker compose)..."
+echo "Starting PostgreSQL and MongoDB (docker compose)..."
 # Detect which docker compose command is available
 if command -v docker-compose >/dev/null 2>&1; then
   DC_CMD="docker-compose"
@@ -58,18 +62,18 @@ else
   exit 1
 fi
 
-${DC_CMD} up -d postgres
+${DC_CMD} up -d postgres mongodb
 
 echo "Waiting for PostgreSQL to accept connections..."
 until ${DC_CMD} exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -c 'SELECT 1' >/dev/null 2>&1; do
   sleep 1
 done
 
-echo "Applying DB migrations..."
-# Pipe migration into psql (stdin forwarded into container)
-${DC_CMD} exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" < backend/db/migrations/001_initial_schema.sql
+echo "Applying PostgreSQL init scripts..."
+${DC_CMD} exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" < backend/db/init/001_schema.sql
+${DC_CMD} exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" < backend/db/init/002_seed_lookups.sql
 
-echo "Migration applied."
+echo "Database init applied."
 
 cat <<EOT
 Siguientes pasos:

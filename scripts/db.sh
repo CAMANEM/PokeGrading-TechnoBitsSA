@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ===============================================================================
-# PokéGrading - PostgreSQL bootstrap (Linux / macOS)
+# PokeGrading - Database bootstrap (Linux / macOS)
 # ===============================================================================
-# Uso:
+# Usage:
 #   chmod +x scripts/db.sh
 #   ./scripts/db.sh
 # ===============================================================================
@@ -13,22 +13,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 if ! command -v docker &>/dev/null; then
-  echo "Docker no está instalado o no está en PATH."
-  echo "Instala Docker Desktop y vuelve a ejecutar este script."
+  echo "Docker is not installed or not in PATH."
+  echo "Install Docker Desktop and run this script again."
   exit 1
 fi
 
 if ! docker info &>/dev/null; then
-  echo "Docker no está corriendo. Inicia Docker Desktop y vuelve a ejecutar el script."
+  echo "Docker is not running. Start Docker Desktop and run this script again."
   exit 1
 fi
 
-echo "Levantando PostgreSQL y pgAdmin..."
+echo "Starting PostgreSQL, MongoDB and pgAdmin..."
 cd "$PROJECT_ROOT"
-docker compose up -d postgres pgadmin
+docker compose up -d postgres mongodb pgadmin
 
-echo "PostgreSQL iniciado en localhost:5432"
-echo "pgAdmin disponible en http://localhost:5050"
+echo "PostgreSQL available at localhost:5432"
+echo "MongoDB available at localhost:27017"
+echo "pgAdmin available at http://localhost:5050"
 echo ""
-echo "Si es la primera vez, el esquema se crea automáticamente desde backend/db/migrations."
-echo "Si quieres reinicializarlo desde cero, usa: docker compose down -v"
+echo "On first run, schemas are created from backend/db/init/ and backend/db/mongodb/."
+echo "To reset from scratch: docker compose down -v"

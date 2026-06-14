@@ -1,11 +1,11 @@
 # ===============================================================================
-# PokéGrading - PostgreSQL bootstrap (Windows - PowerShell)
+# PokeGrading - Database bootstrap (Windows - PowerShell)
 # ===============================================================================
-# Uso:
+# Usage:
 #   .\scripts\db.ps1
 #
-# Levanta PostgreSQL 16 y pgAdmin usando docker compose.
-# La migración inicial se aplica automáticamente cuando el volumen de datos está vacío.
+# Starts PostgreSQL 16, MongoDB 7 and pgAdmin via docker compose.
+# Schemas are applied automatically when data volumes are empty.
 # ===============================================================================
 
 #Requires -Version 5.1
@@ -18,7 +18,7 @@ $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
 function Write-Header {
   Write-Host ""
   Write-Host "======================================================" -ForegroundColor Blue
-  Write-Host "  PokéGrading - Database Bootstrap (PowerShell)" -ForegroundColor Cyan
+  Write-Host "  PokeGrading - Database Bootstrap (PowerShell)" -ForegroundColor Cyan
   Write-Host "======================================================" -ForegroundColor Blue
   Write-Host ""
 }
@@ -42,25 +42,26 @@ function Test-CommandExists($cmd) {
 Write-Header
 
 if (-not (Test-CommandExists "docker")) {
-  Write-Warn "Docker no está instalado o no está en PATH."
-  Write-Host "Instala Docker Desktop y vuelve a ejecutar este script." -ForegroundColor Yellow
+  Write-Warn "Docker is not installed or not in PATH."
+  Write-Host "Install Docker Desktop and run this script again." -ForegroundColor Yellow
   exit 1
 }
 
 try {
   docker info 2>&1 | Out-Null
 } catch {
-  Write-Warn "Docker no está corriendo. Inicia Docker Desktop y vuelve a ejecutar el script."
+  Write-Warn "Docker is not running. Start Docker Desktop and run this script again."
   exit 1
 }
 
-Write-Step "Levantando PostgreSQL y pgAdmin..."
+Write-Step "Starting PostgreSQL, MongoDB and pgAdmin..."
 Set-Location $PROJECT_ROOT
-docker compose up -d postgres pgadmin
+docker compose up -d postgres mongodb pgadmin
 
-Write-Ok "PostgreSQL iniciado en localhost:5432"
-Write-Ok "pgAdmin disponible en http://localhost:5050"
+Write-Ok "PostgreSQL available at localhost:5432"
+Write-Ok "MongoDB available at localhost:27017"
+Write-Ok "pgAdmin available at http://localhost:5050"
 Write-Host ""
-Write-Host "Si es la primera vez, el esquema se crea automáticamente desde backend/db/migrations." -ForegroundColor Gray
-Write-Host "Si quieres reinicializarlo desde cero, usa: docker compose down -v" -ForegroundColor Gray
+Write-Host "On first run, schemas are created from backend/db/init/ and backend/db/mongodb/." -ForegroundColor Gray
+Write-Host "To reset from scratch: docker compose down -v" -ForegroundColor Gray
 Write-Host ""

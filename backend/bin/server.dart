@@ -25,8 +25,9 @@ import '../lib/persistence/mocks/mock_catalog_repository.dart';
 import '../lib/persistence/card_data_provider/postgres_catalog_repository.dart';
 import '../lib/persistence/mocks/mock_evaluation_repository.dart';
 import '../lib/persistence/card_data_provider/postgres_evaluation_repository.dart';
-import '../lib/persistence/mocks/mock_search_trace_repository.dart';
-import '../lib/persistence/card_data_provider/postgres_search_trace_repository.dart';
+import '../lib/persistence/card_data_provider/noop_search_trace_repository.dart';
+import '../lib/persistence/image_provider/image_storage_repository.dart';
+import '../lib/persistence/image_provider/mongo_image_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -55,30 +56,34 @@ void main() async {
   late final EvaluationRepository evaluationRepository;
   PostgresEvaluationRepository? postgresEvaluationRepository;
 
-  late final SearchTraceRepository? searchTraceRepository;
-  PostgresSearchTraceRepository? postgresSearchTraceRepository;
+  late final SearchTraceRepository searchTraceRepository;
+
+  ImageStorageRepository? mongoImageRepository;
 
   if (config.useMockRepositories) {
     userRepository = MemoryUserRepository();
     catalogRepository = MockCatalogRepository();
     evaluationRepository = MockEvaluationRepository();
-    searchTraceRepository = MockSearchTraceRepository();
+    searchTraceRepository = const NoOpSearchTraceRepository();
     log.info('Using all in-memory/mock repositories.');
   } else {
+    mongoImageRepository = await MongoImageRepository.connect(config.mongo);
     postgresUserRepository =
         await PostgresUserRepository.connect(config.database);
-    postgresCatalogRepository =
-        await PostgresCatalogRepository.connect(config.database);
-    postgresEvaluationRepository =
-        await PostgresEvaluationRepository.connect(config.database);
-    postgresSearchTraceRepository =
-        await PostgresSearchTraceRepository.connect(config.database);
+    postgresCatalogRepository = await PostgresCatalogRepository.connect(
+      config.database,
+      mongoImageRepository,
+    );
+    postgresEvaluationRepository = await PostgresEvaluationRepository.connect(
+      config.database,
+      mongoImageRepository,
+    );
 
     userRepository = postgresUserRepository;
     catalogRepository = postgresCatalogRepository;
     evaluationRepository = postgresEvaluationRepository;
-    searchTraceRepository = postgresSearchTraceRepository;
-    log.info('Using PostgreSQL repositories.');
+    searchTraceRepository = const NoOpSearchTraceRepository();
+    log.info('Using PostgreSQL + MongoDB repositories.');
   }
 
   final router = buildAppRouter(
@@ -123,25 +128,26 @@ void main() async {
     postgresUserRepository,
     postgresCatalogRepository,
     postgresEvaluationRepository,
-    postgresSearchTraceRepository,
+    mongoImageRepository,
   );
 }
 
 void _registerShutdownHandlers(
-    HttpServer server,
-    Logger log,
-    PostgresUserRepository? postgresUserRepo,
-    PostgresCatalogRepository? postgresCatalogRepo,
-    PostgresEvaluationRepository? postgresEvalRepo,
-    PostgresSearchTraceRepository? postgresTraceRepo) {
+  HttpServer server,
+  Logger log,
+  PostgresUserRepository? postgresUserRepo,
+  PostgresCatalogRepository? postgresCatalogRepo,
+  PostgresEvaluationRepository? postgresEvalRepo,
+  ImageStorageRepository? mongoImageRepo,
+) {
   ProcessSignal.sigint.watch().listen((_) async {
     log.info('🛑 SIGINT signal received - Shutting down server...');
     await server.close(force: false);
     if (postgresUserRepo != null) await postgresUserRepo.close();
     if (postgresCatalogRepo != null) await postgresCatalogRepo.close();
     if (postgresEvalRepo != null) await postgresEvalRepo.close();
-    if (postgresTraceRepo != null) await postgresTraceRepo.close();
-    log.info('   All PostgreSQL connections closed.');
+    if (mongoImageRepo != null) await mongoImageRepo.close();
+    log.info('   All database connections closed.');
     log.info('   Server shut down successfully.');
     exit(0);
   });

@@ -19,6 +19,7 @@ class AppConfig {
   final int port;
   final Level logLevel;
   final DatabaseConfig database;
+  final MongoConfig mongo;
   final EmailConfig email;
   final bool useMockRepositories;
 
@@ -29,6 +30,7 @@ class AppConfig {
       required this.port,
       required this.logLevel,
       required this.database,
+      required this.mongo,
       required this.email,
       required this.useMockRepositories});
 
@@ -45,6 +47,7 @@ class AppConfig {
         port: int.tryParse(env['BACKEND_PORT'] ?? '') ?? 8080,
         logLevel: _parseLogLevel(env['BACKEND_LOG_LEVEL'] ?? 'info'),
         database: DatabaseConfig.fromEnv(env),
+        mongo: MongoConfig.fromEnv(env),
         email: EmailConfig.fromEnv(env),
         useMockRepositories: useMock);
   }
@@ -103,6 +106,25 @@ class DatabaseConfig {
 
   /// DSN (Data Source Name) for the PostgreSQL connection.
   String get dsn => 'postgresql://$user:$password@$host:$port/$name';
+}
+
+/// MongoDB connection configuration for image storage (GridFS).
+class MongoConfig {
+  final String uri;
+  final String dbName;
+
+  const MongoConfig({
+    required this.uri,
+    required this.dbName,
+  });
+
+  factory MongoConfig.fromEnv(DotEnv env) {
+    return MongoConfig(
+      uri: (env['MONGO_URI'] ?? 'mongodb://localhost:27017/pokegrading_images')
+          .trim(),
+      dbName: (env['MONGO_DB_NAME'] ?? 'pokegrading_images').trim(),
+    );
+  }
 }
 
 /// SMTP / email delivery configuration.
