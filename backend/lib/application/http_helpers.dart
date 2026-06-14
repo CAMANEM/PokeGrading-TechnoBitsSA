@@ -36,11 +36,18 @@ Future<Map<String, dynamic>> readJson(Request request) async {
  The body is encoded using `jsonEncode` and the `content-type` header is set
  to `application/json; charset=utf-8`.
 */
-Response jsonResponse(int statusCode, Map<String, dynamic> body) {
+Response jsonResponse(
+  int statusCode,
+  Map<String, dynamic> body, {
+  Map<String, String>? headers,
+}) {
   return Response(
     statusCode,
     body: jsonEncode(body),
-    headers: {'content-type': 'application/json; charset=utf-8'},
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      if (headers != null) ...headers,
+    },
   );
 }
 

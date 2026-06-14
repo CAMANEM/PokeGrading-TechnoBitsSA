@@ -13,6 +13,7 @@ import '../core/config/app_config.dart';
 import 'routes/catalog_routes.dart';
 import 'routes/auth_routes.dart';
 import 'routes/evaluation_routes.dart';
+import 'routes/observability_routes.dart';
 import '../domain/authentication/register_logic.dart';
 import '../domain/catalog/create_card_logic.dart';
 import '../domain/catalog/search_card_logic.dart';
@@ -73,6 +74,7 @@ Router buildAppRouter(
   router.mount('/api/v1/auth/', registerRouter.call);
   router.mount('/api/v1/catalog/', catalogRouter.call);
   router.mount('/api/v1/scoring/', evaluationRouter.call);
+  router.mount('/api/v1/observability/', buildObservabilityRoutes().call);
 
   router.all('/<ignored|.*>', _handleNotFound);
 

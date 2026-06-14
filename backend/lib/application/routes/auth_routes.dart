@@ -1,15 +1,15 @@
 /// @file
 /// @brief
 
-import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../core/logging/app_logger.dart';
+import '../../core/logging/log_helpers.dart';
 import '../../domain/authentication/register_logic.dart';
 import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../http_helpers.dart';
-
-final _log = Logger('PokéGrading.Routes.Register');
 
 Router buildAuthRoutes(RegisterLogic registerLogic) {
   final router = Router();
@@ -23,6 +23,8 @@ Router buildAuthRoutes(RegisterLogic registerLogic) {
     final language = (payload['language'] ?? '').toString();
     final acceptedDisclosure = payload['acceptedDisclosure'] == true;
 
+    final requestContext = httpLogContext(request: request, body: payload);
+
     try {
       final user = await registerLogic.register(
         email: email,
@@ -31,6 +33,18 @@ Router buildAuthRoutes(RegisterLogic registerLogic) {
         country: country,
         language: language,
         acceptedDisclosure: acceptedDisclosure,
+      );
+
+      AppLogger.audit(
+        'PokéGrading.Routes.Register',
+        AuditEventTypes.userRegister,
+        result: 'success',
+        context: {
+          ...requestContext,
+          'actor_id': user.id,
+          'email': user.email,
+          'username': user.username,
+        },
       );
 
       return jsonResponse(
@@ -46,6 +60,16 @@ Router buildAuthRoutes(RegisterLogic registerLogic) {
         },
       );
     } on LogicException catch (error) {
+      AppLogger.audit(
+        'PokéGrading.Routes.Register',
+        AuditEventTypes.userRegister,
+        result: 'failure',
+        context: {
+          ...requestContext,
+          'error_code': error.code,
+          'error_message': error.message,
+        },
+      );
       return jsonResponse(
         registerStatusCodeFor(error.code),
         {
@@ -55,7 +79,13 @@ Router buildAuthRoutes(RegisterLogic registerLogic) {
         },
       );
     } catch (error, stack) {
-      _log.severe('Registration failed: $error\n$stack');
+      AppLogger.error(
+        'PokéGrading.Routes.Register',
+        'Registration failed',
+        context: requestContext,
+        error: error,
+        stackTrace: stack,
+      );
       return jsonResponse(
         502,
         {

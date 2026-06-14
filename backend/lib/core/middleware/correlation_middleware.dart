@@ -8,32 +8,36 @@
 // ============================================================
 import 'package:shelf/shelf.dart';
 import 'package:uuid/uuid.dart';
-import 'package:logging/logging.dart';
+import 'package:pokegrading_logging/pokegrading_logging.dart';
 
-final _log = Logger('PokéGrading.Middleware.Correlation');
 const _uuid = Uuid();
 
 /// HTTP Header that carries the correlation_id.
 const correlationIdHeader = 'X-Correlation-ID';
 
+final _uuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+);
+
+/// Returns a valid correlation id from the header or generates a new UUID v4.
+String resolveCorrelationId(Map<String, String> headers) {
+  final incoming = headers[correlationIdHeader];
+  if (incoming != null && _uuidPattern.hasMatch(incoming.trim())) {
+    return incoming.trim();
+  }
+  return _uuid.v4();
+}
+
 /// Middleware that:
 /// 1. Reads [correlationIdHeader] from the incoming request (if client sent it).
-/// 2. If not present, generates a new one (UUID v4).
-/// 3. Stores it in the request context for downstream usage.
+/// 2. If not present or invalid, generates a new one (UUID v4).
+/// 3. Stores it in the request context and [CorrelationContext] Zone.
 /// 4. Includes it in the response header.
-///
-/// Each layer can access the correlation_id like this:
-/// ```dart
-/// final correlationId = request.context['correlation_id'];
-/// ```
 Middleware correlationMiddleware() {
   return (Handler innerHandler) {
-    return (Request request) async {
-      // Read or generate correlation_id
-      final correlationId =
-          request.headers[correlationIdHeader] ?? _uuid.v4();
+    return (Request request) {
+      final correlationId = resolveCorrelationId(request.headers);
 
-      // Inject into the request context
       final updatedRequest = request.change(
         context: {
           ...request.context,
@@ -41,22 +45,18 @@ Middleware correlationMiddleware() {
         },
       );
 
-      _log.fine(
-        'correlation_id=$correlationId '
-        'method=${request.method} '
-        'path=${request.requestedUri.path}',
-      );
-
-      // Process request and get response
-      final response = await innerHandler(updatedRequest);
-
-      // Propagate the correlation_id in the response
-      return response.change(
-        headers: {
-          ...response.headersAll.map(
-            (key, values) => MapEntry(key, values.join(', ')),
-          ),
-          correlationIdHeader: correlationId,
+      return CorrelationContext.runAsync(
+        correlationId,
+        () async {
+          final response = await innerHandler(updatedRequest);
+          return response.change(
+            headers: {
+              ...response.headersAll.map(
+                (key, values) => MapEntry(key, values.join(', ')),
+              ),
+              correlationIdHeader: correlationId,
+            },
+          );
         },
       );
     };

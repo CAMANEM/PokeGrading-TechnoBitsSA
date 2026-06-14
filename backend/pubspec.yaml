@@ -27,6 +27,8 @@ dependencies:
   uuid: ^4.4.0
   crypto: ^3.0.3
   logging: ^1.2.0
+  pokegrading_logging:
+    path: ../packages/pokegrading_logging
   file_picker: ^8.1.2
   image: ^4.5.4
 

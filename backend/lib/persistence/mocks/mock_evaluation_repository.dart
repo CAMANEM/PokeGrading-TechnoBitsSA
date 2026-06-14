@@ -1,11 +1,5 @@
 /*
- Mock in-memory implementation of `CatalogRepository` for development and tests.
-
- Behavior:
- - Generates card IDs using an `IdGenerator` (UUID by default).
- - Persists `PokemonCard` instances in a memory map and tracks identity
-   tuples to prevent duplicates.
- - Records a simple `audit` entry when a card is created.
+ Mock in-memory implementation of `EvaluationRepository` for development and tests.
 */
 import '../card_data_provider/evaluation_repository.dart';
 import '../../domain/scoring/scoring_models.dart';
@@ -16,8 +10,6 @@ class MockEvaluationRepository implements EvaluationRepository {
   final IdGenerator _idGenerator;
   final Map<String, EvaluationRequest> _requests =
       <String, EvaluationRequest>{};
-
-  final List<SecurityAuditEvent> _auditEvents = <SecurityAuditEvent>[];
 
   MockEvaluationRepository({IdGenerator? idGenerator})
       : _idGenerator = idGenerator ?? UuidIdGenerator();
@@ -35,6 +27,7 @@ class MockEvaluationRepository implements EvaluationRepository {
       status: EvaluationStatus.pending,
       createdAt: now,
       cardId: input.cardId,
+      logId: input.correlationId,
     );
 
     _requests[id] = request;
@@ -44,12 +37,5 @@ class MockEvaluationRepository implements EvaluationRepository {
   @override
   Future<EvaluationRequest?> findById(String id) async {
     return _requests[id];
-  }
-
-  @override
-  Future<void> saveSecurityAudit(
-    SecurityAuditEvent event,
-  ) async {
-    _auditEvents.add(event);
   }
 }

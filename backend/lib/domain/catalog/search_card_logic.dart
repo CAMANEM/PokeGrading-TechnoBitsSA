@@ -11,6 +11,7 @@ import 'catalog_models.dart';
 
 import '../../persistence/card_data_provider/catalog_repository.dart';
 import '../../persistence/card_data_provider/search_trace_repository.dart';
+import '../../core/logging/app_logger.dart';
 
 /// @brief SearchByImageCommand
 class SearchByImageCommand {
@@ -56,6 +57,8 @@ class SearchCardResult {
 
 /// @brief SearchLogic
 class SearchCardLogic {
+  static const _loggerName = 'PokéGrading.SearchCard';
+
   final CatalogRepository repository;
   static const double acceptedConfidence = 90.0;
   final SearchTraceRepository? traceRepository;
@@ -63,12 +66,21 @@ class SearchCardLogic {
   SearchCardLogic({required this.repository, this.traceRepository});
 
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
+    final started = DateTime.now().toUtc();
+    final modeName = command.mode.name;
+
     final queryFeatures = VisualFeatureExtractor.extract(command.imageData);
     final iqsBelow =
         ImageQualityService.calculateScore(command.imageData).score <
             ImageQualityService.acceptedThreshold;
 
     if (queryFeatures.isEmpty || iqsBelow) {
+      _logSearchMetric(
+        stage: 'identify_${modeName}',
+        mode: modeName,
+        started: started,
+        decision: 'manual_search_required',
+      );
       await _recordTrace(
         method: 'image',
         queryFeatures: queryFeatures,
@@ -100,6 +112,12 @@ class SearchCardLogic {
     scored.sort((a, b) => b.confidence.compareTo(a.confidence));
 
     if (scored.isNotEmpty && scored.first.confidence >= acceptedConfidence) {
+      _logSearchMetric(
+        stage: 'identify_${modeName}',
+        mode: modeName,
+        started: started,
+        decision: 'auto_accept',
+      );
       await _recordTrace(
         method: 'image',
         queryFeatures: queryFeatures,
@@ -115,6 +133,12 @@ class SearchCardLogic {
     }
 
     if (scored.isEmpty) {
+      _logSearchMetric(
+        stage: 'identify_${modeName}',
+        mode: modeName,
+        started: started,
+        decision: 'not_found',
+      );
       await _recordTrace(
         method: 'image',
         queryFeatures: queryFeatures,
@@ -128,6 +152,12 @@ class SearchCardLogic {
           reason: "Ninguna carta fue encontrada");
     }
 
+    _logSearchMetric(
+      stage: 'identify_${modeName}',
+      mode: modeName,
+      started: started,
+      decision: 'multiple_candidates',
+    );
     await _recordTrace(
       method: 'image',
       queryFeatures: queryFeatures,
@@ -203,5 +233,24 @@ class SearchCardLogic {
     );
 
     await repo.save(trace);
+  }
+
+  void _logSearchMetric({
+    required String stage,
+    required String mode,
+    required DateTime started,
+    required String decision,
+  }) {
+    final durationMs = DateTime.now().toUtc().difference(started).inMilliseconds;
+    AppLogger.metric(
+      _loggerName,
+      'stage.latency',
+      context: {
+        'stage': stage,
+        'mode': mode,
+        'duration_ms': durationMs,
+        'decision': decision,
+      },
+    );
   }
 }
