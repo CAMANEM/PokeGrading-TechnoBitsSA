@@ -4,22 +4,28 @@
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
-import 'evaluation_repository.dart';
 import '../../domain/scoring/scoring_models.dart';
+import '../image_provider/image_storage_repository.dart';
+import '../lookup/lookup_resolver.dart';
+import 'evaluation_repository.dart';
 
 /// PostgreSQL implementation of [EvaluationRepository].
 ///
-/// Maps evaluation requests to the SOLICITUD_EVALUACION table.
-/// Images are stored as IMAGEN rows (front/back) linked to CARTA_SUBMITTER
-/// entries. Since auth is not yet implemented, a default user ID 1 is used.
+/// Maps evaluation requests to the pre_grade table and stores images in MongoDB.
 class PostgresEvaluationRepository implements EvaluationRepository {
   final Connection _connection;
+  final ImageStorageRepository _images;
 
-  PostgresEvaluationRepository._(this._connection);
+  PostgresEvaluationRepository._(
+    this._connection,
+    this._images,
+  );
 
   /// Creates and opens a PostgreSQL connection using the provided config.
   static Future<PostgresEvaluationRepository> connect(
-      DatabaseConfig config) async {
+    DatabaseConfig config,
+    ImageStorageRepository images,
+  ) async {
     final endpoint = Endpoint(
       host: config.host,
       port: config.port,
@@ -32,85 +38,113 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       sslMode: SslMode.disable,
     );
     final connection = await Connection.open(endpoint, settings: settings);
-    return PostgresEvaluationRepository._(connection);
+    return PostgresEvaluationRepository._(
+      connection,
+      images,
+    );
   }
 
   @override
   Future<EvaluationRequest> saveEvaluation(AddEvaluationInput input) async {
-    return await _connection.runTx((tx) async {
+    final saved = await _connection.runTx<_SavedEvaluation>((tx) async {
       final now = DateTime.now().toUtc();
+      final lookups = LookupResolver(tx);
+      final pendingStatusId = await lookups.resolveStatusId('pending');
 
-      // 1. Insert front image
-      final imgFrontIdRes = await tx
-          .execute('SELECT COALESCE(MAX("id_imagen"), 0) + 1 FROM "IMAGEN"');
-      final imgFrontId = imgFrontIdRes.first.first as int;
-      await tx.execute(
-        'INSERT INTO "IMAGEN" ("id_imagen", "ruta_cloud", "calidad_score", "fecha_subida") VALUES (\$1, \$2, \$3, \$4)',
-        parameters: [
-          imgFrontId,
-          'eval_base64_front_${now.millisecondsSinceEpoch}',
-          input.frontImageScore,
-          now,
-        ],
+      final cardSubmitterId = await _resolveCardSubmitterId(tx, input.cardId);
+
+      final preGradeResult = await tx.execute(
+        '''
+        INSERT INTO pre_grade (
+          card_submitter_id,
+          status_id,
+          requested_date,
+          last_modified_date
+        ) VALUES (\$1, \$2, \$3, \$4)
+        RETURNING id
+        ''',
+        parameters: [cardSubmitterId, pendingStatusId, now, now],
       );
+      final preGradeId = preGradeResult.first.first as int;
 
-      // 2. Insert back image
-      final imgBackIdRes = await tx
-          .execute('SELECT COALESCE(MAX("id_imagen"), 0) + 1 FROM "IMAGEN"');
-      final imgBackId = imgBackIdRes.first.first as int;
-      await tx.execute(
-        'INSERT INTO "IMAGEN" ("id_imagen", "ruta_cloud", "calidad_score", "fecha_subida") VALUES (\$1, \$2, \$3, \$4)',
-        parameters: [
-          imgBackId,
-          'eval_base64_back_${now.millisecondsSinceEpoch}',
-          input.backImageScore,
-          now,
-        ],
-      );
-
-      // 3. Insert solicitud
-      final solicitudIdRes = await tx.execute(
-          'SELECT COALESCE(MAX("id_solicitud"), 0) + 1 FROM "SOLICITUD_EVALUACION"');
-      final solicitudId = solicitudIdRes.first.first as int;
-      final correlationId = 'eval_${solicitudId}_${now.millisecondsSinceEpoch}';
-
-      await tx.execute(
-        'INSERT INTO "SOLICITUD_EVALUACION" ("id_solicitud", "id_usuario", "correlation_id", "estado_proceso", "fecha_solicitud") VALUES (\$1, \$2, \$3, \$4, \$5)',
-        parameters: [
-          solicitudId,
-          1, // default user until auth is implemented
-          correlationId,
-          'identificado',
-          now,
-        ],
-      );
-
-      // 4. Insert carta_submitter linking the card to this solicitud
-      if (input.cardId != null) {
-        final parsedCardId = int.tryParse(input.cardId!);
-        if (parsedCardId != null) {
-          await tx.execute(
-            'INSERT INTO "CARTA_SUBMITTER" ("id_carta", "id_solicitud", "id_carta_ref") VALUES (\$1, \$2, \$3)',
-            parameters: [
-              parsedCardId,
-              solicitudId,
-              parsedCardId, // uses same card as reference
-            ],
-          );
-        }
-      }
-
-      return EvaluationRequest(
-        id: solicitudId.toString(),
+      return _SavedEvaluation(
+        id: preGradeId,
+        cardSubmitterId: cardSubmitterId,
         frontImageData: input.frontImageData,
         backImageData: input.backImageData,
         frontImageScore: input.frontImageScore,
         backImageScore: input.backImageScore,
-        status: EvaluationStatus.pending,
-        createdAt: now,
         cardId: input.cardId,
+        createdAt: now,
       );
     });
+
+    await _images.saveSubmitterImages(
+      cardSubmitterId: saved.cardSubmitterId,
+      frontBase64: saved.frontImageData,
+      backBase64: saved.backImageData,
+    );
+
+    return EvaluationRequest(
+      id: saved.id.toString(),
+      frontImageData: saved.frontImageData,
+      backImageData: saved.backImageData,
+      frontImageScore: saved.frontImageScore,
+      backImageScore: saved.backImageScore,
+      status: EvaluationStatus.pending,
+      createdAt: saved.createdAt,
+      cardId: saved.cardId,
+    );
+  }
+
+  Future<int> _resolveCardSubmitterId(Session tx, String? cardId) async {
+    if (cardId != null) {
+      final parsedCardId = int.tryParse(cardId);
+      if (parsedCardId != null) {
+        final existing = await tx.execute(
+          'SELECT id FROM card_submitter WHERE id = \$1',
+          parameters: [parsedCardId],
+        );
+        if (existing.isNotEmpty) {
+          return existing.first.first as int;
+        }
+      }
+    }
+
+    final submitterResult = await tx.execute(
+      'SELECT id FROM submitter ORDER BY id LIMIT 1',
+    );
+    if (submitterResult.isEmpty) {
+      throw StateError(
+        'No submitter exists. Register a user before submitting evaluations.',
+      );
+    }
+    final submitterId = submitterResult.first.first as int;
+    final now = DateTime.now().toUtc();
+
+    final hashResult = await tx.execute(
+      '''
+      INSERT INTO hash_submitter (date)
+      VALUES (\$1)
+      RETURNING id
+      ''',
+      parameters: [now],
+    );
+    final hashId = hashResult.first.first as int;
+
+    final cardResult = await tx.execute(
+      '''
+      INSERT INTO card_submitter (
+        submitter_id,
+        hash_id,
+        registration_date,
+        active
+      ) VALUES (\$1, \$2, \$3, \$4)
+      RETURNING id
+      ''',
+      parameters: [submitterId, hashId, now, true],
+    );
+    return cardResult.first.first as int;
   }
 
   @override
@@ -119,17 +153,23 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     if (parsedId == null) return null;
 
     final result = await _connection.execute(
-      'SELECT "id_solicitud", "estado_proceso", "fecha_solicitud" FROM "SOLICITUD_EVALUACION" WHERE "id_solicitud" = \$1',
+      '''
+      SELECT pg.id, s.name, pg.requested_date, pg.card_submitter_id
+      FROM pre_grade pg
+      LEFT JOIN status s ON pg.status_id = s.id
+      WHERE pg.id = \$1
+      ''',
       parameters: [parsedId],
     );
 
     if (result.isEmpty) return null;
     final row = result.first;
 
-    final status = switch (row[1].toString()) {
-      'completado' => EvaluationStatus.completed,
-      'rechazado' => EvaluationStatus.rejected,
-      'validando' => EvaluationStatus.underReview,
+    final statusName = row[1]?.toString() ?? 'pending';
+    final status = switch (statusName) {
+      'completed' => EvaluationStatus.completed,
+      'rejected' => EvaluationStatus.rejected,
+      'under_review' => EvaluationStatus.underReview,
       _ => EvaluationStatus.pending,
     };
 
@@ -141,26 +181,38 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       backImageScore: 0,
       status: status,
       createdAt: row[2] as DateTime,
+      cardId: row[3]?.toString(),
     );
   }
 
   @override
   Future<void> saveSecurityAudit(SecurityAuditEvent event) async {
-    try {
-      await _connection.execute(
-        'INSERT INTO "AUDITORIA_SEGURIDAD" ("tipo_evento", "detalles", "fecha_evento") VALUES (\$1, \$2, \$3)',
-        parameters: [
-          event.eventType,
-          event.details,
-          event.timestamp,
-        ],
-      );
-    } catch (_) {
-      // Table may not exist if migration 002 hasn't been applied
-    }
+    // Security audit persistence disabled in this migration.
   }
 
   Future<void> close() async {
     await _connection.close();
   }
+}
+
+class _SavedEvaluation {
+  final int id;
+  final int cardSubmitterId;
+  final String frontImageData;
+  final String backImageData;
+  final double frontImageScore;
+  final double backImageScore;
+  final String? cardId;
+  final DateTime createdAt;
+
+  const _SavedEvaluation({
+    required this.id,
+    required this.cardSubmitterId,
+    required this.frontImageData,
+    required this.backImageData,
+    required this.frontImageScore,
+    required this.backImageScore,
+    required this.cardId,
+    required this.createdAt,
+  });
 }

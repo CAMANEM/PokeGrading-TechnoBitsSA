@@ -101,7 +101,7 @@ Ver [docs/adr/refactorDiagramProposal.md](docs/adr/refactorDiagramProposal.md) p
 |------------|-----------------------------------------|
 | Frontend   | Flutter Web + go_router + ChangeNotifier |
 | Backend    | Dart + Shelf                            |
-| Base Datos | PostgreSQL 16 (Single Database)         |
+| Base Datos | PostgreSQL 16 + MongoDB 7               |
 | Infra      | Docker Compose                          |
 
 ---
@@ -144,9 +144,13 @@ scripts\setup.bat
 
 > Antes de iniciar el backend por primera vez, ejecuta `dart pub get` dentro de `backend/` para descargar las dependencias de Dart.
 
-## 🗄️ Base de Datos PostgreSQL
+## 🗄️ Databases (PostgreSQL + MongoDB)
 
-La base se levanta con Docker y se inicializa sola desde [backend/db/migrations/001_initial_schema.sql](backend/db/migrations/001_initial_schema.sql) cuando el volumen está vacío.
+PostgreSQL stores metadata (users, cards, hashes, pre-grades). MongoDB stores image binaries via GridFS.
+
+On first start with an empty Docker volume, PostgreSQL is initialized from [`backend/db/init/`](backend/db/init/) (`001_schema.sql` then `002_seed_lookups.sql`). MongoDB runs [`backend/db/mongodb/create_pokegrading_images.js`](backend/db/mongodb/create_pokegrading_images.js) automatically when its volume is empty.
+
+Legacy schemas under `backend/db/migrations/` are no longer used by Docker init.
 
 ### Windows
 
@@ -161,10 +165,17 @@ chmod +x scripts/db.sh
 ./scripts/db.sh
 ```
 
-Si quieres recrear el esquema desde cero, primero detén y elimina el volumen:
+To recreate both databases from scratch, stop and remove volumes first:
 
 ```bash
 docker compose down -v
+docker compose up -d
+```
+
+Manual MongoDB init (only if the Mongo volume already existed before adding the init script):
+
+```bash
+mongosh "mongodb://localhost:27017/pokegrading_images" backend/db/mongodb/create_pokegrading_images.js
 ```
 
 ### Opción A: Sin Docker (Recomendado para pruebas rápidas / Sin base de datos local)
@@ -180,11 +191,11 @@ cd frontend
 flutter run -d chrome --web-port 3000
 ```
 
-### Opción B: Con Docker (PostgreSQL real)
+### Opción B: Con Docker (PostgreSQL + MongoDB reales)
 Asegúrate de tener `USE_MOCK_REPOSITORIES=false` en tu archivo `.env`.
 
 ```bash
-# 1. Levantar PostgreSQL y pgAdmin
+# 1. Levantar PostgreSQL, MongoDB y pgAdmin. You need to have Docker opened
 docker compose up -d
 
 # 2. Iniciar el Backend (Dart/Shelf)
@@ -205,14 +216,22 @@ flutter run -d chrome --web-port 3000
 
 # Consulta a DB desde el directorio principal del repo
 
+**PostgreSQL**
+
 ```bash
 docker exec -it pokegrading_postgres psql -U pokegrading_user -d pokegrading
 ```
 ```bash
-SELECT id_usuario, username, email, fecha_creacion FROM "USUARIO";
+SELECT id, username, email, registration_date FROM submitter;
 ```
 ```bash
 \q
+```
+
+**MongoDB**
+
+```bash
+docker exec -it pokegrading_mongodb mongosh pokegrading_images --eval "db.submitter_images.find().limit(5)"
 ```
 
 
@@ -298,6 +317,25 @@ PokeGrading-TechnoBitsSA/
 
 ---
 
+# MongoDB proposed structure
+
+Connection between PostgreSQL and MongoDB
+There's no foreign key or live link between the two databases — card_submitter.id (and card_reference.id) simply acts as a shared key that the application uses to query both. When the app needs a card's images, it takes that bigint ID and queries MongoDB's submitter_images (or reference_images) collection with { card_submitter_id: <id> }, getting back the front and back documents. It's an application-level join, not a database-enforced one.
+
+MongoDB structure
+
+```
+pokegrading_images/
+├── submitter_images          → metadata docs: {card_submitter_id, side: "front"/"back", file_id, content_type, ...}
+├── reference_images           → same idea, keyed by card_reference_id
+├── submitter_fs.files/.chunks  → GridFS binary storage (front/back images)
+└── reference_fs.files/.chunks  → GridFS binary storage
+```
+
+Each card has two metadata documents (one per side), each pointing via file_id to the actual image bytes stored in GridFS. Splitting by origin (submitter/reference) keeps the high-churn user uploads separate from the curated reference set, while the side field + index lets you query front/back together or separately as needed.
+
+---
+
 ## 🧪 Verificar que funciona
 
 ```bash
@@ -328,6 +366,11 @@ Copia `.env.example` a `.env` y ajusta los valores:
 ```bash
 cp .env.example .env
 ```
+
+For real databases, set `USE_MOCK_REPOSITORIES=false` and configure PostgreSQL (`DB_*`) plus MongoDB (`MONGO_URI`, `MONGO_DB_NAME`).
+
+> Search trace persistence is disabled; `/api/v1/catalog/search-traces` returns an empty list with real repositories.
+
 Para que el token llegue a un correo real, configura también las variables SMTP del backend en `.env`:
 
 ```bash

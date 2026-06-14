@@ -1,14 +1,14 @@
 version: '3.9'
 
 # ============================================================
-# PokéGrading — Docker Compose (Desarrollo Local)
+# PokeGrading — Docker Compose (Local Development)
 # ============================================================
-# Levanta: PostgreSQL 16 + pgAdmin 4
-# Uso: docker compose up -d
+# Services: PostgreSQL 16 + MongoDB 7 + pgAdmin 4
+# Usage: docker compose up -d
 # ============================================================
 
 services:
-  # ─── Base de Datos PostgreSQL ─────────────────────────────
+  # ─── PostgreSQL ───────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: pokegrading_postgres
@@ -22,7 +22,7 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/migrations:/docker-entrypoint-initdb.d:ro
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pokegrading_user} -d ${DB_NAME:-pokegrading}"]
       interval: 10s
@@ -32,7 +32,28 @@ services:
     networks:
       - pokegrading_network
 
-  # ─── pgAdmin (UI para PostgreSQL) ─────────────────────────
+  # ─── MongoDB (image binaries via GridFS) ────────────────
+  mongodb:
+    image: mongo:7
+    container_name: pokegrading_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-pokegrading_images}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./backend/db/mongodb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - pokegrading_network
+
+  # ─── pgAdmin (PostgreSQL UI) ──────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pokegrading_pgadmin
@@ -53,6 +74,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  mongodb_data:
     driver: local
   pgadmin_data:
     driver: local
