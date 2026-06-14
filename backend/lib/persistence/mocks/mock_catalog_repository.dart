@@ -3,6 +3,7 @@
 
 import '../card_data_provider/catalog_repository.dart';
 import '../../domain/catalog/catalog_models.dart';
+import '../../domain/image_services/hash_prefilter.dart';
 import '../../domain/image_services/visual_features.dart';
 import '../../shared/id_service/id_generator.dart';
 
@@ -11,10 +12,8 @@ class MockCatalogRepository implements CatalogRepository {
   final IdGenerator _idGenerator;
   final Map<String, PokemonCard> _cardsById = <String, PokemonCard>{};
   final Set<String> _identityKeys = <String>{};
-  final Map<String, List<String>> _featureIndex = <String, List<String>>{};
 
-  MockCatalogRepository(
-      {IdGenerator? idGenerator, VisualFeatureExtractor? extractor})
+  MockCatalogRepository({IdGenerator? idGenerator})
       : _idGenerator = idGenerator ?? UuidIdGenerator();
 
   @override
@@ -30,8 +29,12 @@ class MockCatalogRepository implements CatalogRepository {
     final id = _idGenerator.generateCardId();
     final now = DateTime.now().toUtc();
 
-    final features =
+    final frontFeatures =
         input.visualFeatures ?? VisualFeatureExtractor.extract(input.imageData);
+    final backFeatures = input.backImageData != null
+        ? VisualFeatureExtractor.extract(input.backImageData!)
+        : const VisualFeatures();
+    final features = frontFeatures.withBackFrom(backFeatures);
 
     final card = PokemonCard(
       id: id,
@@ -61,7 +64,6 @@ class MockCatalogRepository implements CatalogRepository {
 
     _cardsById[id] = card;
     _identityKeys.add(key);
-    _indexCard(card);
     return card;
   }
 
@@ -75,22 +77,17 @@ class MockCatalogRepository implements CatalogRepository {
     return _cardsById.values.toList();
   }
 
+  @override
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
     final scores = <String, int>{};
 
-    for (final hash in [query.averageHashHex, query.differenceHashHex]) {
-      if (hash == null || hash.length != 16) continue;
+    for (final card in _cardsById.values) {
+      final features = card.visualFeatures;
+      if (features == null) continue;
 
-      for (int i = 0; i < 4; i++) {
-        final chunk = hash.substring(i * 4, (i + 1) * 4);
-        final prefix = hash == query.averageHashHex ? 'ahash' : 'dhash';
-        final key = '$prefix:chunk$i:$chunk';
-        final ids = _featureIndex[key];
-        if (ids != null) {
-          for (final id in ids) {
-            scores.update(id, (v) => v + 1, ifAbsent: () => 1);
-          }
-        }
+      final score = scoreHashChunkOverlap(query, features);
+      if (score > 0) {
+        scores[card.id] = score;
       }
     }
 
@@ -98,6 +95,7 @@ class MockCatalogRepository implements CatalogRepository {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return sortedIds
+        .take(20)
         .map((e) => _cardsById[e.key])
         .where((card) => card != null)
         .cast<PokemonCard>()
@@ -119,15 +117,21 @@ class MockCatalogRepository implements CatalogRepository {
       final cardName = card.display?.displayName?.toLowerCase() ?? '';
 
       for (final term in terms) {
-        if (cardSet == term)
+        if (cardSet == term) {
           score += 10;
-        else if (cardSet.contains(term)) score += 5;
-        if (cardNumber == term)
+        } else if (cardSet.contains(term)) {
+          score += 5;
+        }
+        if (cardNumber == term) {
           score += 10;
-        else if (cardNumber.startsWith(term)) score += 4;
-        if (cardName == term)
+        } else if (cardNumber.startsWith(term)) {
+          score += 4;
+        }
+        if (cardName == term) {
           score += 8;
-        else if (cardName.contains(term)) score += 3;
+        } else if (cardName.contains(term)) {
+          score += 3;
+        }
       }
 
       if (score > 0) {
@@ -138,27 +142,6 @@ class MockCatalogRepository implements CatalogRepository {
     results.sort((a, b) => b.score.compareTo(a.score));
 
     return results.map((r) => r.card).toList();
-  }
-
-  void _indexCard(PokemonCard card) {
-    final features = card.visualFeatures;
-    if (features == null) return;
-
-    for (final entry in [
-      if (features.averageHashHex != null)
-        MapEntry('ahash', features.averageHashHex!),
-      if (features.differenceHashHex != null)
-        MapEntry('dhash', features.differenceHashHex!),
-    ]) {
-      final hash = entry.value;
-      if (hash.length != 16) continue;
-
-      for (int i = 0; i < 4; i++) {
-        final chunk = hash.substring(i * 4, (i + 1) * 4);
-        final key = '${entry.key}:chunk$i:$chunk';
-        _featureIndex.putIfAbsent(key, () => <String>[]).add(card.id);
-      }
-    }
   }
 
   String _identityKey({required CardIdentity identity}) {

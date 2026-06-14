@@ -91,7 +91,7 @@ class ImageQualityService {
 
     double brightness = total / (image.width * image.height);
 
-    if (brightness >= minAcceptance || brightness <= maxAcceptance) {
+    if (brightness >= minAcceptance && brightness <= maxAcceptance) {
       return 1.0;
     }
 

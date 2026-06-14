@@ -1,5 +1,5 @@
 /// @file
-/// @brief
+/// @brief Catalog image and metadata search orchestration.
 
 import 'package:uuid/uuid.dart';
 
@@ -59,15 +59,31 @@ class SearchCardResult {
 class SearchCardLogic {
   static const _loggerName = 'PokéGrading.SearchCard';
 
+  /// Fast search auto-accept threshold (diagram: 85%).
+  static const double fastAcceptThreshold = 85.0;
+
+  /// Specialized search auto-accept threshold (diagram: 75%).
+  static const double specializedAcceptThreshold = 75.0;
+
+  /// Minimum gap between top-1 and top-2 confidence to auto-accept.
+  static const double minWinnerMargin = 6.0;
+
   final CatalogRepository repository;
-  static const double acceptedConfidence = 90.0;
   final SearchTraceRepository? traceRepository;
 
   SearchCardLogic({required this.repository, this.traceRepository});
 
+  double _thresholdFor(ConfidenceType mode) {
+    return switch (mode) {
+      ConfidenceType.fast => fastAcceptThreshold,
+      ConfidenceType.specialized => specializedAcceptThreshold,
+    };
+  }
+
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
     final started = DateTime.now().toUtc();
     final modeName = command.mode.name;
+    final threshold = _thresholdFor(command.mode);
 
     final queryFeatures = VisualFeatureExtractor.extract(command.imageData);
     final iqsBelow =
@@ -76,7 +92,7 @@ class SearchCardLogic {
 
     if (queryFeatures.isEmpty || iqsBelow) {
       _logSearchMetric(
-        stage: 'identify_${modeName}',
+        stage: 'identify_$modeName',
         mode: modeName,
         started: started,
         decision: 'manual_search_required',
@@ -103,38 +119,68 @@ class SearchCardLogic {
     final scored = <SearchCandidate>[];
 
     for (final card in searchCards) {
+      final features = card.visualFeatures;
+      if (features == null || features.isEmpty) continue;
+
       final score = ConfidenceScore.calculateConfidence(
-          queryFeatures, card.visualFeatures!, command.mode);
+        queryFeatures,
+        features,
+        command.mode,
+      );
 
       scored.add(SearchCandidate(card: card, confidence: score));
     }
 
     scored.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-    if (scored.isNotEmpty && scored.first.confidence >= acceptedConfidence) {
-      _logSearchMetric(
-        stage: 'identify_${modeName}',
-        mode: modeName,
-        started: started,
-        decision: 'auto_accept',
+    if (scored.isNotEmpty) {
+      final top = scored.first;
+      final runnerUp =
+          scored.length > 1 ? scored[1].confidence : 0.0;
+      final margin = top.confidence - runnerUp;
+      final hamming = ConfidenceScore.hammingBreakdown(
+        queryFeatures,
+        top.card.visualFeatures!,
       );
-      await _recordTrace(
-        method: 'image',
-        queryFeatures: queryFeatures,
-        candidates: scored,
-        decision: 'auto_accept',
-        decisionReason:
-            'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% >= threshold $acceptedConfidence%',
+
+      AppLogger.metric(
+        _loggerName,
+        'identify.score_breakdown',
+        context: {
+          'mode': modeName,
+          'top_confidence': top.confidence,
+          'runner_up_confidence': runnerUp,
+          'margin': margin,
+          'threshold': threshold,
+          ...hamming,
+        },
       );
-      return SearchCardResult(
-        type: SearchResultType.singleCandidate,
-        candidates: [scored.first],
-      );
+
+      if (top.confidence >= threshold && margin >= minWinnerMargin) {
+        _logSearchMetric(
+          stage: 'identify_$modeName',
+          mode: modeName,
+          started: started,
+          decision: 'auto_accept',
+        );
+        await _recordTrace(
+          method: 'image',
+          queryFeatures: queryFeatures,
+          candidates: scored,
+          decision: 'auto_accept',
+          decisionReason:
+              'Top confidence ${top.confidence.toStringAsFixed(1)}% >= $threshold% with margin ${margin.toStringAsFixed(1)}',
+        );
+        return SearchCardResult(
+          type: SearchResultType.singleCandidate,
+          candidates: [top],
+        );
+      }
     }
 
     if (scored.isEmpty) {
       _logSearchMetric(
-        stage: 'identify_${modeName}',
+        stage: 'identify_$modeName',
         mode: modeName,
         started: started,
         decision: 'not_found',
@@ -153,7 +199,7 @@ class SearchCardLogic {
     }
 
     _logSearchMetric(
-      stage: 'identify_${modeName}',
+      stage: 'identify_$modeName',
       mode: modeName,
       started: started,
       decision: 'multiple_candidates',
@@ -164,7 +210,7 @@ class SearchCardLogic {
       candidates: scored,
       decision: 'multiple_candidates',
       decisionReason:
-          'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% below threshold, showing top 3',
+          'Top confidence ${scored.first.confidence.toStringAsFixed(1)}% below threshold $threshold% or insufficient margin',
     );
     return SearchCardResult(
       type: SearchResultType.multipleCandidates,
@@ -241,7 +287,8 @@ class SearchCardLogic {
     required DateTime started,
     required String decision,
   }) {
-    final durationMs = DateTime.now().toUtc().difference(started).inMilliseconds;
+    final durationMs =
+        DateTime.now().toUtc().difference(started).inMilliseconds;
     AppLogger.metric(
       _loggerName,
       'stage.latency',

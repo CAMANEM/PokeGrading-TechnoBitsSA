@@ -139,6 +139,11 @@ class PostgresSearchTraceRepository implements SearchTraceRepository {
         'center_average_hash_hex': f.centerAverageHashHex,
         'center_difference_hash_hex': f.centerDifferenceHashHex,
         'edge_hash_hex': f.edgeHashHex,
+        'back_average_hash_hex': f.backAverageHashHex,
+        'back_difference_hash_hex': f.backDifferenceHashHex,
+        'back_center_average_hash_hex': f.backCenterAverageHashHex,
+        'back_center_difference_hash_hex': f.backCenterDifferenceHashHex,
+        'back_edge_hash_hex': f.backEdgeHashHex,
       };
 
   Map<String, dynamic> _metadataToMap(CardIdentity m) => {

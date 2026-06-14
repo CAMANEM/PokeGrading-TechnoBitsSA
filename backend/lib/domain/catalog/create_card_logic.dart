@@ -120,7 +120,11 @@ class CreateCardLogic {
     }
 
     try {
-      final features = VisualFeatureExtractor.extract(command.imageData);
+      final frontFeatures = VisualFeatureExtractor.extract(command.imageData);
+      final backFeatures = command.backImageData != null
+          ? VisualFeatureExtractor.extract(command.backImageData!)
+          : const VisualFeatures();
+      final features = frontFeatures.withBackFrom(backFeatures);
 
       final created = await repository.saveCard(
         AddPokemonCardInput(

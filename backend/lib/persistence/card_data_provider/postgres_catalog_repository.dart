@@ -5,6 +5,7 @@ import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
 import '../../domain/catalog/catalog_models.dart';
+import '../../domain/image_services/hash_prefilter.dart';
 import '../../domain/image_services/visual_features.dart';
 import '../image_provider/image_storage_repository.dart';
 import '../lookup/lookup_resolver.dart';
@@ -65,7 +66,13 @@ class PostgresCatalogRepository implements CatalogRepository {
     hs.average_hash_hex,
     hs.difference_hash_hex,
     hs.center_average_hash_hex,
-    hs.center_difference_hash_hex
+    hs.center_difference_hash_hex,
+    hs.edge_hash_hex,
+    hs.back_average_hash_hex,
+    hs.back_difference_hash_hex,
+    hs.back_center_average_hash_hex,
+    hs.back_center_difference_hash_hex,
+    hs.back_edge_hash_hex
   ''';
 
   static const _fromClause = '''
@@ -133,8 +140,14 @@ class PostgresCatalogRepository implements CatalogRepository {
           difference_hash_hex,
           center_average_hash_hex,
           center_difference_hash_hex,
+          edge_hash_hex,
+          back_average_hash_hex,
+          back_difference_hash_hex,
+          back_center_average_hash_hex,
+          back_center_difference_hash_hex,
+          back_edge_hash_hex,
           date
-        ) VALUES (\$1, \$2, \$3, \$4, \$5)
+        ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11)
         RETURNING id
         ''',
         parameters: [
@@ -142,6 +155,12 @@ class PostgresCatalogRepository implements CatalogRepository {
           input.visualFeatures?.differenceHashHex,
           input.visualFeatures?.centerAverageHashHex,
           input.visualFeatures?.centerDifferenceHashHex,
+          input.visualFeatures?.edgeHashHex,
+          input.visualFeatures?.backAverageHashHex,
+          input.visualFeatures?.backDifferenceHashHex,
+          input.visualFeatures?.backCenterAverageHashHex,
+          input.visualFeatures?.backCenterDifferenceHashHex,
+          input.visualFeatures?.backEdgeHashHex,
           now,
         ],
       );
@@ -251,36 +270,59 @@ class PostgresCatalogRepository implements CatalogRepository {
 
   @override
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
-    final conditions = <String>[];
-    final params = <dynamic>[];
-    var paramIdx = 1;
+    final result = await _connection.execute('''
+      SELECT cs.id,
+        hs.average_hash_hex,
+        hs.difference_hash_hex,
+        hs.center_average_hash_hex,
+        hs.center_difference_hash_hex,
+        hs.edge_hash_hex,
+        hs.back_average_hash_hex,
+        hs.back_difference_hash_hex,
+        hs.back_center_average_hash_hex,
+        hs.back_center_difference_hash_hex,
+        hs.back_edge_hash_hex
+      FROM card_submitter cs
+      INNER JOIN hash_submitter hs ON cs.hash_id = hs.id
+      WHERE cs.active = true
+    ''');
 
-    if (query.averageHashHex != null && query.averageHashHex!.length == 16) {
-      conditions.add('hs.average_hash_hex = \$$paramIdx');
-      params.add(query.averageHashHex);
-      paramIdx++;
+    final scores = <int, int>{};
+
+    for (final row in result) {
+      final id = row[0] as int;
+      final catalog = VisualFeatures(
+        averageHashHex: row[1]?.toString(),
+        differenceHashHex: row[2]?.toString(),
+        centerAverageHashHex: row[3]?.toString(),
+        centerDifferenceHashHex: row[4]?.toString(),
+        edgeHashHex: row[5]?.toString(),
+        backAverageHashHex: row[6]?.toString(),
+        backDifferenceHashHex: row[7]?.toString(),
+        backCenterAverageHashHex: row[8]?.toString(),
+        backCenterDifferenceHashHex: row[9]?.toString(),
+        backEdgeHashHex: row[10]?.toString(),
+      );
+
+      final score = scoreHashChunkOverlap(query, catalog);
+      if (score > 0) {
+        final existing = scores[id] ?? 0;
+        if (score > existing) scores[id] = score;
+      }
     }
-    if (query.differenceHashHex != null &&
-        query.differenceHashHex!.length == 16) {
-      conditions.add('hs.difference_hash_hex = \$$paramIdx');
-      params.add(query.differenceHashHex);
-      paramIdx++;
+
+    if (scores.isEmpty) return [];
+
+    final sortedIds = scores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final cards = <PokemonCard>[];
+    for (final entry in sortedIds.take(20)) {
+      final card = await findById(entry.key.toString());
+      if (card != null) cards.add(card);
     }
 
-    if (conditions.isEmpty) return [];
-
-    final result = await _connection.execute(
-      '''
-      SELECT $_selectColumns
-      $_fromClause
-      WHERE ${conditions.join(' OR ')}
-      ORDER BY cs.registration_date DESC
-      LIMIT 20
-      ''',
-      parameters: params,
-    );
-
-    return result.map((row) => _rowToCard(row)).toList();
+    return cards;
   }
 
   @override
@@ -319,6 +361,12 @@ class PostgresCatalogRepository implements CatalogRepository {
       differenceHashHex: row[15]?.toString(),
       centerAverageHashHex: row[16]?.toString(),
       centerDifferenceHashHex: row[17]?.toString(),
+      edgeHashHex: row[18]?.toString(),
+      backAverageHashHex: row[19]?.toString(),
+      backDifferenceHashHex: row[20]?.toString(),
+      backCenterAverageHashHex: row[21]?.toString(),
+      backCenterDifferenceHashHex: row[22]?.toString(),
+      backEdgeHashHex: row[23]?.toString(),
     );
 
     final display = CardDisplay(
