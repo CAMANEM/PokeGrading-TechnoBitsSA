@@ -224,6 +224,12 @@ class _WelcomeCard extends StatelessWidget {
             icon: const Icon(Icons.search),
             label: const Text('Busqueda rapida de carta'),
           ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: () => context.pushNamed('catalog_browse'),
+            icon: const Icon(Icons.collections_bookmark_outlined),
+            label: const Text('Explorar catalogo'),
+          ),
         ],
       ),
     );

@@ -19,6 +19,9 @@ import 'b2b_dependencies.dart';
 import '../domain/authentication/register_logic.dart';
 import '../domain/catalog/create_card_logic.dart';
 import '../domain/catalog/search_card_logic.dart';
+import '../domain/catalog/card_browse_logic.dart';
+import '../persistence/b2b_data_provider/reference_browse_repository.dart';
+import '../persistence/image_provider/image_storage_repository.dart';
 import '../domain/scoring/evaluation_logic.dart';
 import '../domain/b2b/consult/consult_logic.dart';
 import '../persistence/b2b_data_provider/api_key_repository.dart';
@@ -56,6 +59,8 @@ Router buildAppRouter(
   EvaluationRepository evaluationRepository,
   SearchTraceRepository? searchTraceRepository,
   B2bDependencies? b2bDependencies,
+  ReferenceBrowseRepository? referenceBrowseRepository,
+  ImageStorageRepository? imageStorageRepository,
 ) {
   final router = Router();
 
@@ -69,10 +74,21 @@ Router buildAppRouter(
     repository: catalogRepository,
     traceRepository: searchTraceRepository,
   );
+
+  CardBrowseLogic? cardBrowseLogic;
+  if (referenceBrowseRepository != null) {
+    cardBrowseLogic = CardBrowseLogic(
+      catalogRepository: catalogRepository,
+      referenceBrowseRepository: referenceBrowseRepository,
+      imageRepository: imageStorageRepository,
+    );
+  }
+
   final catalogRouter = buildCatalogRoutes(
     createCardLogic,
     searchCardLogic,
     searchTraceRepository: searchTraceRepository,
+    cardBrowseLogic: cardBrowseLogic,
   );
 
   final evaluationLogic = EvaluationLogic(repository: evaluationRepository);

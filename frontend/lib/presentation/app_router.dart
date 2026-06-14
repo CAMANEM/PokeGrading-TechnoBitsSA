@@ -13,6 +13,7 @@ import 'submitter_catalog/create_card/create_card_screen.dart';
 import 'user/register/register_screen.dart';
 import 'submitter_catalog/submit_evaluation/submit_evaluation_screen.dart';
 import 'submitter_catalog/search_card/search_card_screen.dart';
+import 'catalog_browse/catalog_browse_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -42,6 +43,11 @@ final appRouter = GoRouter(
       path: '/catalog/search',
       name: 'catalog_search',
       builder: (context, state) => const SearchCardScreen(),
+    ),
+    GoRoute(
+      path: '/catalog/browse',
+      name: 'catalog_browse',
+      builder: (context, state) => const CatalogBrowseScreen(),
     ),
   ],
   errorBuilder: (context, state) => _NotFoundScreen(error: state.error),

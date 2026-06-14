@@ -8,6 +8,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../domain/catalog/create_card_logic.dart';
 import '../../domain/catalog/search_card_logic.dart';
+import '../../domain/catalog/card_browse_logic.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/confidence_score.dart';
 import '../../persistence/card_data_provider/search_trace_repository.dart';
@@ -16,8 +17,11 @@ import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../http_helpers.dart';
 
 Router buildCatalogRoutes(
-    CreateCardLogic createCardLogic, SearchCardLogic searchCardLogic,
-    {SearchTraceRepository? searchTraceRepository}) {
+  CreateCardLogic createCardLogic,
+  SearchCardLogic searchCardLogic, {
+  SearchTraceRepository? searchTraceRepository,
+  CardBrowseLogic? cardBrowseLogic,
+}) {
   final router = Router();
 
   router.post('/cards/search/image', (Request request) async {
@@ -304,6 +308,56 @@ Router buildCatalogRoutes(
       );
     }
   });
+
+  if (cardBrowseLogic != null) {
+    router.get('/cards/submitter', (Request request) async {
+      AppLogger.info(
+        'PokéGrading.Routes.Catalog',
+        'List submitter catalog cards',
+        context: httpLogContext(request: request),
+      );
+      final cards = await cardBrowseLogic.listSubmitterCards();
+      return jsonResponse(
+        200,
+        {'cards': cards.map((c) => c.toJson()).toList()},
+      );
+    });
+
+    router.get('/cards/submitter/<id>', (Request request, String id) async {
+      final detail = await cardBrowseLogic.getSubmitterCardDetail(id);
+      if (detail == null) {
+        return jsonResponse(404, {
+          'status': 'not_found',
+          'message': 'Submitter card not found',
+        });
+      }
+      return jsonResponse(200, detail.toJson());
+    });
+
+    router.get('/cards/reference', (Request request) async {
+      AppLogger.info(
+        'PokéGrading.Routes.Catalog',
+        'List reference catalog cards',
+        context: httpLogContext(request: request),
+      );
+      final cards = await cardBrowseLogic.listReferenceCards();
+      return jsonResponse(
+        200,
+        {'cards': cards.map((c) => c.toJson()).toList()},
+      );
+    });
+
+    router.get('/cards/reference/<id>', (Request request, String id) async {
+      final detail = await cardBrowseLogic.getReferenceCardDetail(id);
+      if (detail == null) {
+        return jsonResponse(404, {
+          'status': 'not_found',
+          'message': 'Reference card not found',
+        });
+      }
+      return jsonResponse(200, detail.toJson());
+    });
+  }
 
   if (searchTraceRepository != null) {
     router.get('/search-traces', (Request request) async {

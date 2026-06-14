@@ -40,6 +40,9 @@ import '../lib/persistence/b2b_data_provider/postgres_b2b_audit_repository.dart'
 import '../lib/persistence/b2b_data_provider/postgres_idempotency_repository.dart';
 import '../lib/persistence/b2b_data_provider/postgres_rate_limit_repository.dart';
 import '../lib/persistence/b2b_data_provider/postgres_reference_catalog_repository.dart';
+import '../lib/persistence/b2b_data_provider/postgres_reference_browse_repository.dart';
+import '../lib/persistence/mocks/mock_reference_browse_repository.dart';
+import '../lib/persistence/b2b_data_provider/reference_browse_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -76,8 +79,11 @@ void main() async {
   PostgresB2bAuditRepository? postgresB2bAuditRepository;
   PostgresIdempotencyRepository? postgresIdempotencyRepository;
   PostgresRateLimitRepository? postgresRateLimitRepository;
+  PostgresReferenceBrowseRepository? postgresReferenceBrowseRepository;
 
   ImageStorageRepository? mongoImageRepository;
+
+  late final ReferenceBrowseRepository referenceBrowseRepository;
 
   final apiKeyHasher = ApiKeyHasher(pepper: config.b2b.apiKeyPepper);
 
@@ -86,6 +92,7 @@ void main() async {
     catalogRepository = MockCatalogRepository();
     evaluationRepository = MockEvaluationRepository();
     searchTraceRepository = const NoOpSearchTraceRepository();
+    referenceBrowseRepository = MockReferenceBrowseRepository();
     b2bDependencies = B2bDependencies(
       apiKeyRepository: MockApiKeyRepository(
         devApiKey: config.b2b.devApiKey,
@@ -118,6 +125,9 @@ void main() async {
       config.database,
       apiKeyHasher,
     );
+    postgresReferenceBrowseRepository =
+        await PostgresReferenceBrowseRepository.connect(config.database);
+    referenceBrowseRepository = postgresReferenceBrowseRepository;
     postgresReferenceCatalogRepository =
         await PostgresReferenceCatalogRepository.connect(config.database);
     postgresB2bAuditRepository =
@@ -147,6 +157,8 @@ void main() async {
     evaluationRepository,
     searchTraceRepository,
     b2bDependencies,
+    referenceBrowseRepository,
+    mongoImageRepository,
   );
 
   final handler = const Pipeline()
@@ -188,6 +200,7 @@ void main() async {
     postgresB2bAuditRepository,
     postgresIdempotencyRepository,
     postgresRateLimitRepository,
+    postgresReferenceBrowseRepository,
   );
 }
 
@@ -203,6 +216,7 @@ void _registerShutdownHandlers(
   PostgresB2bAuditRepository? postgresB2bAuditRepo,
   PostgresIdempotencyRepository? postgresIdempotencyRepo,
   PostgresRateLimitRepository? postgresRateLimitRepo,
+  PostgresReferenceBrowseRepository? postgresReferenceBrowseRepo,
 ) {
   ProcessSignal.sigint.watch().listen((_) async {
     log.info('🛑 SIGINT signal received - Shutting down server...');
@@ -217,6 +231,9 @@ void _registerShutdownHandlers(
     if (postgresB2bAuditRepo != null) await postgresB2bAuditRepo.close();
     if (postgresIdempotencyRepo != null) await postgresIdempotencyRepo.close();
     if (postgresRateLimitRepo != null) await postgresRateLimitRepo.close();
+    if (postgresReferenceBrowseRepo != null) {
+      await postgresReferenceBrowseRepo.close();
+    }
     if (mongoImageRepo != null) await mongoImageRepo.close();
     log.info('   All database connections closed.');
     log.info('   Server shut down successfully.');
