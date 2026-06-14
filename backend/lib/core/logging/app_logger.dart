@@ -3,64 +3,192 @@
 
 // ============================================================
 // PokéGrading — Global Logger (Core)
-// Structured logging with correlation_id support.
+// Structured JSON logging with correlation_id support.
 // ============================================================
 import 'package:logging/logging.dart';
+import 'package:pokegrading_logging/pokegrading_logging.dart';
+
+import '../config/logging_config.dart';
+import 'sinks/app_insights_sink.dart';
+import 'sinks/console_sink.dart';
+import 'sinks/file_sink.dart';
 
 /// Initializes and configures the application's logging system.
-///
-/// All logs include:
-/// - UTC Timestamp
-/// - Severity level
-/// - Logger name (source)
-/// - correlation_id (when available in Zone)
-/// - Message
-///
-/// Usage:
-/// ```dart
-/// AppLogger.init();
-/// final log = Logger('MyClass');
-/// log.info('Important event');
-/// ```
 class AppLogger {
-  AppLogger._(); // Not instantiable
+  AppLogger._();
 
   static bool _initialized = false;
+  static late ConsoleLogSink _consoleSink;
+  static FileLogSink? _fileSink;
+  static AppInsightsLogSink? _appInsightsSink;
 
   /// Initializes the logging system. Call ONCE at startup.
-  static void init({Level level = Level.INFO}) {
+  static void init({
+    required Level level,
+    required LoggingConfig config,
+  }) {
     if (_initialized) return;
     _initialized = true;
+
+    _consoleSink = ConsoleLogSink(pretty: config.format == LogFormat.pretty);
+    if (config.fileEnabled) {
+      _fileSink = FileLogSink(logDir: config.logDir);
+    }
+
+    if (config.appInsightsEnabled) {
+      final insightsConfig =
+          AppInsightsConfig.parse(config.appInsightsConnectionString);
+      if (insightsConfig != null) {
+        _appInsightsSink = AppInsightsLogSink(config: insightsConfig);
+      }
+    }
 
     Logger.root.level = level;
     Logger.root.onRecord.listen(_handleRecord);
   }
 
-  /// Handler that formats and writes each [LogRecord] to stdout/stderr.
+  /// Emits a structured [LogEvent] through all configured sinks.
+  static void emit(LogEvent event) {
+    _consoleSink.write(event);
+    _fileSink?.write(event);
+    _appInsightsSink?.write(event);
+  }
+
+  static void info(
+    String logger,
+    String message, {
+    LogCategory category = LogCategory.operational,
+    Map<String, dynamic>? context,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'INFO',
+        category: category,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: message,
+        context: context,
+      ),
+    );
+  }
+
+  static void warning(
+    String logger,
+    String message, {
+    LogCategory category = LogCategory.operational,
+    Map<String, dynamic>? context,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'WARNING',
+        category: category,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: message,
+        context: context,
+      ),
+    );
+  }
+
+  static void error(
+    String logger,
+    String message, {
+    LogCategory category = LogCategory.operational,
+    Map<String, dynamic>? context,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'SEVERE',
+        category: category,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: message,
+        context: context,
+        error: error?.toString(),
+        stackTrace: stackTrace?.toString(),
+      ),
+    );
+  }
+
+  static void audit(
+    String logger,
+    String eventType, {
+    required String result,
+    Map<String, dynamic>? context,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'INFO',
+        category: LogCategory.audit,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: eventType,
+        context: {
+          'event': eventType,
+          'result': result,
+          if (context != null) ...context,
+        },
+      ),
+    );
+  }
+
+  static void metric(
+    String logger,
+    String eventType, {
+    required Map<String, dynamic> context,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'INFO',
+        category: LogCategory.metric,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: eventType,
+        context: {
+          'event': eventType,
+          ...context,
+        },
+      ),
+    );
+  }
+
+  static void grading(
+    String logger,
+    String message, {
+    Map<String, dynamic>? context,
+  }) {
+    emit(
+      LogEvent(
+        timestamp: DateTime.now().toUtc(),
+        level: 'INFO',
+        category: LogCategory.grading,
+        logger: logger,
+        correlationId: CorrelationContext.current,
+        message: message,
+        context: context,
+      ),
+    );
+  }
+
   static void _handleRecord(LogRecord record) {
-    final timestamp = record.time.toUtc().toIso8601String();
-    final level = record.level.name.padRight(7);
-    final name = record.loggerName;
-    final message = record.message;
-
-    // Structured log format (human-readable JSON-like)
-    final line = '[$timestamp] [$level] [$name] $message';
-
-    if (record.level >= Level.SEVERE) {
-      // Errors go to stderr
-      print('\x1B[31m$line\x1B[0m'); // Red
-      if (record.error != null) {
-        print('\x1B[31m  ERROR: ${record.error}\x1B[0m');
-      }
-      if (record.stackTrace != null) {
-        print('\x1B[31m  STACK: ${record.stackTrace}\x1B[0m');
-      }
-    } else if (record.level >= Level.WARNING) {
-      print('\x1B[33m$line\x1B[0m'); // Yellow
-    } else if (record.level >= Level.INFO) {
-      print('\x1B[36m$line\x1B[0m'); // Cyan
-    } else {
-      print('\x1B[90m$line\x1B[0m'); // Grey (DEBUG)
-    }
+    emit(
+      LogEvent(
+        timestamp: record.time.toUtc(),
+        level: record.level.name,
+        category: LogCategory.operational,
+        logger: record.loggerName,
+        correlationId: CorrelationContext.current,
+        message: record.message,
+        error: record.error?.toString(),
+        stackTrace: record.stackTrace?.toString(),
+      ),
+    );
   }
 }

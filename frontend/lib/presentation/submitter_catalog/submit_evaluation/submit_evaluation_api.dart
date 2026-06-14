@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/logging/client_log_reporter.dart';
 import 'submit_evaluation_state.dart';
 
 /// @brief SubmitEvaluationApiException
@@ -49,11 +50,15 @@ class SubmitEvaluationApi {
       );
     }
 
-    print('''
-HTTP Error:
-Status: ${response.statusCode}
-Body: ${response.body}
-''');
+    ClientLogReporter.reportError(
+      logger: 'PokéGrading.Client.SubmitEvaluation',
+      correlationId: correlationId,
+      message: body['message']?.toString() ?? 'Error al enviar la evaluación',
+      context: {
+        'status_code': response.statusCode,
+        'error': body['error']?.toString(),
+      },
+    );
 
     throw SubmitEvaluationApiException(
       body['message']?.toString() ?? 'Error al enviar la evaluación',

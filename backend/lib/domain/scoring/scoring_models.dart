@@ -18,6 +18,7 @@ class EvaluationRequest {
   final EvaluationStatus status;
   final DateTime createdAt;
   final String? cardId;
+  final String? logId;
 
   const EvaluationRequest({
     required this.id,
@@ -28,5 +29,6 @@ class EvaluationRequest {
     required this.status,
     required this.createdAt,
     this.cardId,
+    this.logId,
   });
 }

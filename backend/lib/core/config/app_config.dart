@@ -8,6 +8,8 @@
 import 'package:dotenv/dotenv.dart';
 import 'package:logging/logging.dart';
 
+import 'logging_config.dart';
+
 /// Immutable configuration class that centralizes all
 /// application parameters read from environment variables.
 ///
@@ -18,6 +20,7 @@ class AppConfig {
   final String host;
   final int port;
   final Level logLevel;
+  final LoggingConfig logging;
   final DatabaseConfig database;
   final MongoConfig mongo;
   final EmailConfig email;
@@ -29,6 +32,7 @@ class AppConfig {
       required this.host,
       required this.port,
       required this.logLevel,
+      required this.logging,
       required this.database,
       required this.mongo,
       required this.email,
@@ -46,6 +50,7 @@ class AppConfig {
         host: env['BACKEND_HOST'] ?? '0.0.0.0',
         port: int.tryParse(env['BACKEND_PORT'] ?? '') ?? 8080,
         logLevel: _parseLogLevel(env['BACKEND_LOG_LEVEL'] ?? 'info'),
+        logging: LoggingConfig.fromEnv(env),
         database: DatabaseConfig.fromEnv(env),
         mongo: MongoConfig.fromEnv(env),
         email: EmailConfig.fromEnv(env),

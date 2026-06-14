@@ -40,7 +40,7 @@ void main() async {
   }
   final config = AppConfig.fromEnv(env);
 
-  AppLogger.init(level: config.logLevel);
+  AppLogger.init(level: config.logLevel, config: config.logging);
   final log = Logger('PokéGrading.Server');
 
   log.info('🎴 Starting PokéGrading Backend v${config.version}');

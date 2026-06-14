@@ -1,20 +1,19 @@
 /// @file
 /// @brief
 
-import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../core/logging/app_logger.dart';
+import '../../core/logging/log_helpers.dart';
 import '../../domain/catalog/create_card_logic.dart';
 import '../../domain/catalog/search_card_logic.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/confidence_score.dart';
-
 import '../../persistence/card_data_provider/search_trace_repository.dart';
 import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../http_helpers.dart';
-
-final _log = Logger('PokéGrading.Routes.Catalog');
 
 Router buildCatalogRoutes(
     CreateCardLogic createCardLogic, SearchCardLogic searchCardLogic,
@@ -23,6 +22,16 @@ Router buildCatalogRoutes(
 
   router.post('/cards/search/image', (Request request) async {
     final payload = await readJson(request);
+    final requestContext = httpLogContext(
+      request: request,
+      body: catalogSearchBodySummary(payload),
+    );
+
+    AppLogger.info(
+      'PokéGrading.Routes.Catalog',
+      'Catalog image search request',
+      context: requestContext,
+    );
 
     final imageData = (payload['image_data'] ?? '').toString();
     final mode = switch (payload['mode']) {
@@ -88,7 +97,14 @@ Router buildCatalogRoutes(
           'message': error.message,
         },
       );
-    } catch (error) {
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Catalog',
+        'Image search failed',
+        context: requestContext,
+        error: error,
+        stackTrace: stack,
+      );
       return jsonResponse(
         500,
         {
@@ -102,6 +118,22 @@ Router buildCatalogRoutes(
 
   router.post('/cards/search/manual', (Request request) async {
     final payload = await readJson(request);
+    final requestContext = httpLogContext(
+      request: request,
+      body: RequestLogContext.sanitize({
+        'set': payload['set'],
+        'number': payload['number'],
+        'edition': payload['edition'],
+        'language': payload['language'],
+        'finish': payload['finish'],
+      }),
+    );
+
+    AppLogger.info(
+      'PokéGrading.Routes.Catalog',
+      'Catalog manual search request',
+      context: requestContext,
+    );
 
     try {
       final result = await searchCardLogic.searchByMetadata(
@@ -158,7 +190,14 @@ Router buildCatalogRoutes(
           'message': error.message,
         },
       );
-    } catch (error) {
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Catalog',
+        'Manual search failed',
+        context: requestContext,
+        error: error,
+        stackTrace: stack,
+      );
       return jsonResponse(
         500,
         {
@@ -192,6 +231,10 @@ Router buildCatalogRoutes(
         author: payload['author']?.toString());
     final backImageData = payload['back_image_data']?.toString();
     final imageData = (payload['image_data'] ?? '').toString();
+    final requestContext = httpLogContext(
+      request: request,
+      body: catalogCreateBodySummary(payload),
+    );
 
     try {
       final result = await createCardLogic.create(
@@ -201,6 +244,17 @@ Router buildCatalogRoutes(
           imageData: imageData,
           backImageData: backImageData,
         ),
+      );
+
+      AppLogger.audit(
+        'PokéGrading.Routes.Catalog',
+        AuditEventTypes.catalogPropose,
+        result: 'success',
+        context: {
+          ...requestContext,
+          'card_id': result.cardId,
+          'card_status': result.status.name,
+        },
       );
 
       return jsonResponse(
@@ -214,6 +268,16 @@ Router buildCatalogRoutes(
         },
       );
     } on LogicException catch (error) {
+      AppLogger.audit(
+        'PokéGrading.Routes.Catalog',
+        AuditEventTypes.catalogPropose,
+        result: 'failure',
+        context: {
+          ...requestContext,
+          'error_code': error.code,
+          'error_message': error.message,
+        },
+      );
       return jsonResponse(
         createCardStatusCodeFor(error.code),
         {
@@ -223,7 +287,13 @@ Router buildCatalogRoutes(
         },
       );
     } catch (error, stack) {
-      _log.severe('Catalog add failed: $error\n$stack');
+      AppLogger.error(
+        'PokéGrading.Routes.Catalog',
+        'Catalog add failed',
+        context: requestContext,
+        error: error,
+        stackTrace: stack,
+      );
       return jsonResponse(
         500,
         {

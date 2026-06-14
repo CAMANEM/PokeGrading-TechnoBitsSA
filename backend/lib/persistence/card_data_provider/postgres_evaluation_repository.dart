@@ -58,12 +58,19 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         INSERT INTO pre_grade (
           card_submitter_id,
           status_id,
+          log_id,
           requested_date,
           last_modified_date
-        ) VALUES (\$1, \$2, \$3, \$4)
+        ) VALUES (\$1, \$2, \$3, \$4, \$5)
         RETURNING id
         ''',
-        parameters: [cardSubmitterId, pendingStatusId, now, now],
+        parameters: [
+          cardSubmitterId,
+          pendingStatusId,
+          input.correlationId,
+          now,
+          now,
+        ],
       );
       final preGradeId = preGradeResult.first.first as int;
 
@@ -94,6 +101,7 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       status: EvaluationStatus.pending,
       createdAt: saved.createdAt,
       cardId: saved.cardId,
+      logId: input.correlationId,
     );
   }
 
@@ -183,11 +191,6 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       createdAt: row[2] as DateTime,
       cardId: row[3]?.toString(),
     );
-  }
-
-  @override
-  Future<void> saveSecurityAudit(SecurityAuditEvent event) async {
-    // Security audit persistence disabled in this migration.
   }
 
   Future<void> close() async {
