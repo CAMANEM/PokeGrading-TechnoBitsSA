@@ -51,3 +51,29 @@ Map<String, dynamic> catalogSearchBodySummary(Map<String, dynamic> payload) {
     'image_data': payload['image_data'] != null ? '[present]' : null,
   });
 }
+
+/// Sanitized B2B catalog consult summary (card count + identity fields, no API key).
+Map<String, dynamic> b2bConsultBodySummary(Map<String, dynamic> payload) {
+  final cards = payload['cards'];
+  if (cards is! List) {
+    return RequestLogContext.sanitize({'cards': cards});
+  }
+
+  final summaries = <Map<String, dynamic>>[];
+  for (final item in cards) {
+    if (item is Map) {
+      summaries.add({
+        'set': item['set'],
+        'number': item['number'],
+        'edition': item['edition'],
+        'language': item['language'],
+        'finish': item['finish'],
+      });
+    }
+  }
+
+  return RequestLogContext.sanitize({
+    'card_count': cards.length,
+    'cards': summaries,
+  });
+}

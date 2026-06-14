@@ -14,10 +14,18 @@ import 'routes/catalog_routes.dart';
 import 'routes/auth_routes.dart';
 import 'routes/evaluation_routes.dart';
 import 'routes/observability_routes.dart';
+import 'routes/b2b_routes.dart';
+import 'b2b_dependencies.dart';
 import '../domain/authentication/register_logic.dart';
 import '../domain/catalog/create_card_logic.dart';
 import '../domain/catalog/search_card_logic.dart';
 import '../domain/scoring/evaluation_logic.dart';
+import '../domain/b2b/consult/consult_logic.dart';
+import '../persistence/b2b_data_provider/api_key_repository.dart';
+import '../persistence/b2b_data_provider/b2b_audit_repository.dart';
+import '../persistence/b2b_data_provider/idempotency_repository.dart';
+import '../persistence/b2b_data_provider/rate_limit_repository.dart';
+import '../persistence/b2b_data_provider/reference_catalog_repository.dart';
 import '../persistence/user_data_provider/auth_repository.dart';
 import '../persistence/card_data_provider/catalog_repository.dart';
 import '../persistence/card_data_provider/search_trace_repository.dart';
@@ -34,9 +42,10 @@ import '../persistence/card_data_provider/evaluation_repository.dart';
   - `catalogRepository`: repository for catalog persistence.
   - `evaluationRepository`: repository for evaluation requests.
   - `searchTraceRepository`: repository for search traces (optional).
+  - `b2bDependencies`: B2B API repositories (optional).
 
   Returns:
-  - A `Router` with mounted routes: root, health, auth, catalog, and evaluations.
+  - A `Router` with mounted routes: root, health, auth, catalog, evaluations, and b2b.
 */
 Router buildAppRouter(
   DotEnv env,
@@ -46,6 +55,7 @@ Router buildAppRouter(
   CatalogRepository catalogRepository,
   EvaluationRepository evaluationRepository,
   SearchTraceRepository? searchTraceRepository,
+  B2bDependencies? b2bDependencies,
 ) {
   final router = Router();
 
@@ -67,6 +77,27 @@ Router buildAppRouter(
 
   final evaluationLogic = EvaluationLogic(repository: evaluationRepository);
   final evaluationRouter = buildEvaluationRoutes(evaluationLogic);
+
+  if (b2bDependencies != null) {
+    final consultLogic = ConsultLogic(
+      catalogRepository:
+          b2bDependencies.referenceCatalogRepository as ReferenceCatalogRepository,
+      maxCardsPerRequest: config.b2b.maxCardsPerRequest,
+    );
+    final b2bRouter = buildB2bRoutes(
+      consultLogic: consultLogic,
+      apiKeyRepository:
+          b2bDependencies.apiKeyRepository as ApiKeyRepository,
+      auditRepository: b2bDependencies.auditRepository as B2bAuditRepository,
+      idempotencyRepository:
+          b2bDependencies.idempotencyRepository as IdempotencyRepository,
+      rateLimitRepository:
+          b2bDependencies.rateLimitRepository as RateLimitRepository,
+      b2bConfig: config.b2b,
+      apiVersion: config.version,
+    );
+    router.mount('/api/v1/b2b/', b2bRouter.call);
+  }
 
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));

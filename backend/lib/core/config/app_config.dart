@@ -25,6 +25,7 @@ class AppConfig {
   final MongoConfig mongo;
   final EmailConfig email;
   final bool useMockRepositories;
+  final B2bConfig b2b;
 
   const AppConfig(
       {required this.environment,
@@ -36,7 +37,8 @@ class AppConfig {
       required this.database,
       required this.mongo,
       required this.email,
-      required this.useMockRepositories});
+      required this.useMockRepositories,
+      required this.b2b});
 
   /// Builds [AppConfig] from environment variables.
   factory AppConfig.fromEnv(DotEnv env) {
@@ -54,7 +56,8 @@ class AppConfig {
         database: DatabaseConfig.fromEnv(env),
         mongo: MongoConfig.fromEnv(env),
         email: EmailConfig.fromEnv(env),
-        useMockRepositories: useMock);
+        useMockRepositories: useMock,
+        b2b: B2bConfig.fromEnv(env));
   }
 
   /// Are we in development mode?
@@ -169,4 +172,34 @@ class EmailConfig {
       username.isNotEmpty &&
       password.isNotEmpty &&
       fromEmail.isNotEmpty;
+}
+
+/// B2B API configuration.
+class B2bConfig {
+  final int rateLimitCardsPerMonth;
+  final int idempotencyTtlSeconds;
+  final int maxCardsPerRequest;
+  final String apiKeyPepper;
+  final String devApiKey;
+
+  const B2bConfig({
+    required this.rateLimitCardsPerMonth,
+    required this.idempotencyTtlSeconds,
+    required this.maxCardsPerRequest,
+    required this.apiKeyPepper,
+    required this.devApiKey,
+  });
+
+  factory B2bConfig.fromEnv(DotEnv env) {
+    return B2bConfig(
+      rateLimitCardsPerMonth:
+          int.tryParse(env['B2B_RATE_LIMIT_CARDS_PER_MONTH'] ?? '') ?? 10000,
+      idempotencyTtlSeconds:
+          int.tryParse(env['B2B_IDEMPOTENCY_TTL_SECONDS'] ?? '') ?? 86400,
+      maxCardsPerRequest:
+          int.tryParse(env['B2B_MAX_CARDS_PER_REQUEST'] ?? '') ?? 100,
+      apiKeyPepper: env['B2B_API_KEY_PEPPER'] ?? '',
+      devApiKey: env['B2B_DEV_API_KEY'] ?? 'pk_test_b2b_dev_key',
+    );
+  }
 }
