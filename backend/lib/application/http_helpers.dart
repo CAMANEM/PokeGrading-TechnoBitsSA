@@ -87,3 +87,17 @@ int submitEvaluationStatusCodeFor(String code) {
     _ => 500,
   };
 }
+
+int b2bStatusCodeFor(String code) {
+  return switch (code) {
+    'EMPTY_CARDS' => 400,
+    'TOO_MANY_CARDS' => 400,
+    'INVALID_REQUEST' => 400,
+    'RATE_LIMIT_EXCEEDED' => 429,
+    'AUTH_INVALID_API_KEY' => 401,
+    'AUTH_MISSING_API_KEY' => 401,
+    'CUSTOMER_SUSPENDED' => 403,
+    'API_KEY_SUSPENDED' => 403,
+    _ => 500,
+  };
+}

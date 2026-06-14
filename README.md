@@ -348,6 +348,206 @@ curl http://localhost:8080/health
 
 ---
 
+## 🏪 Probar API B2B (cobertura de catálogo)
+
+La API B2B permite a tiendas (Customers B2B) consultar si cartas existen en el catálogo de referencia **antes** de enviarlas a evaluación. Endpoint: `POST /api/v1/b2b/consult`.
+
+Documentación de diseño: [docs/Sprint_3/ADR-005-Diseño de API B2B.md](docs/Sprint_3/ADR-005-Diseño de%20API%20B2B.md). Ejemplos adicionales: [docs/Sprint_3/B2B-API-Examples.md](docs/Sprint_3/B2B-API-Examples.md).
+
+### Paso 1 — Configurar entorno
+
+1. Copia `.env.example` a `.env` si aún no lo tienes.
+2. Para pruebas rápidas sin Docker, usa repositorios en memoria:
+
+```bash
+USE_MOCK_REPOSITORIES=true
+B2B_DEV_API_KEY=pk_test_b2b_dev_key
+```
+
+3. Para pruebas con PostgreSQL real, usa:
+
+```bash
+USE_MOCK_REPOSITORIES=false
+```
+
+y aplica el esquema/seed B2B en un volumen **nuevo** de Docker:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+Los scripts `backend/db/init/003_b2b_schema.sql` y `004_b2b_seed.sql` crean tablas B2B, un cliente de prueba y cartas en `card_reference`.
+
+### Paso 2 — Iniciar el backend
+
+```bash
+cd backend
+dart pub get
+dart run bin/server.dart
+```
+
+Verifica el health check: `curl http://localhost:8080/health`
+
+### Paso 3 — Autenticación
+
+Todas las consultas B2B requieren:
+
+```http
+Authorization: ApiKey <tu_api_key>
+```
+
+En modo mock o con el seed de desarrollo, la llave de prueba es:
+
+```
+pk_test_b2b_dev_key
+```
+
+Opcional: `X-Request-Id` (idempotencia) e `If-None-Match` (validación de vigencia vía ETag).
+
+### Paso 4 — Consulta básica (carta cubierta)
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey pk_test_b2b_dev_key" \
+  -H "Content-Type: application/json" \
+  -d '{"cards":[{"set":"SVP","number":"001"}]}'
+```
+
+Respuesta esperada: `results[0].status` = `COVERED` con `card_id` e `identity` oficiales del catálogo.
+
+### Paso 5 — Coincidencia múltiple
+
+Consulta solo `set` + `number` cuando hay varias variantes activas:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey pk_test_b2b_dev_key" \
+  -H "Content-Type: application/json" \
+  -d '{"cards":[{"set":"SVP","number":"002"}]}'
+```
+
+Respuesta esperada: `status` = `MULTIPLE_MATCH` y lista `candidates` ordenada por `card_id`.
+
+### Paso 6 — No cubierta
+
+Carta retirada del catálogo (`active = false` en seed) o inexistente:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey pk_test_b2b_dev_key" \
+  -H "Content-Type: application/json" \
+  -d '{"cards":[{"set":"SVP","number":"003"}]}'
+```
+
+Respuesta esperada: `status` = `NOT_COVERED`.
+
+### Paso 7 — Parámetros inválidos (batch parcial)
+
+Una carta inválida no bloquea las demás en la misma consulta:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey pk_test_b2b_dev_key" \
+  -H "Content-Type: application/json" \
+  -d '{"cards":[{"set":"SVP","language":"FR"},{"set":"SVP","number":"001"}]}'
+```
+
+Respuesta esperada: primera carta `INVALID_PARAMETERS`, segunda `COVERED`.
+
+### Paso 8 — Idempotencia
+
+Repite la misma petición con el mismo `X-Request-Id`; debe devolver la misma respuesta sin consumir cuota adicional:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey pk_test_b2b_dev_key" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: test-req-1" \
+  -d '{"cards":[{"set":"SVP","number":"001"}]}'
+```
+
+### Paso 9 — Errores de autenticación
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/b2b/consult \
+  -H "Authorization: ApiKey invalid_key" \
+  -H "Content-Type: application/json" \
+  -d '{"cards":[{"set":"SVP","number":"001"}]}'
+```
+
+Respuesta esperada: HTTP 401 con envelope `error.code`, `error.message` y `error.correlation_id`.
+
+### Paso 10 — Tests automatizados
+
+```bash
+cd backend
+dart test test/b2b_consult_logic_test.dart
+```
+
+### Variables B2B relevantes
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `B2B_DEV_API_KEY` | `pk_test_b2b_dev_key` | Llave aceptada en modo mock |
+| `B2B_RATE_LIMIT_CARDS_PER_MONTH` | `10000` | Límite mensual por cartas consultadas |
+| `B2B_IDEMPOTENCY_TTL_SECONDS` | `86400` | Ventana de idempotencia |
+| `B2B_MAX_CARDS_PER_REQUEST` | `100` | Máximo de cartas por request |
+| `B2B_API_KEY_PEPPER` | vacío | Pepper opcional al hashear llaves |
+
+
+# Test mas rapido
+
+Correr Docker, backend y frontend como de costumbre y entonces ejecutar en consola:
+
+```bash
+Invoke-RestMethod http://localhost:8080/health
+```
+
+```bash
+
+$headers = @{
+  Authorization = "ApiKey pk_test_b2b_dev_key"
+  "Content-Type" = "application/json"
+}
+
+$body = '{"cards":[{"set":"SVP","number":"001"}]}'
+
+Invoke-RestMethod -Method POST `
+  -Uri "http://localhost:8080/api/v1/b2b/consult" `
+  -Headers $headers `
+  -Body $body
+```
+
+Multiple match (SVP 002):
+
+```bash
+$body = '{"cards":[{"set":"SVP","number":"002"}]}'
+Invoke-RestMethod -Method POST -Uri "http://localhost:8080/api/v1/b2b/consult" -Headers $headers -Body $body
+```
+
+Idempotency:
+```bash
+$headers["X-Request-Id"] = "test-req-1"
+Invoke-RestMethod -Method POST -Uri "http://localhost:8080/api/v1/b2b/consult" -Headers $headers -Body $body
+```
+
+Invalid key:
+```bash
+$badHeaders = @{
+  Authorization = "ApiKey invalid_key"
+  "Content-Type" = "application/json"
+}
+try {
+  Invoke-RestMethod -Method POST -Uri "http://localhost:8080/api/v1/b2b/consult" -Headers $badHeaders -Body $body
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+---
+
 ## 🛠️ Roles de Usuario
 
 | Rol                | Descripción                                    |
@@ -381,6 +581,16 @@ SMTP_PASSWORD=...
 SMTP_FROM_EMAIL=no-reply@pokegrading.com
 SMTP_FROM_NAME=PokéGrading
 SMTP_USE_SSL=false
+```
+
+Variables B2B (consulta de cobertura de catálogo; ver sección **Probar API B2B**):
+
+```bash
+B2B_RATE_LIMIT_CARDS_PER_MONTH=10000
+B2B_IDEMPOTENCY_TTL_SECONDS=86400
+B2B_MAX_CARDS_PER_REQUEST=100
+B2B_API_KEY_PEPPER=
+B2B_DEV_API_KEY=pk_test_b2b_dev_key
 ```
 
 Si SMTP no está configurado, el backend arranca igual pero solo registra el intento en logs y no entrega el correo.

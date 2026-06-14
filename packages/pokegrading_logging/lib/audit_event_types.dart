@@ -6,5 +6,6 @@ abstract final class AuditEventTypes {
   static const catalogValidate = 'catalog.validate';
   static const configChange = 'config.change';
   static const b2bApiKeyRevoke = 'b2b.api_key.revoke';
+  static const b2bCatalogConsult = 'b2b.catalog.consult';
   static const securityPolyglotDetected = 'security.polyglot_detected';
 }
