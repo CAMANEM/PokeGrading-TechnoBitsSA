@@ -31,7 +31,7 @@ import 'catalog_validators.dart';
 import 'catalog_models.dart';
 import '../image_services/visual_features.dart';
 import '../../persistence/card_data_provider/catalog_repository.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
 Never _throwCardError(String code, String err) {
   throw LogicException(

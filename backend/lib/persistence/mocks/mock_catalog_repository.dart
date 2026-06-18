@@ -4,7 +4,7 @@
 import '../card_data_provider/catalog_repository.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
-import '../../shared/id_service/id_generator.dart';
+import '../id_service/id_generator.dart';
 
 /// @brief MockCatalogRepository
 class MockCatalogRepository implements CatalogRepository {

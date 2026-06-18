@@ -8,7 +8,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
 Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {

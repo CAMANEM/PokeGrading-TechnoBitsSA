@@ -7,7 +7,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../domain/authentication/register_logic.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../http_helpers.dart';
 
