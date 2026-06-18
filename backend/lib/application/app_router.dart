@@ -4,6 +4,7 @@
   This module constructs the root `Router` instance for the backend, mounts
   sub-routers for versioned API groups and performs dependency wiring.
 */
+import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
@@ -80,14 +81,13 @@ Router buildAppRouter(
 
   if (b2bDependencies != null) {
     final consultLogic = ConsultLogic(
-      catalogRepository:
-          b2bDependencies.referenceCatalogRepository as ReferenceCatalogRepository,
+      catalogRepository: b2bDependencies.referenceCatalogRepository
+          as ReferenceCatalogRepository,
       maxCardsPerRequest: config.b2b.maxCardsPerRequest,
     );
     final b2bRouter = buildB2bRoutes(
       consultLogic: consultLogic,
-      apiKeyRepository:
-          b2bDependencies.apiKeyRepository as ApiKeyRepository,
+      apiKeyRepository: b2bDependencies.apiKeyRepository as ApiKeyRepository,
       auditRepository: b2bDependencies.auditRepository as B2bAuditRepository,
       idempotencyRepository:
           b2bDependencies.idempotencyRepository as IdempotencyRepository,
@@ -101,6 +101,8 @@ Router buildAppRouter(
 
   router.get('/', _handleRoot);
   router.get('/health', (Request req) => _handleHealth(req, config));
+  router.get('/docs', _handleDocs);
+  router.get('/openapi.json', _handleOpenApi);
 
   router.mount('/api/v1/auth/', registerRouter.call);
   router.mount('/api/v1/catalog/', catalogRouter.call);
@@ -141,5 +143,35 @@ Response _handleNotFound(Request request) {
   return Response.notFound(
     '{"error":"Route not found","path":"${request.url.path}"}',
     headers: {'content-type': 'application/json; charset=utf-8'},
+  );
+}
+
+Response _handleDocs(Request request) {
+  final file = File('web/docs.html');
+
+  if (!file.existsSync()) {
+    return Response.notFound('docs.html not found');
+  }
+
+  return Response.ok(
+    file.readAsStringSync(),
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+    },
+  );
+}
+
+Response _handleOpenApi(Request request) {
+  final file = File('web/openapi.json');
+
+  if (!file.existsSync()) {
+    return Response.notFound('openapi.json not found');
+  }
+
+  return Response.ok(
+    file.readAsStringSync(),
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+    },
   );
 }
