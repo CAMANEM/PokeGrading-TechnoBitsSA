@@ -7,7 +7,7 @@ import '../image_services/image_quality_service.dart';
 import '../image_services/polyglot_detection.dart';
 import '../../core/logging/app_logger.dart';
 import '../../persistence/card_data_provider/evaluation_repository.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
 
 Never _throwEvaluationError(String code, String err) {

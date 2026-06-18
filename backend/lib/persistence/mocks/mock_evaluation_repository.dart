@@ -3,7 +3,7 @@
 */
 import '../card_data_provider/evaluation_repository.dart';
 import '../../domain/scoring/scoring_models.dart';
-import '../../shared/id_service/id_generator.dart';
+import '../id_service/id_generator.dart';
 
 /// @brief MockEvaluationRepository
 class MockEvaluationRepository implements EvaluationRepository {

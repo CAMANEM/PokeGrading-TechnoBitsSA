@@ -23,6 +23,8 @@ dependencies:
   uuid: ^4.4.0
   pokegrading_logging:
     path: ../packages/pokegrading_logging
+  pokegrading_exceptions:
+    path: ../packages/pokegrading_exceptions
   file_picker: ^8.1.2
 
 dev_dependencies:

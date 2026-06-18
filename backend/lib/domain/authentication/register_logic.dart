@@ -19,7 +19,7 @@ import 'auth_models.dart';
 import 'auth_validators.dart';
 
 import '../../persistence/user_data_provider/auth_repository.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
 const _logger = 'PokéGrading.Domain.Register';
 

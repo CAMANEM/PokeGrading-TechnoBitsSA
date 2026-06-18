@@ -11,7 +11,7 @@ import '../../domain/catalog/search_card_logic.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/confidence_score.dart';
 import '../../persistence/card_data_provider/search_trace_repository.dart';
-import '../../shared/exception_service/exception_handler.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../http_helpers.dart';
 
