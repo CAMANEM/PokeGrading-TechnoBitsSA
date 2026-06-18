@@ -406,11 +406,7 @@ Router buildB2bRoutes({
 
 /// Parses `Authorization: ApiKey <plaintext>` header value.
 String? _parseApiKey(String authorization) {
-  final trimmed = authorization.trim();
-  if (!trimmed.toLowerCase().startsWith('apikey ')) {
-    return null;
-  }
-  final key = trimmed.substring(7).trim();
+  final key = authorization.trim();
   return key.isEmpty ? null : key;
 }
 
