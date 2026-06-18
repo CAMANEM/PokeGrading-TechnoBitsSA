@@ -8,3 +8,5 @@ environment:
 
 dev_dependencies:
   test: ^1.25.0
+  pokegrading_logging:
+    path: ../packages/pokegrading_logging

@@ -316,9 +316,8 @@ Router buildB2bRoutes({
       );
 
       if (clientRequestId != null && clientRequestId.trim().isNotEmpty) {
-        final requestHash = sha256
-            .convert(utf8.encode(jsonEncode(payload)))
-            .toString();
+        final requestHash =
+            sha256.convert(utf8.encode(jsonEncode(payload))).toString();
         await idempotencyRepository.store(
           apiKeyId: auth.apiKeyId,
           requestId: clientRequestId.trim(),
