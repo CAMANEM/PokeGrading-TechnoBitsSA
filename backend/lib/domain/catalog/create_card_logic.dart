@@ -27,13 +27,23 @@
  string `code` values for mapping to HTTP responses in the application layer.
 */
 
+import 'package:pokegrading_logging/pokegrading_logging.dart';
+
+import '../../core/logging/app_logger.dart';
 import 'catalog_validators.dart';
 import 'catalog_models.dart';
 import '../image_services/visual_features.dart';
 import '../../persistence/card_data_provider/catalog_repository.dart';
 import '../../shared/exception_service/exception_handler.dart';
 
+const _logger = 'PokéGrading.Domain.CreateCard';
+
 Never _throwCardError(String code, String err) {
+  AppLogger.warning(
+    _logger,
+    'Card creation validation failed',
+    context: {'error_code': code, 'error_message': err},
+  );
   throw LogicException(
     feature: 'create_card',
     code: code,
@@ -116,11 +126,32 @@ class CreateCardLogic {
         await repository.identityTupleExists(identity: command.identity);
 
     if (duplicated) {
+      AppLogger.info(
+        _logger,
+        'Duplicate card identity detected',
+        context: {
+          'set': command.identity.set,
+          'number': command.identity.number,
+          'edition': command.identity.edition,
+          'language': command.identity.language,
+          'finish': command.identity.finish,
+        },
+      );
       _throwCardError(_identityConflictCode, _identityConflictMessage);
     }
 
     try {
       final features = VisualFeatureExtractor.extract(command.imageData);
+      if (features.isEmpty) {
+        AppLogger.warning(
+          _logger,
+          'Visual feature extraction returned empty result',
+          context: {
+            'set': command.identity.set,
+            'number': command.identity.number,
+          },
+        );
+      }
 
       final created = await repository.saveCard(
         AddPokemonCardInput(
@@ -132,12 +163,35 @@ class CreateCardLogic {
         ),
       );
 
+      AppLogger.audit(
+        _logger,
+        AuditEventTypes.catalogPropose,
+        result: 'success',
+        context: {
+          'card_id': created.id,
+          'card_status': created.status.name,
+          'set': command.identity.set,
+          'number': command.identity.number,
+        },
+      );
+
       return CardCreatedResult(
         cardId: created.id,
         status: created.status,
         createdAt: created.createdAt,
       );
-    } on LogicException {
+    } on LogicException catch (error) {
+      AppLogger.error(
+        _logger,
+        'Repository rejected card creation',
+        context: {
+          'set': command.identity.set,
+          'number': command.identity.number,
+          'original_code': error.code,
+          'original_message': error.message,
+        },
+        error: error,
+      );
       _throwCardError(_identityConflictCode, _identityConflictMessage);
     }
   }

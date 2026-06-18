@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/logging/client_log_reporter.dart';
 import 'create_card_state.dart';
 
 /*
@@ -34,47 +35,69 @@ class CreateCardApi {
   CreateCardApi({http.Client? client}) : _client = client ?? http.Client();
 
   Future<CreateCardResult> addCard(CreateCardPayload payload) async {
-    final uri = Uri.parse('${AppConfig.apiUrl}/catalog/cards');
     final correlationId = const Uuid().v4();
-    final headers = {
-      'content-type': 'application/json',
-      'X-Correlation-ID': correlationId,
-    };
+    try {
+      final uri = Uri.parse('${AppConfig.apiUrl}/catalog/cards');
+      final headers = {
+        'content-type': 'application/json',
+        'X-Correlation-ID': correlationId,
+      };
 
-    final bodyMap = <String, dynamic>{
-      'set': payload.identity.set,
-      'number': payload.identity.number,
-      'edition': payload.identity.edition,
-      'language': payload.identity.language,
-      'finish': payload.identity.finish,
-      'display_name': payload.displayName,
-      'rarity': payload.rarity,
-      'type': payload.pokemonType,
-      'hp': payload.hp,
-      'illustrator': payload.illustrator,
-      'year': payload.year,
-      'author': payload.author,
-      'image_data': payload.imageData,
-      'back_image_data': payload.backImageData,
-    };
+      final bodyMap = <String, dynamic>{
+        'set': payload.identity.set,
+        'number': payload.identity.number,
+        'edition': payload.identity.edition,
+        'language': payload.identity.language,
+        'finish': payload.identity.finish,
+        'display_name': payload.displayName,
+        'rarity': payload.rarity,
+        'type': payload.pokemonType,
+        'hp': payload.hp,
+        'illustrator': payload.illustrator,
+        'year': payload.year,
+        'author': payload.author,
+        'image_data': payload.imageData,
+        'back_image_data': payload.backImageData,
+      };
 
-    final response = await _client.post(
-      uri,
-      headers: headers,
-      body: jsonEncode(bodyMap),
-    );
-
-    final body = _decodeResponse(response.body);
-    if (response.statusCode == 201) {
-      return CreateCardResult(
-        cardId: body['card_id'] as String,
-        cardStatus: body['card_status'] as String,
-        createdAt: DateTime.parse(body['created_at'] as String),
+      final response = await _client.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(bodyMap),
       );
-    }
 
-    final message = body['message']?.toString() ?? 'Could not add card';
-    throw CreateCardApiException(message);
+      final body = _decodeResponse(response.body);
+      if (response.statusCode == 201) {
+        return CreateCardResult(
+          cardId: body['card_id'] as String,
+          cardStatus: body['card_status'] as String,
+          createdAt: DateTime.parse(body['created_at'] as String),
+        );
+      }
+
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardApi',
+        correlationId: correlationId,
+        message: 'Create card rejected',
+        context: {
+          'status_code': response.statusCode,
+          'error': body['message']?.toString(),
+        },
+      );
+
+      final message = body['message']?.toString() ?? 'Could not add card';
+      throw CreateCardApiException(message);
+    } on CreateCardApiException {
+      rethrow;
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardApi',
+        correlationId: correlationId,
+        message: 'Create card network error',
+        context: {'error': error.toString()},
+      );
+      throw CreateCardApiException('Network error: ${error.toString()}');
+    }
   }
 
   Map<String, dynamic> _decodeResponse(String body) {

@@ -82,7 +82,13 @@ class SubmitEvaluationApi {
           'back_image_data': payload.backImageData,
         }),
       );
-    } on http.ClientException catch (_) {
+    } on http.ClientException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluation',
+        correlationId: correlationId,
+        message: 'Network error during evaluation submission',
+        context: {'error': error.toString()},
+      );
       throw const SubmitEvaluationApiException(
         'No se pudo completar el envio por un fallo de red. Reintenta sin volver a seleccionar las imagenes.',
       );

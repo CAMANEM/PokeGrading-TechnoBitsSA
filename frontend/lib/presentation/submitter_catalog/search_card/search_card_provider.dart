@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/logging/client_log_reporter.dart';
 import 'search_card_api.dart';
 import 'search_card_state.dart';
 
@@ -34,9 +35,26 @@ class SearchCardProvider extends ChangeNotifier {
           candidates: result.candidates,
           message: result.reason);
     } on SearchCardApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SearchCardProvider',
+        correlationId: '',
+        message: 'Image search failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: SearchCardStage.error,
         message: error.message,
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SearchCardProvider',
+        correlationId: '',
+        message: 'Image search unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: SearchCardStage.error,
+        message: 'Error: ${error.toString()}',
       );
     }
 
@@ -61,9 +79,26 @@ class SearchCardProvider extends ChangeNotifier {
         candidates: result.candidates,
       );
     } on SearchCardApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SearchCardProvider',
+        correlationId: '',
+        message: 'Manual search failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: SearchCardStage.error,
         message: error.message,
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SearchCardProvider',
+        correlationId: '',
+        message: 'Manual search unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: SearchCardStage.error,
+        message: 'Error: ${error.toString()}',
       );
     }
 

@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/logging/client_log_reporter.dart';
 import 'create_card_api.dart';
 import 'create_card_state.dart';
 
@@ -61,9 +62,26 @@ class CreateCardProvider extends ChangeNotifier {
         message: 'Card added successfully',
       );
     } on CreateCardApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardProvider',
+        correlationId: '',
+        message: 'Submit image failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: CreateCardStage.error,
         message: error.message,
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardProvider',
+        correlationId: '',
+        message: 'Submit image unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: CreateCardStage.error,
+        message: 'Error: ${error.toString()}',
       );
     }
 
@@ -83,9 +101,26 @@ class CreateCardProvider extends ChangeNotifier {
         message: 'Card added successfully',
       );
     } on CreateCardApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardProvider',
+        correlationId: '',
+        message: 'Submit image payload failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: CreateCardStage.error,
         message: error.message,
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.CreateCardProvider',
+        correlationId: '',
+        message: 'Submit image payload unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: CreateCardStage.error,
+        message: 'Error: ${error.toString()}',
       );
     }
 

@@ -4,6 +4,7 @@
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
 import '../image_provider/image_storage_repository.dart';
@@ -26,6 +27,12 @@ class PostgresCatalogRepository implements CatalogRepository {
     DatabaseConfig config,
     ImageStorageRepository images,
   ) async {
+    AppLogger.info(
+      'PokéGrading.Persistence.CatalogRepository',
+      'Connecting to PostgreSQL catalog database',
+      context: {'host': config.host, 'database': config.name},
+    );
+
     final endpoint = Endpoint(
       host: config.host,
       port: config.port,
@@ -39,12 +46,26 @@ class PostgresCatalogRepository implements CatalogRepository {
       sslMode: SslMode.disable,
     );
 
-    final connection = await Connection.open(endpoint, settings: settings);
-    return PostgresCatalogRepository._(
-      connection,
-      LookupResolver(connection),
-      images,
-    );
+    try {
+      final connection = await Connection.open(endpoint, settings: settings);
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'PostgreSQL catalog repository connected',
+      );
+      return PostgresCatalogRepository._(
+        connection,
+        LookupResolver(connection),
+        images,
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Failed to connect to PostgreSQL catalog database',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   static const _selectColumns = '''
@@ -78,230 +99,370 @@ class PostgresCatalogRepository implements CatalogRepository {
 
   @override
   Future<bool> identityTupleExists({required CardIdentity identity}) async {
-    final languageId = await _lookups.resolveLanguageId(identity.language);
-    if (languageId == null) return false;
+    try {
+      final languageId = await _lookups.resolveLanguageId(identity.language);
+      if (languageId == null) return false;
 
-    final cardNumber = int.tryParse(identity.number.trim());
-    if (cardNumber == null) return false;
+      final cardNumber = int.tryParse(identity.number.trim());
+      if (cardNumber == null) return false;
 
-    final result = await _connection.execute(
-      '''
-      SELECT COUNT(1) FROM card_submitter
-      WHERE LOWER(set_name) = LOWER(\$1)
-        AND card_number = \$2
-        AND LOWER(edition) = LOWER(\$3)
-        AND language_id = \$4
-        AND LOWER(finish) = LOWER(\$5)
-      ''',
-      parameters: [
-        identity.set.trim(),
-        cardNumber,
-        identity.edition.trim(),
-        languageId,
-        identity.finish.trim(),
-      ],
-    );
-    return (result.first.first as int) > 0;
+      final result = await _connection.execute(
+        '''
+        SELECT COUNT(1) FROM card_submitter
+        WHERE LOWER(set_name) = LOWER(\$1)
+          AND card_number = \$2
+          AND LOWER(edition) = LOWER(\$3)
+          AND language_id = \$4
+          AND LOWER(finish) = LOWER(\$5)
+        ''',
+        parameters: [
+          identity.set.trim(),
+          cardNumber,
+          identity.edition.trim(),
+          languageId,
+          identity.finish.trim(),
+        ],
+      );
+      final exists = (result.first.first as int) > 0;
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Identity tuple existence check',
+        context: {
+          'set': identity.set,
+          'number': identity.number,
+          'exists': exists,
+        },
+      );
+      return exists;
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Identity tuple check failed',
+        context: {
+          'set': identity.set,
+          'number': identity.number,
+        },
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<PokemonCard> saveCard(AddPokemonCardInput input) async {
-    final card = await _connection.runTx<PokemonCard>((tx) async {
-      final now = DateTime.now().toUtc();
-      final lookups = LookupResolver(tx);
-      final languageId =
-          await lookups.resolveLanguageId(input.identity.language);
-      final typeId =
-          await lookups.resolveCardTypeId(input.display?.pokemonType);
-      final rarityId = await lookups.resolveRarityId(input.display?.rarity);
-      final cardNumber = int.parse(input.identity.number.trim());
-
-      final submitterResult = await tx.execute(
-        'SELECT id FROM submitter ORDER BY id LIMIT 1',
-      );
-      if (submitterResult.isEmpty) {
-        throw StateError(
-          'No submitter exists. Register a user before creating cards.',
-        );
-      }
-      final submitterId = submitterResult.first.first as int;
-
-      final hashResult = await tx.execute(
-        '''
-        INSERT INTO hash_submitter (
-          average_hash_hex,
-          difference_hash_hex,
-          center_average_hash_hex,
-          center_difference_hash_hex,
-          date
-        ) VALUES (\$1, \$2, \$3, \$4, \$5)
-        RETURNING id
-        ''',
-        parameters: [
-          input.visualFeatures?.averageHashHex,
-          input.visualFeatures?.differenceHashHex,
-          input.visualFeatures?.centerAverageHashHex,
-          input.visualFeatures?.centerDifferenceHashHex,
-          now,
-        ],
-      );
-      final hashId = hashResult.first.first as int;
-
-      final cardDisplayName =
-          input.display?.displayName?.trim().isNotEmpty == true
-              ? input.display!.displayName!.trim()
-              : '${input.identity.set.trim()} - ${input.identity.number.trim()}';
-
-      final cardResult = await tx.execute(
-        '''
-        INSERT INTO card_submitter (
-          submitter_id,
-          hash_id,
-          display_name,
-          set_name,
-          card_number,
-          edition,
-          finish,
-          illustrator,
-          year,
-          hp,
-          language_id,
-          type_id,
-          rarity_id,
-          registration_date,
-          active
-        ) VALUES (
-          \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15
-        )
-        RETURNING id
-        ''',
-        parameters: [
-          submitterId,
-          hashId,
-          cardDisplayName,
-          input.identity.set.trim(),
-          cardNumber,
-          input.identity.edition.trim(),
-          input.identity.finish.trim(),
-          input.display?.illustrator?.trim(),
-          input.display?.year,
-          input.display?.hp,
-          languageId,
-          typeId,
-          rarityId,
-          now,
-          true,
-        ],
-      );
-      final cardId = cardResult.first.first as int;
-
-      return PokemonCard(
-        id: cardId.toString(),
-        identity: input.identity,
-        display: input.display,
-        imageData: input.imageData.trim(),
-        backImageData: input.backImageData,
-        visualFeatures: input.visualFeatures,
-        status: PokemonCardStatus.pendingValidation,
-        isActive: true,
-        audit: [],
-        createdAt: now,
-      );
-    });
-
-    final parsedId = int.parse(card.id);
-    final perceptualHash = input.visualFeatures != null
-        ? 'ahash:${input.visualFeatures!.averageHashHex ?? ''}|dhash:${input.visualFeatures!.differenceHashHex ?? ''}'
-        : null;
-
-    await _images.saveSubmitterImages(
-      cardSubmitterId: parsedId,
-      frontBase64: input.imageData,
-      backBase64: input.backImageData ?? '',
-      perceptualHash: perceptualHash,
+    AppLogger.info(
+      'PokéGrading.Persistence.CatalogRepository',
+      'Saving card',
+      context: {
+        'set': input.identity.set,
+        'number': input.identity.number,
+        'edition': input.identity.edition,
+      },
     );
 
-    return card;
+    try {
+      final card = await _connection.runTx<PokemonCard>((tx) async {
+        final now = DateTime.now().toUtc();
+        final lookups = LookupResolver(tx);
+        final languageId =
+            await lookups.resolveLanguageId(input.identity.language);
+        final typeId =
+            await lookups.resolveCardTypeId(input.display?.pokemonType);
+        final rarityId = await lookups.resolveRarityId(input.display?.rarity);
+        final cardNumber = int.parse(input.identity.number.trim());
+
+        final submitterResult = await tx.execute(
+          'SELECT id FROM submitter ORDER BY id LIMIT 1',
+        );
+        if (submitterResult.isEmpty) {
+          throw StateError(
+            'No submitter exists. Register a user before creating cards.',
+          );
+        }
+        final submitterId = submitterResult.first.first as int;
+
+        final hashResult = await tx.execute(
+          '''
+          INSERT INTO hash_submitter (
+            average_hash_hex,
+            difference_hash_hex,
+            center_average_hash_hex,
+            center_difference_hash_hex,
+            date
+          ) VALUES (\$1, \$2, \$3, \$4, \$5)
+          RETURNING id
+          ''',
+          parameters: [
+            input.visualFeatures?.averageHashHex,
+            input.visualFeatures?.differenceHashHex,
+            input.visualFeatures?.centerAverageHashHex,
+            input.visualFeatures?.centerDifferenceHashHex,
+            now,
+          ],
+        );
+        final hashId = hashResult.first.first as int;
+
+        final cardDisplayName =
+            input.display?.displayName?.trim().isNotEmpty == true
+                ? input.display!.displayName!.trim()
+                : '${input.identity.set.trim()} - ${input.identity.number.trim()}';
+
+        final cardResult = await tx.execute(
+          '''
+          INSERT INTO card_submitter (
+            submitter_id,
+            hash_id,
+            display_name,
+            set_name,
+            card_number,
+            edition,
+            finish,
+            illustrator,
+            year,
+            hp,
+            language_id,
+            type_id,
+            rarity_id,
+            registration_date,
+            active
+          ) VALUES (
+            \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15
+          )
+          RETURNING id
+          ''',
+          parameters: [
+            submitterId,
+            hashId,
+            cardDisplayName,
+            input.identity.set.trim(),
+            cardNumber,
+            input.identity.edition.trim(),
+            input.identity.finish.trim(),
+            input.display?.illustrator?.trim(),
+            input.display?.year,
+            input.display?.hp,
+            languageId,
+            typeId,
+            rarityId,
+            now,
+            true,
+          ],
+        );
+        final cardId = cardResult.first.first as int;
+
+        return PokemonCard(
+          id: cardId.toString(),
+          identity: input.identity,
+          display: input.display,
+          imageData: input.imageData.trim(),
+          backImageData: input.backImageData,
+          visualFeatures: input.visualFeatures,
+          status: PokemonCardStatus.pendingValidation,
+          isActive: true,
+          audit: [],
+          createdAt: now,
+        );
+      });
+
+      final parsedId = int.parse(card.id);
+      final perceptualHash = input.visualFeatures != null
+          ? 'ahash:${input.visualFeatures!.averageHashHex ?? ''}|dhash:${input.visualFeatures!.differenceHashHex ?? ''}'
+          : null;
+
+      await _images.saveSubmitterImages(
+        cardSubmitterId: parsedId,
+        frontBase64: input.imageData,
+        backBase64: input.backImageData ?? '',
+        perceptualHash: perceptualHash,
+      );
+
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Card saved successfully',
+        context: {'card_id': card.id, 'set': input.identity.set},
+      );
+
+      return card;
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Card save failed',
+        context: {
+          'set': input.identity.set,
+          'number': input.identity.number,
+        },
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<PokemonCard?> findById(String id) async {
-    final parsedId = int.tryParse(id);
-    if (parsedId == null) return null;
+    try {
+      final parsedId = int.tryParse(id);
+      if (parsedId == null) {
+        AppLogger.warning(
+          'PokéGrading.Persistence.CatalogRepository',
+          'Invalid card ID format for findById',
+          context: {'raw_id': id},
+        );
+        return null;
+      }
 
-    final result = await _connection.execute(
-      'SELECT $_selectColumns $_fromClause WHERE cs.id = \$1',
-      parameters: [parsedId],
-    );
+      final result = await _connection.execute(
+        'SELECT $_selectColumns $_fromClause WHERE cs.id = \$1',
+        parameters: [parsedId],
+      );
 
-    if (result.isEmpty) return null;
-    return _rowToCard(result.first);
+      if (result.isEmpty) {
+        AppLogger.info(
+          'PokéGrading.Persistence.CatalogRepository',
+          'Card not found by ID',
+          context: {'card_id': id},
+        );
+        return null;
+      }
+      return _rowToCard(result.first);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'findById failed',
+        context: {'card_id': id},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<List<PokemonCard>> searchCards() async {
-    final result = await _connection.execute('''
-    SELECT $_selectColumns
-    $_fromClause
-    ORDER BY cs.registration_date DESC
-    ''');
+    try {
+      final result = await _connection.execute('''
+      SELECT $_selectColumns
+      $_fromClause
+      ORDER BY cs.registration_date DESC
+      ''');
 
-    return result.map((row) => _rowToCard(row)).toList();
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Card search completed',
+        context: {'result_count': result.length},
+      );
+
+      return result.map((row) => _rowToCard(row)).toList();
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'searchCards failed',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
-    final conditions = <String>[];
-    final params = <dynamic>[];
-    var paramIdx = 1;
+    try {
+      final conditions = <String>[];
+      final params = <dynamic>[];
+      var paramIdx = 1;
 
-    if (query.averageHashHex != null && query.averageHashHex!.length == 16) {
-      conditions.add('hs.average_hash_hex = \$$paramIdx');
-      params.add(query.averageHashHex);
-      paramIdx++;
+      if (query.averageHashHex != null && query.averageHashHex!.length == 16) {
+        conditions.add('hs.average_hash_hex = \$$paramIdx');
+        params.add(query.averageHashHex);
+        paramIdx++;
+      }
+      if (query.differenceHashHex != null &&
+          query.differenceHashHex!.length == 16) {
+        conditions.add('hs.difference_hash_hex = \$$paramIdx');
+        params.add(query.differenceHashHex);
+        paramIdx++;
+      }
+
+      if (conditions.isEmpty) {
+        AppLogger.warning(
+          'PokéGrading.Persistence.CatalogRepository',
+          'findByVisualFeatures called with empty query',
+        );
+        return [];
+      }
+
+      final result = await _connection.execute(
+        '''
+        SELECT $_selectColumns
+        $_fromClause
+        WHERE ${conditions.join(' OR ')}
+        ORDER BY cs.registration_date DESC
+        LIMIT 20
+        ''',
+        parameters: params,
+      );
+
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Visual feature search completed',
+        context: {'result_count': result.length},
+      );
+
+      return result.map((row) => _rowToCard(row)).toList();
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'findByVisualFeatures failed',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
     }
-    if (query.differenceHashHex != null &&
-        query.differenceHashHex!.length == 16) {
-      conditions.add('hs.difference_hash_hex = \$$paramIdx');
-      params.add(query.differenceHashHex);
-      paramIdx++;
-    }
-
-    if (conditions.isEmpty) return [];
-
-    final result = await _connection.execute(
-      '''
-      SELECT $_selectColumns
-      $_fromClause
-      WHERE ${conditions.join(' OR ')}
-      ORDER BY cs.registration_date DESC
-      LIMIT 20
-      ''',
-      parameters: params,
-    );
-
-    return result.map((row) => _rowToCard(row)).toList();
   }
 
   @override
   Future<List<PokemonCard>> fuzzySearchCards(String query) async {
-    final searchTerm = query.trim();
-    if (searchTerm.isEmpty) return [];
+    try {
+      final searchTerm = query.trim();
+      if (searchTerm.isEmpty) {
+        AppLogger.warning(
+          'PokéGrading.Persistence.CatalogRepository',
+          'fuzzySearchCards called with empty query',
+        );
+        return [];
+      }
 
-    final result = await _connection.execute(
-      '''
-      SELECT $_selectColumns
-      $_fromClause
-      WHERE cs.display_name ILIKE \$1
-         OR cs.set_name ILIKE \$1
-         OR CAST(cs.card_number AS TEXT) ILIKE \$1
-      ORDER BY cs.registration_date DESC
-      LIMIT 20
-      ''',
-      parameters: ['%$searchTerm%'],
-    );
+      final result = await _connection.execute(
+        '''
+        SELECT $_selectColumns
+        $_fromClause
+        WHERE cs.display_name ILIKE \$1
+           OR cs.set_name ILIKE \$1
+           OR CAST(cs.card_number AS TEXT) ILIKE \$1
+        ORDER BY cs.registration_date DESC
+        LIMIT 20
+        ''',
+        parameters: ['%$searchTerm%'],
+      );
 
-    return result.map((row) => _rowToCard(row)).toList();
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Fuzzy search completed',
+        context: {'query': searchTerm, 'result_count': result.length},
+      );
+
+      return result.map((row) => _rowToCard(row)).toList();
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'fuzzySearchCards failed',
+        context: {'query': query},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   PokemonCard _rowToCard(List<dynamic> row) {

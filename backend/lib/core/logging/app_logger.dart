@@ -191,4 +191,11 @@ class AppLogger {
       ),
     );
   }
+
+  /// Flushes and disposes all logging sinks.
+  /// Call this on graceful shutdown (e.g., SIGINT) to drain pending writes.
+  static void dispose() {
+    _fileSink?.dispose();
+    _appInsightsSink?.close();
+  }
 }

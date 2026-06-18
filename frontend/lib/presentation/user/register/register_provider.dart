@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/logging/client_log_reporter.dart';
 import 'register_api.dart';
 import 'register_state.dart';
 
@@ -50,11 +51,23 @@ class RegisterProvider extends ChangeNotifier {
         message: 'Usuario registrado correctamente.',
       );
     } on RegisterApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.RegisterProvider',
+        correlationId: '',
+        message: 'Registration failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: RegisterStage.error,
         message: error.message,
       );
     } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.RegisterProvider',
+        correlationId: '',
+        message: 'Registration unexpected error',
+        context: {'error': error.toString()},
+      );
       _state = _state.copyWith(
         stage: RegisterStage.error,
         message: 'No se pudo completar el registro: ${error.toString()}',

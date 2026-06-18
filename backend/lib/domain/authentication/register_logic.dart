@@ -12,13 +12,23 @@
  Errors are represented by `RegisterLogicException` using short `code`
  identifiers suitable for mapping to HTTP response codes and bodies.
 */
+import 'package:pokegrading_logging/pokegrading_logging.dart';
+
+import '../../core/logging/app_logger.dart';
 import 'auth_models.dart';
 import 'auth_validators.dart';
 
 import '../../persistence/user_data_provider/auth_repository.dart';
 import '../../shared/exception_service/exception_handler.dart';
 
+const _logger = 'PokéGrading.Domain.Register';
+
 Never _throwRegisterError(String code, String err) {
+  AppLogger.warning(
+    _logger,
+    'Registration validation failed',
+    context: {'error_code': code, 'error_message': err},
+  );
   throw LogicException(
     feature: 'register-user',
     code: code,
@@ -128,23 +138,58 @@ class RegisterLogic {
       _throwRegisterError('blocked_email_domain', blockedDomainError);
     }
 
-    if (await repository.emailExists(email)) {
-      _throwRegisterError('email_exists', emailExistsMessage);
+    try {
+      if (await repository.emailExists(email)) {
+        AppLogger.info(
+          _logger,
+          'Duplicate email detected',
+          context: {'email': email},
+        );
+        _throwRegisterError('email_exists', emailExistsMessage);
+      }
+
+      if (await repository.usernameExists(username)) {
+        AppLogger.info(
+          _logger,
+          'Duplicate username detected',
+          context: {'username': username},
+        );
+        _throwRegisterError('username_exists', usernameExistsMessage);
+      }
+
+      final user = await repository.createUser(
+        email: email,
+        username: username,
+        password: password,
+        country: country,
+        language: language,
+        acceptedDisclosure: acceptedDisclosure,
+      );
+
+      AppLogger.audit(
+        _logger,
+        AuditEventTypes.userRegister,
+        result: 'success',
+        context: {
+          'actor_id': user.id,
+          'email': user.email,
+          'username': user.username,
+        },
+      );
+
+      return ConfirmedUser.fromUser(user);
+    } catch (error, stack) {
+      AppLogger.error(
+        _logger,
+        'Repository operation failed during registration',
+        context: {
+          'email': email,
+          'username': username,
+        },
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
     }
-
-    if (await repository.usernameExists(username)) {
-      _throwRegisterError('username_exists', usernameExistsMessage);
-    }
-
-    final user = await repository.createUser(
-      email: email,
-      username: username,
-      password: password,
-      country: country,
-      language: language,
-      acceptedDisclosure: acceptedDisclosure,
-    );
-
-    return ConfirmedUser.fromUser(user);
   }
 }

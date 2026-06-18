@@ -4,6 +4,8 @@
 import 'dart:convert';
 import 'package:image/image.dart' as img;
 
+import '../../core/logging/app_logger.dart';
+
 /// @brief ImageQualityResult
 class ImageQualityResult {
   final double score;
@@ -33,6 +35,10 @@ class ImageQualityService {
     final image = img.decodeImage(bytes);
 
     if (image == null) {
+      AppLogger.warning(
+        'PokéGrading.Domain.ImageQuality',
+        'Failed to decode image for quality analysis',
+      );
       throw Exception('Invalid image');
     }
 

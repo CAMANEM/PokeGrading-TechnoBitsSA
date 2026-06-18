@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/logging/client_log_reporter.dart';
 import 'submit_evaluation_state.dart';
 import 'submit_evaluation_api.dart';
 
@@ -37,9 +38,26 @@ class SubmitEvaluationProvider extends ChangeNotifier {
         message: 'Solicitud recibida correctamente',
       );
     } on SubmitEvaluationApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluationProvider',
+        correlationId: '',
+        message: 'Evaluation submission failed',
+        context: {'api_error': error.message},
+      );
       _state = _state.copyWith(
         stage: SubmitEvaluationStage.error,
         message: error.message,
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluationProvider',
+        correlationId: '',
+        message: 'Evaluation submission unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: SubmitEvaluationStage.error,
+        message: 'Error: ${error.toString()}',
       );
     }
 

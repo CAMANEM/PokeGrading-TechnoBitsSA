@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/catalog/search_trace.dart';
 import '../../domain/image_services/visual_features.dart';
 import '../../domain/catalog/catalog_models.dart';
@@ -23,6 +24,11 @@ class PostgresSearchTraceRepository implements SearchTraceRepository {
   /// Creates and opens a PostgreSQL connection using the provided config.
   static Future<PostgresSearchTraceRepository> connect(
       DatabaseConfig config) async {
+    AppLogger.info(
+      'PokéGrading.Persistence.SearchTraceRepository',
+      'Connecting to PostgreSQL search trace database',
+      context: {'host': config.host, 'database': config.name},
+    );
     final endpoint = Endpoint(
       host: config.host,
       port: config.port,
@@ -34,8 +40,22 @@ class PostgresSearchTraceRepository implements SearchTraceRepository {
       connectTimeout: config.connectionTimeout,
       sslMode: SslMode.disable,
     );
-    final connection = await Connection.open(endpoint, settings: settings);
-    return PostgresSearchTraceRepository._(connection);
+    try {
+      final connection = await Connection.open(endpoint, settings: settings);
+      AppLogger.info(
+        'PokéGrading.Persistence.SearchTraceRepository',
+        'PostgreSQL search trace repository connected',
+      );
+      return PostgresSearchTraceRepository._(connection);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.SearchTraceRepository',
+        'Failed to connect to PostgreSQL search trace database',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -64,8 +84,12 @@ class PostgresSearchTraceRepository implements SearchTraceRepository {
           trace.timestamp,
         ],
       );
-    } catch (_) {
-      // Table may not exist if migration 002 hasn't been applied
+    } catch (error) {
+      AppLogger.warning(
+        'PokéGrading.Persistence.SearchTraceRepository',
+        'Failed to save search trace (table may not exist): $error',
+        context: {'trace_id': trace.id, 'method': trace.method},
+      );
     }
   }
 

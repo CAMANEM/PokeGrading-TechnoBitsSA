@@ -219,6 +219,7 @@ void _registerShutdownHandlers(
     if (postgresRateLimitRepo != null) await postgresRateLimitRepo.close();
     if (mongoImageRepo != null) await mongoImageRepo.close();
     log.info('   All database connections closed.');
+    AppLogger.dispose();
     log.info('   Server shut down successfully.');
     exit(0);
   });

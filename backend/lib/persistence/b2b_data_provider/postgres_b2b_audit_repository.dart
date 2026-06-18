@@ -1,6 +1,7 @@
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/logging/app_logger.dart';
 import 'b2b_audit_repository.dart';
 
 class PostgresB2bAuditRepository implements B2bAuditRepository {
@@ -9,6 +10,11 @@ class PostgresB2bAuditRepository implements B2bAuditRepository {
   PostgresB2bAuditRepository._(this._connection);
 
   static Future<PostgresB2bAuditRepository> connect(DatabaseConfig config) async {
+    AppLogger.info(
+      'PokéGrading.Persistence.B2bAuditRepository',
+      'Connecting to PostgreSQL B2B audit database',
+      context: {'host': config.host, 'database': config.name},
+    );
     final endpoint = Endpoint(
       host: config.host,
       port: config.port,
@@ -20,8 +26,22 @@ class PostgresB2bAuditRepository implements B2bAuditRepository {
       connectTimeout: config.connectionTimeout,
       sslMode: SslMode.disable,
     );
-    final connection = await Connection.open(endpoint, settings: settings);
-    return PostgresB2bAuditRepository._(connection);
+    try {
+      final connection = await Connection.open(endpoint, settings: settings);
+      AppLogger.info(
+        'PokéGrading.Persistence.B2bAuditRepository',
+        'PostgreSQL B2B audit repository connected',
+      );
+      return PostgresB2bAuditRepository._(connection);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.B2bAuditRepository',
+        'Failed to connect to PostgreSQL B2B audit database',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   Future<void> close() async {
@@ -38,22 +58,37 @@ class PostgresB2bAuditRepository implements B2bAuditRepository {
     required String apiVersion,
     required String outcome,
   }) async {
-    await _connection.execute(
-      '''
-      INSERT INTO b2b_consult_audit (
-        api_key_id, customer_id, request_id, ip_address,
-        card_count, api_version, outcome, created_at
-      ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, NOW())
-      ''',
-      parameters: [
-        apiKeyId,
-        customerId,
-        requestId,
-        ipAddress,
-        cardCount,
-        apiVersion,
-        outcome,
-      ],
-    );
+    try {
+      await _connection.execute(
+        '''
+        INSERT INTO b2b_consult_audit (
+          api_key_id, customer_id, request_id, ip_address,
+          card_count, api_version, outcome, created_at
+        ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, NOW())
+        ''',
+        parameters: [
+          apiKeyId,
+          customerId,
+          requestId,
+          ipAddress,
+          cardCount,
+          apiVersion,
+          outcome,
+        ],
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.B2bAuditRepository',
+        'Failed to record B2B consult audit',
+        context: {
+          'api_key_id': apiKeyId,
+          'customer_id': customerId,
+          'outcome': outcome,
+        },
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 }

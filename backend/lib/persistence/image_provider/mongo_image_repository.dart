@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:mongo_dart/mongo_dart.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/logging/app_logger.dart';
 import 'image_storage_repository.dart';
 
 /// MongoDB GridFS implementation for submitter card images.
@@ -14,9 +15,28 @@ class MongoImageRepository implements ImageStorageRepository {
   MongoImageRepository._(this._db);
 
   static Future<MongoImageRepository> connect(MongoConfig config) async {
-    final db = Db(config.uri);
-    await db.open();
-    return MongoImageRepository._(db);
+    AppLogger.info(
+      'PokéGrading.Persistence.MongoImageRepository',
+      'Connecting to MongoDB image storage',
+      context: {'db': config.dbName},
+    );
+    try {
+      final db = Db(config.uri);
+      await db.open();
+      AppLogger.info(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'MongoDB image repository connected',
+      );
+      return MongoImageRepository._(db);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Failed to connect to MongoDB',
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   DbCollection get _metadata => _db.collection('submitter_images');
@@ -30,18 +50,35 @@ class MongoImageRepository implements ImageStorageRepository {
     required String backBase64,
     String? perceptualHash,
   }) async {
-    await _saveSide(
-      cardSubmitterId: cardSubmitterId,
-      side: 'front',
-      imageBase64: frontBase64,
-      perceptualHash: perceptualHash,
+    AppLogger.info(
+      'PokéGrading.Persistence.MongoImageRepository',
+      'Saving submitter images',
+      context: {'card_submitter_id': cardSubmitterId},
     );
-    await _saveSide(
-      cardSubmitterId: cardSubmitterId,
-      side: 'back',
-      imageBase64: backBase64,
-      perceptualHash: null,
-    );
+
+    try {
+      await _saveSide(
+        cardSubmitterId: cardSubmitterId,
+        side: 'front',
+        imageBase64: frontBase64,
+        perceptualHash: perceptualHash,
+      );
+      await _saveSide(
+        cardSubmitterId: cardSubmitterId,
+        side: 'back',
+        imageBase64: backBase64,
+        perceptualHash: null,
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Failed to save submitter images',
+        context: {'card_submitter_id': cardSubmitterId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   Future<void> _saveSide({
@@ -52,6 +89,11 @@ class MongoImageRepository implements ImageStorageRepository {
   }) async {
     final decoded = _decodeImage(imageBase64);
     if (decoded == null) {
+      AppLogger.warning(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Invalid image data for $side side',
+        context: {'card_submitter_id': cardSubmitterId},
+      );
       throw ArgumentError('Invalid image data for $side side');
     }
 
@@ -60,6 +102,14 @@ class MongoImageRepository implements ImageStorageRepository {
         .eq('side', side));
 
     if (existing != null) {
+      AppLogger.info(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Replacing existing image',
+        context: {
+          'card_submitter_id': cardSubmitterId,
+          'side': side,
+        },
+      );
       final oldFileId = existing['file_id'];
       if (oldFileId is ObjectId) {
         final oldFile = await _gridFs.findOne(where.id(oldFileId));
@@ -102,45 +152,75 @@ class MongoImageRepository implements ImageStorageRepository {
   Future<({String front, String back})?> loadSubmitterImages(
     int cardSubmitterId,
   ) async {
-    final docs = await _metadata
-        .find(where.eq('card_submitter_id', cardSubmitterId))
-        .toList();
+    try {
+      final docs = await _metadata
+          .find(where.eq('card_submitter_id', cardSubmitterId))
+          .toList();
 
-    if (docs.isEmpty) return null;
-
-    String? front;
-    String? back;
-
-    for (final doc in docs) {
-      final side = doc['side']?.toString();
-      final fileId = doc['file_id'];
-      if (side == null || fileId is! ObjectId) continue;
-
-      final gridOut = await _gridFs.findOne(where.id(fileId));
-      if (gridOut == null) continue;
-
-      final chunks = <int>[];
-      await for (final chunk in _gridFs.chunks
-          .find(where.eq('files_id', fileId).sortBy('n'))) {
-        final data = chunk['data'] as BsonBinary;
-        chunks.addAll(data.byteList);
+      if (docs.isEmpty) {
+        AppLogger.info(
+          'PokéGrading.Persistence.MongoImageRepository',
+          'No images found for submitter',
+          context: {'card_submitter_id': cardSubmitterId},
+        );
+        return null;
       }
 
-      final contentType =
-          doc['content_type']?.toString() ?? gridOut.contentType ?? 'image/jpeg';
-      final mime = contentType.split(';').first;
-      final base64Payload = base64Encode(Uint8List.fromList(chunks));
-      final dataUrl = 'data:$mime;base64,$base64Payload';
+      String? front;
+      String? back;
 
-      if (side == 'front') {
-        front = dataUrl;
-      } else if (side == 'back') {
-        back = dataUrl;
+      for (final doc in docs) {
+        final side = doc['side']?.toString();
+        final fileId = doc['file_id'];
+        if (side == null || fileId is! ObjectId) continue;
+
+        final gridOut = await _gridFs.findOne(where.id(fileId));
+        if (gridOut == null) continue;
+
+        final chunks = <int>[];
+        await for (final chunk in _gridFs.chunks
+            .find(where.eq('files_id', fileId).sortBy('n'))) {
+          final data = chunk['data'] as BsonBinary;
+          chunks.addAll(data.byteList);
+        }
+
+        final contentType = doc['content_type']?.toString() ??
+            gridOut.contentType ??
+            'image/jpeg';
+        final mime = contentType.split(';').first;
+        final base64Payload = base64Encode(Uint8List.fromList(chunks));
+        final dataUrl = 'data:$mime;base64,$base64Payload';
+
+        if (side == 'front') {
+          front = dataUrl;
+        } else if (side == 'back') {
+          back = dataUrl;
+        }
       }
+
+      if (front == null || back == null) {
+        AppLogger.warning(
+          'PokéGrading.Persistence.MongoImageRepository',
+          'Incomplete image set loaded',
+          context: {
+            'card_submitter_id': cardSubmitterId,
+            'has_front': front != null,
+            'has_back': back != null,
+          },
+        );
+        return null;
+      }
+      return (front: front, back: back);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Failed to load submitter images',
+        context: {'card_submitter_id': cardSubmitterId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
     }
-
-    if (front == null || back == null) return null;
-    return (front: front, back: back);
   }
 
   _DecodedImage? _decodeImage(String imageData) {

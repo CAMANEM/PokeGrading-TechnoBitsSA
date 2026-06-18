@@ -69,8 +69,10 @@ class AppInsightsLogSink {
         headers: {'Content-Type': 'application/json'},
         body: payload,
       );
-    } catch (_) {
-      // Telemetry must not break the application.
+    } catch (error) {
+      // Telemetry must not break the application, but we log locally.
+      // ignore: avoid_print
+      print('[AppInsights] Failed to send telemetry: $error');
     }
   }
 
