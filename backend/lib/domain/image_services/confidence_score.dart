@@ -82,17 +82,23 @@ class ConfidenceScore {
         edge * 0.20;
   }
 
+  /// Compares two hex-encoded perceptual hashes and returns a similarity
+  /// score in `[0, 100]`. The denominator scales with the hash size, so this
+  /// works transparently for the 192-bit multichannel hashes produced by
+  /// [VisualFeatureExtractor] (48 hex chars) as well as any legacy 64-bit
+  /// hash. Hashes of different lengths are not bit-comparable and return 0.
   static double _hashSimilarity(
     String? a,
     String? b,
   ) {
-    if (a == null || b == null) {
+    if (a == null || b == null || a.length != b.length) {
       return 0.0;
     }
 
     final distance = _hammingDistance(a, b);
+    final bits = a.length * 4;
 
-    return 100.0 * (1.0 - distance / 64.0);
+    return 100.0 * (1.0 - distance / bits);
   }
 
   static int _hammingDistance(

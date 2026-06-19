@@ -78,13 +78,19 @@ class MockCatalogRepository implements CatalogRepository {
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query) async {
     final scores = <String, int>{};
 
-    for (final hash in [query.averageHashHex, query.differenceHashHex]) {
-      if (hash == null || hash.length != 16) continue;
+    for (final entry in [
+      if (query.averageHashHex != null)
+        MapEntry('ahash', query.averageHashHex!),
+      if (query.differenceHashHex != null)
+        MapEntry('dhash', query.differenceHashHex!),
+    ]) {
+      final hash = entry.value;
+      if (hash.isEmpty || hash.length % _chunkSize != 0) continue;
 
-      for (int i = 0; i < 4; i++) {
-        final chunk = hash.substring(i * 4, (i + 1) * 4);
-        final prefix = hash == query.averageHashHex ? 'ahash' : 'dhash';
-        final key = '$prefix:chunk$i:$chunk';
+      final chunks = hash.length ~/ _chunkSize;
+      for (int i = 0; i < chunks; i++) {
+        final chunk = hash.substring(i * _chunkSize, (i + 1) * _chunkSize);
+        final key = '${entry.key}:chunk$i:$chunk';
         final ids = _featureIndex[key];
         if (ids != null) {
           for (final id in ids) {
@@ -140,6 +146,11 @@ class MockCatalogRepository implements CatalogRepository {
     return results.map((r) => r.card).toList();
   }
 
+  /// Hex chunk size used to index hashes for the bag-of-chunks prefilter.
+  /// 4 hex chars (16 bits) keeps chunks short enough to allow near-duplicates
+  /// to share buckets while remaining selective.
+  static const int _chunkSize = 4;
+
   void _indexCard(PokemonCard card) {
     final features = card.visualFeatures;
     if (features == null) return;
@@ -151,10 +162,11 @@ class MockCatalogRepository implements CatalogRepository {
         MapEntry('dhash', features.differenceHashHex!),
     ]) {
       final hash = entry.value;
-      if (hash.length != 16) continue;
+      if (hash.isEmpty || hash.length % _chunkSize != 0) continue;
 
-      for (int i = 0; i < 4; i++) {
-        final chunk = hash.substring(i * 4, (i + 1) * 4);
+      final chunks = hash.length ~/ _chunkSize;
+      for (int i = 0; i < chunks; i++) {
+        final chunk = hash.substring(i * _chunkSize, (i + 1) * _chunkSize);
         final key = '${entry.key}:chunk$i:$chunk';
         _featureIndex.putIfAbsent(key, () => <String>[]).add(card.id);
       }
