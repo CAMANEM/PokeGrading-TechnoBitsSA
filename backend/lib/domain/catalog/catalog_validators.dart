@@ -54,9 +54,9 @@ class CatalogValidators {
     if (normalized.isEmpty) {
       return 'Language is required';
     }
-    const allowedLanguages = ['Español', 'Inglés'];
+    const allowedLanguages = ['Español', 'English', 'Japanese'];
     if (!allowedLanguages.contains(normalized)) {
-      return 'Language must be Español or Inglés';
+      return 'Language must be Español, English or Japanese';
     }
     if (normalized.length > 30) {
       return 'Language cannot exceed 30 characters';

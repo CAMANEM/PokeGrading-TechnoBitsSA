@@ -81,7 +81,8 @@ class PostgresReferenceCatalogRepository implements ReferenceCatalogRepository {
 
       int? languageId;
       if (languageLookupName != null && languageLookupName.isNotEmpty) {
-        languageId = await _lookups.resolveLanguageId(languageLookupName);
+        languageId = await _lookups.resolveLanguageId(
+            B2bValidators.lookupNameForLanguageCode(languageLookupName));
         if (languageId == null) {
           AppLogger.info(
             'PokéGrading.Persistence.ReferenceCatalogRepository',
@@ -94,7 +95,6 @@ class PostgresReferenceCatalogRepository implements ReferenceCatalogRepository {
 
       final conditions = <String>[
         'cr.active = true',
-        'cr.soft_delete = false',
         'LOWER(cr.set_name) = LOWER(\$1)',
         'cr.card_number = \$2',
       ];
@@ -122,7 +122,7 @@ class PostgresReferenceCatalogRepository implements ReferenceCatalogRepository {
       final sql = '''
         SELECT cr.id, cr.set_name, cr.card_number, cr.edition, l.name AS language_name,
                cr.finish, cr.modification_date
-        FROM card_reference cr
+        FROM card_submitter cr
         LEFT JOIN language l ON cr.language_id = l.id
         WHERE ${conditions.join(' AND ')}
         ORDER BY cr.id ASC

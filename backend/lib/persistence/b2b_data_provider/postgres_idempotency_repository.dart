@@ -82,15 +82,15 @@ class PostgresIdempotencyRepository implements IdempotencyRepository {
         context: {'api_key_id': apiKeyId, 'request_id': requestId},
       );
 
-      final jsonStr = result.first[0]?.toString() ?? '{}';
       final createdAt = result.first[1] as DateTime? ?? DateTime.now().toUtc();
-      final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final decoded = Map<String, dynamic>.from(
+        result.first[0] as Map,
+      );
       final body = decoded['body'] as Map<String, dynamic>? ?? decoded;
       final etag = decoded['etag']?.toString() ?? '';
       final lastModifiedStr = decoded['last_modified']?.toString();
-      final lastModified = lastModifiedStr != null
-          ? DateTime.parse(lastModifiedStr)
-          : createdAt;
+      final lastModified =
+          lastModifiedStr != null ? DateTime.parse(lastModifiedStr) : createdAt;
 
       return IdempotencyRecord(
         responsePayload: body,

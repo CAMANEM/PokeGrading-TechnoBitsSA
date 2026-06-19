@@ -4,9 +4,7 @@
 
 INSERT INTO "language" ("name") VALUES
   ('Español'),
-  ('Inglés'),
   ('English'),
-  ('Spanish'),
   ('Japanese');
 
 INSERT INTO "country" ("name") VALUES

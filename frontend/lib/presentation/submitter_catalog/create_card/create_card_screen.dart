@@ -728,7 +728,8 @@ class _IdentityForm extends StatelessWidget {
               decoration: const InputDecoration(labelText: 'Idioma'),
               items: const [
                 DropdownMenuItem(value: 'Español', child: Text('Español')),
-                DropdownMenuItem(value: 'Inglés', child: Text('Inglés')),
+                DropdownMenuItem(value: 'English', child: Text('English')),
+                DropdownMenuItem(value: 'Japanese', child: Text('Japanese')),
               ],
               onChanged: onLanguageChanged,
               validator: (value) {
