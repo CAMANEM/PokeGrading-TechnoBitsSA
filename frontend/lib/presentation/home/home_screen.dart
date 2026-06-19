@@ -122,7 +122,7 @@ class _PokeGradingLogo extends StatelessWidget {
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Text(
-            'v${AppConfig.appVersion} — Sprint 2',
+            'v${AppConfig.appVersion} — Sprint 3',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.primaryLight,
                 ),
@@ -174,7 +174,7 @@ class _WelcomeCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'The base structure of the PokéGrading project is ready. '
-            'This is the starting point for Sprint 2.',
+            'This is the starting point for Sprint 3.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.textSecondary,
               height: 1.6,
