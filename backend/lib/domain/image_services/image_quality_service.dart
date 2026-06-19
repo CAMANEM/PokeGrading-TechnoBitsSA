@@ -96,8 +96,8 @@ class ImageQualityService {
     }
 
     double brightness = total / (image.width * image.height);
-
-    if (brightness >= minAcceptance || brightness <= maxAcceptance) {
+    
+    if (brightness >= minAcceptance && brightness <= maxAcceptance) {
       return 1.0;
     }
 
@@ -112,8 +112,8 @@ class ImageQualityService {
   static ImageQualityResult calculateScore(String imageData) {
     final image = _decodeImageData(imageData);
 
-    final sharpness = _calculateSharpnessScore(image); // 0-1
     final brightness = _calculateBrightnessScore(image); // 0-1
+    final sharpness = _calculateSharpnessScore(image); // 0-1
 
     final overall = (sharpness + brightness) / 2;
 
