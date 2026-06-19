@@ -372,13 +372,16 @@ class PostgresCatalogRepository implements CatalogRepository {
       final params = <dynamic>[];
       var paramIdx = 1;
 
-      if (query.averageHashHex != null && query.averageHashHex!.length == 16) {
+      const expectedHashLength = VisualFeatureExtractor.multiChannelHashHexLength;
+
+      if (query.averageHashHex != null &&
+          query.averageHashHex!.length == expectedHashLength) {
         conditions.add('hs.average_hash_hex = \$$paramIdx');
         params.add(query.averageHashHex);
         paramIdx++;
       }
       if (query.differenceHashHex != null &&
-          query.differenceHashHex!.length == 16) {
+          query.differenceHashHex!.length == expectedHashLength) {
         conditions.add('hs.difference_hash_hex = \$$paramIdx');
         params.add(query.differenceHashHex);
         paramIdx++;

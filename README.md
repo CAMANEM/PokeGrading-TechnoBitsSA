@@ -234,6 +234,27 @@ SELECT id, username, email, registration_date FROM submitter;
 docker exec -it pokegrading_mongodb mongosh pokegrading_images --eval "db.submitter_images.find().limit(5)"
 ```
 
+---
+
+## 🎨 Perceptual Hashing (color-aware, multicanal)
+
+El reconocimiento visual de cartas usa hashes perceptuales **color-aware**: en lugar de descartar el color convirtiendo a escala de grises, cada hash se calcula de forma independiente sobre los canales **R**, **G** y **B**, y luego se concatena en un único valor de **192 bits (48 caracteres hexadecimales)**.
+
+- `averageHashHex` (aHash): umbral por canal sobre un resize 8×8 → 3 × 64 bits.
+- `differenceHashHex` (dHash): gradiente horizontal por canal sobre un resize 9×8 → 3 × 64 bits.
+- `centerAverageHashHex` / `centerDifferenceHashHex`: lo mismo aplicado al recorte central (50%) para reforzar el artwork.
+- `edgeHashHex`: aHash sobre la imagen filtrada con Sobel (los tres canales son iguales por construcción, pero se mantiene el mismo shape de 48 chars para uniformidad de almacenamiento y comparación).
+
+La similitud (`ConfidenceScore`) calcula la distancia de Hamming sobre los 192 bits, así que dos artworks con la **misma luminancia pero distinto color** (ej. Psyduck amarillo vs Fuecoco rojo) ya no colisionan como ocurría con los hashes de 64 bits en grises.
+
+> Las columnas `average_hash_hex`, `difference_hash_hex`, `center_average_hash_hex` y `center_difference_hash_hex` en `hash_submitter` / `hash_reference` están declaradas como `varchar(48)`. Si tu volumen de PostgreSQL fue creado con el esquema anterior, recreálo con `docker compose down -v && docker compose up -d` para aplicar el nuevo formato.
+
+Tests:
+
+```bash
+cd backend
+dart test test/visual_features_test.dart
+```
 
 ## 📂 Estructura de Directorios
 

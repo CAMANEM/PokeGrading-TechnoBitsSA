@@ -86,12 +86,14 @@ CREATE TABLE "card_submitter" (
   "active" boolean DEFAULT true
 );
 
+-- Perceptual hashes are color-aware: per-channel (R, G, B) 64-bit hashes
+-- concatenated into a single 192-bit value rendered as 48 hex chars.
 CREATE TABLE "hash_submitter" (
   "id" BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "average_hash_hex" varchar,
-  "difference_hash_hex" varchar,
-  "center_average_hash_hex" varchar,
-  "center_difference_hash_hex" varchar,
+  "average_hash_hex" varchar(48),
+  "difference_hash_hex" varchar(48),
+  "center_average_hash_hex" varchar(48),
+  "center_difference_hash_hex" varchar(48),
   "date" timestamp
 );
 
@@ -118,12 +120,14 @@ CREATE TABLE "card_reference" (
   "active" boolean DEFAULT true
 );
 
+-- Perceptual hashes are color-aware: per-channel (R, G, B) 64-bit hashes
+-- concatenated into a single 192-bit value rendered as 48 hex chars.
 CREATE TABLE "hash_reference" (
   "id" BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "average_hash_hex" varchar,
-  "difference_hash_hex" varchar,
-  "center_average_hash_hex" varchar,
-  "center_difference_hash_hex" varchar,
+  "average_hash_hex" varchar(48),
+  "difference_hash_hex" varchar(48),
+  "center_average_hash_hex" varchar(48),
+  "center_difference_hash_hex" varchar(48),
   "date" timestamp
 );
 
