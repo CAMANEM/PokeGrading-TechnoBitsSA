@@ -6,25 +6,19 @@ import 'b2b_models.dart';
 /// B2B canonical codes and per-card validation (isolated from submitter validators).
 class B2bValidators {
   static const allowedLanguages = {'EN', 'ES', 'JP'};
-  static const allowedEditions = {'FIRST_EDITION', 'UNLIMITED'};
-  static const allowedFinishes = {'HOLO', 'NORMAL', 'REVERSE_HOLO'};
 
   /// Maps B2B language code to DB lookup `language.name`.
   static const languageToLookupName = {
     'EN': 'English',
-    'ES': 'Spanish',
-    'JP': 'Japanese',
+    'ES': 'Español',
+    'JP': 'Japanese'
   };
 
   /// Maps DB lookup name to B2B language code.
   static const lookupNameToLanguage = {
     'english': 'EN',
-    'inglés': 'EN',
-    'ingles': 'EN',
-    'spanish': 'ES',
     'español': 'ES',
-    'espanol': 'ES',
-    'japanese': 'JP',
+    'japanese': 'JP'
   };
 
   static String lookupNameForLanguageCode(String code) {
@@ -53,15 +47,6 @@ class B2bValidators {
     return null;
   }
 
-  static String? validateEditionOptional(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
-    final normalized = value.trim();
-    if (!allowedEditions.contains(normalized)) {
-      return 'Edition must be one of: ${allowedEditions.join(', ')}';
-    }
-    return null;
-  }
-
   static String? validateLanguageOptional(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     final normalized = value.trim();
@@ -71,31 +56,18 @@ class B2bValidators {
     return null;
   }
 
-  static String? validateFinishOptional(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
-    final normalized = value.trim();
-    if (!allowedFinishes.contains(normalized)) {
-      return 'Finish must be one of: ${allowedFinishes.join(', ')}';
-    }
-    return null;
-  }
-
   /// Validates a single card; returns field + message on failure.
-  static ({String field, String message})? validateCard(B2bConsultCardInput card) {
+  static ({String field, String message})? validateCard(
+      B2bConsultCardInput card) {
     final setError = validateSet(card.set);
     if (setError != null) return (field: 'set', message: setError);
 
     final numberError = validateNumber(card.number);
     if (numberError != null) return (field: 'number', message: numberError);
 
-    final editionError = validateEditionOptional(card.edition);
-    if (editionError != null) return (field: 'edition', message: editionError);
-
     final languageError = validateLanguageOptional(card.language);
-    if (languageError != null) return (field: 'language', message: languageError);
-
-    final finishError = validateFinishOptional(card.finish);
-    if (finishError != null) return (field: 'finish', message: finishError);
+    if (languageError != null)
+      return (field: 'language', message: languageError);
 
     return null;
   }

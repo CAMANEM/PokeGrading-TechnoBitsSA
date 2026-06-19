@@ -81,7 +81,8 @@ class PostgresReferenceCatalogRepository implements ReferenceCatalogRepository {
 
       int? languageId;
       if (languageLookupName != null && languageLookupName.isNotEmpty) {
-        languageId = await _lookups.resolveLanguageId(languageLookupName);
+        languageId = await _lookups.resolveLanguageId(
+            B2bValidators.lookupNameForLanguageCode(languageLookupName));
         if (languageId == null) {
           AppLogger.info(
             'PokéGrading.Persistence.ReferenceCatalogRepository',
