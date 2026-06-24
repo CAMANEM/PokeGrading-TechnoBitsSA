@@ -47,3 +47,6 @@ INSERT INTO "status" ("name") VALUES
   ('under_review'),
   ('completed'),
   ('rejected');
+
+INSERT INTO "admin" ("username", "password_hash", "email", "registration_date")
+VALUES ('admin', 'dev_admin_hash', 'admin@pokegrading.dev', NOW());
