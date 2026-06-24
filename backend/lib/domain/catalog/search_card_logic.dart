@@ -103,8 +103,10 @@ class SearchCardLogic {
     final scored = <SearchCandidate>[];
 
     for (final card in searchCards) {
+      final features = card.visualFeatures;
+      if (features == null) continue;
       final score = ConfidenceScore.calculateConfidence(
-          queryFeatures, card.visualFeatures!, command.mode);
+          queryFeatures, features, command.mode);
 
       scored.add(SearchCandidate(card: card, confidence: score));
     }
