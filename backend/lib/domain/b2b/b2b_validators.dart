@@ -2,6 +2,17 @@
 /// @brief Canonical codes and per-card validation for the B2B API.
 
 import 'b2b_models.dart';
+import '../../persistence/b2b_data_provider/api_key_repository.dart';
+import '../../core/logging/app_logger.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
+
+Never _throwValidationError(String code, String err) {
+  throw LogicException(
+    feature: 'b2b',
+    code: code,
+    message: err,
+  );
+}
 
 /// B2B canonical codes and per-card validation (isolated from submitter validators).
 class B2bValidators {
@@ -70,5 +81,47 @@ class B2bValidators {
       return (field: 'language', message: languageError);
 
     return null;
+  }
+
+  static Future<void> validateKey(
+      String plaintextKey, ApiKeyRepository apiKeyRepository) async {
+    B2bAuthContext? result = await apiKeyRepository.keyLookUp(plaintextKey);
+    if (result == null) {
+      _throwValidationError("404", 'Api Key Not Found');
+    }
+    if (result.apiKeyStatus == 'revoked') {
+      DateTime? grace =
+          await apiKeyRepository.checkGracePeriod(result.apiKeyId);
+      if (grace != null) {
+        if (DateTime.now().toUtc().isAfter(grace)) {
+          AppLogger.warning(
+            'PokéGrading.Persistence.ApiKeyRepository',
+            'Revoked API key rejected - grace period expired',
+            context: {'api_key_id': result.apiKeyId},
+          );
+          _throwValidationError('409', 'Grace period expired');
+        }
+      } else {
+        AppLogger.warning(
+          'PokéGrading.Persistence.ApiKeyRepository',
+          'Revoked API key rejected - no grace period',
+          context: {'api_key_id': result.apiKeyId},
+        );
+        _throwValidationError('404', 'No grace period');
+      }
+    }
+
+    if (result.apiKeyStatus != 'active' && result.apiKeyStatus != 'revoked') {
+      /// Negocio
+      AppLogger.warning(
+        'PokéGrading.Persistence.ApiKeyRepository',
+        'API key rejected - invalid status',
+        context: {
+          'api_key_id': result.apiKeyId,
+          'status': result.apiKeyStatus,
+        },
+      );
+      _throwValidationError('409', 'Invalid status');
+    }
   }
 }

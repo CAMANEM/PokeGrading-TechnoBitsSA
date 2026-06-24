@@ -12,6 +12,7 @@ import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../domain/b2b/b2b_models.dart';
+import '../../domain/b2b/b2b_validators.dart';
 import '../../domain/b2b/consult/consult_logic.dart';
 import '../../persistence/b2b_data_provider/api_key_repository.dart';
 import '../../persistence/b2b_data_provider/b2b_audit_repository.dart';
@@ -107,7 +108,7 @@ Router buildB2bRoutes({
       );
     }
 
-    final auth = await apiKeyRepository.validateKey(apiKey);
+    final auth = await B2bValidators.validateKey(apiKey, apiKeyRepository);
     if (auth == null) {
       return reject(
         401,
