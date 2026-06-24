@@ -82,16 +82,27 @@ graph TD
     linkStyle default stroke:#222222,stroke-width:1.5px,color:#222222
 ```
 
-En la estructura de código se sigue dicha estructura de la siguiente forma:
+Las capas se reflejan en el código como:
+
+| Capa (Layer)       | Ubicación                     | Responsabilidad                              |
+|--------------------|-------------------------------|----------------------------------------------|
+| **Presentación**   | `frontend/lib/presentation/`  | Pantallas, providers, API clients            |
+| **Aplicación**     | `backend/lib/application/`    | Rutas HTTP, wiring de DI                     |
+| **Dominio**        | `backend/lib/domain/`         | Entidades, lógica de negocio, reglas         |
+| **Persistencia**   | `backend/lib/persistence/`    | Repositorios, SQL, adaptadores externos      |
+| **Shared Packages**| `packages/`                   | Código reutilizable (frontend + backend)     |
+
+Dentro de cada capa se organiza por `module/feature/`:
 
 ```
 layer/
-└── module/          # user, submitter_catalog, reference_catalog
-    └── feature/     # register, create_card, login, …
+└── module/          # user, submitter_catalog, reference_catalog, b2b
+    └── feature/     # register, create_card, login, consult, …
 ```
 
-- **Frontend (delgado):** solo `core/` + `presentation/` — pantalla, provider (`ChangeNotifier`), API y rutas colocalizados por flujo.
+- **Frontend (delgado):** solo `core/` + `presentation/` — screen, provider (`ChangeNotifier`), API y rutas colocalizados por flujo.
 - **Backend:** `core/` + `application/` (HTTP routes) + `domain/` (lógica de negocio) + `persistence/` (repositorios, SQL, adaptadores externos).
+- **Packages (`packages/`):** bibliotecas Dart compartidas entre frontend y backend (logging, excepciones, utilidades).
 
 Ver [docs/adr/refactorDiagramProposal.md](docs/adr/refactorDiagramProposal.md) para el detalle completo.
 
@@ -276,12 +287,29 @@ PokeGrading-TechnoBitsSA/
 │   │   │   │   ├── register/register_logic.dart
 │   │   │   │   ├── user.dart
 │   │   │   │   └── user_repository.dart
-│   │   │   └── submitter_catalog/
-│   │   │       └── create_card/create_card_logic.dart
+│   │   │   ├── submitter_catalog/
+│   │   │   │   └── create_card/create_card_logic.dart
+│   │   │   ├── b2b/
+│   │   │   ├── catalog/
+│   │   │   ├── authentication/
+│   │   │   ├── image_services/
+│   │   │   └── scoring/
 │   │   └── persistence/            # Repositories, SQL, external adapters
 │   │       ├── user/
-│   │       └── submitter_catalog/
+│   │       ├── submitter_catalog/
+│   │       ├── b2b_data_provider/
+│   │       ├── card_data_provider/
+│   │       ├── image_provider/
+│   │       ├── lookup/
+│   │       ├── id_service/
+│   │       └── mocks/
 │   └── pubspec.yaml
+│
+├── packages/                       # Código compartido (frontend + backend)
+│   ├── pokegrading_exceptions/     # Excepciones de dominio
+│   │   └── lib/
+│   └── pokegrading_logging/        # Logging estructurado
+│       └── lib/
 │
 ├── frontend/                       # Aplicación Flutter Web
 │   ├── lib/
@@ -332,6 +360,15 @@ PokeGrading-TechnoBitsSA/
     │   └── <module>/              # Ej: `create_card_logic.dart` contiene las reglas de negocio del flujo
     └── persistence/               # Adaptadores de datos: repositorios, SQL y proveedores externos
         └── <module>/              # Implementaciones concretas (mock, memory, SQL, SMTP, etc.)
+```
+
+# Estructura de paquetes compartidos:
+```
+└── packages/
+    └── pokegrading_<name>/       # Biblioteca Dart reutilizable (sin dependencias de framework)
+        ├── lib/
+        │   └── *.dart             # Código compartido (excepciones, logging, utilidades)
+        └── pubspec.yaml           # Dependencias mínimas; referenciado vía path: en backend y frontend
 ```
 
 

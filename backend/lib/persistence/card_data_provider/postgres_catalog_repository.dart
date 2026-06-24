@@ -69,32 +69,32 @@ class PostgresCatalogRepository implements CatalogRepository {
   }
 
   static const _selectColumns = '''
-    cs.id,
-    cs.set_name,
-    cs.card_number,
-    cs.edition,
+    cr.id,
+    cr.set_name,
+    cr.card_number,
+    cr.edition,
     l.name AS language_name,
-    cs.finish,
-    cs.display_name,
-    cs.registration_date,
-    cs.submitter_id,
-    cs.year,
+    cr.finish,
+    cr.display_name,
+    cr.registration_date,
+    cr.responsible_id,
+    cr.year,
     r.name AS rarity_name,
-    cs.illustrator,
-    cs.hp,
+    cr.illustrator,
+    cr.hp,
     ct.name AS type_name,
-    hs.average_hash_hex,
-    hs.difference_hash_hex,
-    hs.center_average_hash_hex,
-    hs.center_difference_hash_hex
+    hr.average_hash_hex,
+    hr.difference_hash_hex,
+    hr.center_average_hash_hex,
+    hr.center_difference_hash_hex
   ''';
 
   static const _fromClause = '''
-    FROM card_submitter cs
-    LEFT JOIN language l ON cs.language_id = l.id
-    LEFT JOIN rarity r ON cs.rarity_id = r.id
-    LEFT JOIN card_type ct ON cs.type_id = ct.id
-    LEFT JOIN hash_submitter hs ON cs.hash_id = hs.id
+    FROM card_reference cr
+    LEFT JOIN language l ON cr.language_id = l.id
+    LEFT JOIN rarity r ON cr.rarity_id = r.id
+    LEFT JOIN card_type ct ON cr.type_id = ct.id
+    LEFT JOIN hash_reference hr ON cr.hash_id = hr.id
   ''';
 
   @override
@@ -108,12 +108,13 @@ class PostgresCatalogRepository implements CatalogRepository {
 
       final result = await _connection.execute(
         '''
-        SELECT COUNT(1) FROM card_submitter
+        SELECT COUNT(1) FROM card_reference
         WHERE LOWER(set_name) = LOWER(\$1)
           AND card_number = \$2
           AND LOWER(edition) = LOWER(\$3)
           AND language_id = \$4
           AND LOWER(finish) = LOWER(\$5)
+          AND soft_delete = false
         ''',
         parameters: [
           identity.set.trim(),
@@ -172,19 +173,19 @@ class PostgresCatalogRepository implements CatalogRepository {
         final rarityId = await lookups.resolveRarityId(input.display?.rarity);
         final cardNumber = int.parse(input.identity.number.trim());
 
-        final submitterResult = await tx.execute(
-          'SELECT id FROM submitter ORDER BY id LIMIT 1',
+        final adminResult = await tx.execute(
+          'SELECT id FROM admin ORDER BY id LIMIT 1',
         );
-        if (submitterResult.isEmpty) {
+        if (adminResult.isEmpty) {
           throw StateError(
-            'No submitter exists. Register a user before creating cards.',
+            'No admin exists. Register an admin before creating cards.',
           );
         }
-        final submitterId = submitterResult.first.first as int;
+        final adminId = adminResult.first.first as int;
 
         final hashResult = await tx.execute(
           '''
-          INSERT INTO hash_submitter (
+          INSERT INTO hash_reference (
             average_hash_hex,
             difference_hash_hex,
             center_average_hash_hex,
@@ -210,8 +211,8 @@ class PostgresCatalogRepository implements CatalogRepository {
 
         final cardResult = await tx.execute(
           '''
-          INSERT INTO card_submitter (
-            submitter_id,
+          INSERT INTO card_reference (
+            responsible_id,
             hash_id,
             display_name,
             set_name,
@@ -232,7 +233,7 @@ class PostgresCatalogRepository implements CatalogRepository {
           RETURNING id
           ''',
           parameters: [
-            submitterId,
+            adminId,
             hashId,
             cardDisplayName,
             input.identity.set.trim(),
@@ -270,8 +271,8 @@ class PostgresCatalogRepository implements CatalogRepository {
           ? 'ahash:${input.visualFeatures!.averageHashHex ?? ''}|dhash:${input.visualFeatures!.differenceHashHex ?? ''}'
           : null;
 
-      await _images.saveSubmitterImages(
-        cardSubmitterId: parsedId,
+      await _images.saveReferenceImages(
+        cardReferenceId: parsedId,
         frontBase64: input.imageData,
         backBase64: input.backImageData ?? '',
         perceptualHash: perceptualHash,
@@ -313,7 +314,7 @@ class PostgresCatalogRepository implements CatalogRepository {
       }
 
       final result = await _connection.execute(
-        'SELECT $_selectColumns $_fromClause WHERE cs.id = \$1',
+        'SELECT $_selectColumns $_fromClause WHERE cr.id = \$1',
         parameters: [parsedId],
       );
 
@@ -344,7 +345,7 @@ class PostgresCatalogRepository implements CatalogRepository {
       final result = await _connection.execute('''
       SELECT $_selectColumns
       $_fromClause
-      ORDER BY cs.registration_date DESC
+      ORDER BY cr.registration_date DESC
       ''');
 
       AppLogger.info(
@@ -376,13 +377,13 @@ class PostgresCatalogRepository implements CatalogRepository {
 
       if (query.averageHashHex != null &&
           query.averageHashHex!.length == expectedHashLength) {
-        conditions.add('hs.average_hash_hex = \$$paramIdx');
+        conditions.add('hr.average_hash_hex = \$$paramIdx');
         params.add(query.averageHashHex);
         paramIdx++;
       }
       if (query.differenceHashHex != null &&
           query.differenceHashHex!.length == expectedHashLength) {
-        conditions.add('hs.difference_hash_hex = \$$paramIdx');
+        conditions.add('hr.difference_hash_hex = \$$paramIdx');
         params.add(query.differenceHashHex);
         paramIdx++;
       }
@@ -400,7 +401,7 @@ class PostgresCatalogRepository implements CatalogRepository {
         SELECT $_selectColumns
         $_fromClause
         WHERE ${conditions.join(' OR ')}
-        ORDER BY cs.registration_date DESC
+        ORDER BY cr.registration_date DESC
         LIMIT 20
         ''',
         parameters: params,
@@ -440,10 +441,10 @@ class PostgresCatalogRepository implements CatalogRepository {
         '''
         SELECT $_selectColumns
         $_fromClause
-        WHERE cs.display_name ILIKE \$1
-           OR cs.set_name ILIKE \$1
-           OR CAST(cs.card_number AS TEXT) ILIKE \$1
-        ORDER BY cs.registration_date DESC
+        WHERE cr.display_name ILIKE \$1
+           OR cr.set_name ILIKE \$1
+           OR CAST(cr.card_number AS TEXT) ILIKE \$1
+        ORDER BY cr.registration_date DESC
         LIMIT 20
         ''',
         parameters: ['%$searchTerm%'],

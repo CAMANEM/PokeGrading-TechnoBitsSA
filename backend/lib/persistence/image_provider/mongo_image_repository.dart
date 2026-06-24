@@ -8,7 +8,7 @@ import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import 'image_storage_repository.dart';
 
-/// MongoDB GridFS implementation for submitter card images.
+/// MongoDB GridFS implementation for card images (submitter and reference).
 class MongoImageRepository implements ImageStorageRepository {
   final Db _db;
 
@@ -40,8 +40,10 @@ class MongoImageRepository implements ImageStorageRepository {
   }
 
   DbCollection get _metadata => _db.collection('submitter_images');
+  DbCollection get _referenceMetadata => _db.collection('reference_images');
 
   GridFS get _gridFs => GridFS(_db, 'submitter_fs');
+  GridFS get _referenceGridFs => GridFS(_db, 'reference_fs');
 
   @override
   Future<void> saveSubmitterImages({
@@ -216,6 +218,186 @@ class MongoImageRepository implements ImageStorageRepository {
         'PokéGrading.Persistence.MongoImageRepository',
         'Failed to load submitter images',
         context: {'card_submitter_id': cardSubmitterId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> saveReferenceImages({
+    required int cardReferenceId,
+    required String frontBase64,
+    required String backBase64,
+    String? perceptualHash,
+  }) async {
+    AppLogger.info(
+      'PokéGrading.Persistence.MongoImageRepository',
+      'Saving reference images',
+      context: {'card_reference_id': cardReferenceId},
+    );
+
+    try {
+      await _saveReferenceSide(
+        cardReferenceId: cardReferenceId,
+        side: 'front',
+        imageBase64: frontBase64,
+        perceptualHash: perceptualHash,
+      );
+      await _saveReferenceSide(
+        cardReferenceId: cardReferenceId,
+        side: 'back',
+        imageBase64: backBase64,
+        perceptualHash: null,
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Failed to save reference images',
+        context: {'card_reference_id': cardReferenceId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _saveReferenceSide({
+    required int cardReferenceId,
+    required String side,
+    required String imageBase64,
+    String? perceptualHash,
+  }) async {
+    final decoded = _decodeImage(imageBase64);
+    if (decoded == null) {
+      AppLogger.warning(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Invalid image data for $side side',
+        context: {'card_reference_id': cardReferenceId},
+      );
+      throw ArgumentError('Invalid image data for $side side');
+    }
+
+    final existing = await _referenceMetadata.findOne(where
+        .eq('card_reference_id', cardReferenceId)
+        .eq('side', side));
+
+    if (existing != null) {
+      AppLogger.info(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Replacing existing reference image',
+        context: {
+          'card_reference_id': cardReferenceId,
+          'side': side,
+        },
+      );
+      final oldFileId = existing['file_id'];
+      if (oldFileId is ObjectId) {
+        final oldFile = await _referenceGridFs.findOne(where.id(oldFileId));
+        if (oldFile != null) {
+          await oldFile.delete();
+        }
+      }
+      await _referenceMetadata.deleteOne(where
+          .eq('card_reference_id', cardReferenceId)
+          .eq('side', side));
+    }
+
+    final filename =
+        'reference_${cardReferenceId}_${side}_${DateTime.now().millisecondsSinceEpoch}';
+    final gridIn = _referenceGridFs.createFile(
+      Stream.value(decoded.bytes),
+      filename,
+      {
+        'card_reference_id': cardReferenceId,
+        'side': side,
+      },
+    );
+    gridIn.contentType = decoded.contentType;
+    await gridIn.save();
+
+    await _referenceMetadata.insert({
+      'card_reference_id': cardReferenceId,
+      'side': side,
+      'file_id': gridIn.id,
+      'content_type': decoded.contentType,
+      'width': decoded.width,
+      'height': decoded.height,
+      'size_bytes': decoded.bytes.length,
+      if (perceptualHash != null) 'perceptual_hash': perceptualHash,
+      'uploaded_at': DateTime.now().toUtc(),
+    });
+  }
+
+  @override
+  Future<({String front, String back})?> loadReferenceImages(
+    int cardReferenceId,
+  ) async {
+    try {
+      final docs = await _referenceMetadata
+          .find(where.eq('card_reference_id', cardReferenceId))
+          .toList();
+
+      if (docs.isEmpty) {
+        AppLogger.info(
+          'PokéGrading.Persistence.MongoImageRepository',
+          'No images found for reference',
+          context: {'card_reference_id': cardReferenceId},
+        );
+        return null;
+      }
+
+      String? front;
+      String? back;
+
+      for (final doc in docs) {
+        final side = doc['side']?.toString();
+        final fileId = doc['file_id'];
+        if (side == null || fileId is! ObjectId) continue;
+
+        final gridOut = await _referenceGridFs.findOne(where.id(fileId));
+        if (gridOut == null) continue;
+
+        final chunks = <int>[];
+        await for (final chunk in _referenceGridFs.chunks
+            .find(where.eq('files_id', fileId).sortBy('n'))) {
+          final data = chunk['data'] as BsonBinary;
+          chunks.addAll(data.byteList);
+        }
+
+        final contentType = doc['content_type']?.toString() ??
+            gridOut.contentType ??
+            'image/jpeg';
+        final mime = contentType.split(';').first;
+        final base64Payload = base64Encode(Uint8List.fromList(chunks));
+        final dataUrl = 'data:$mime;base64,$base64Payload';
+
+        if (side == 'front') {
+          front = dataUrl;
+        } else if (side == 'back') {
+          back = dataUrl;
+        }
+      }
+
+      if (front == null || back == null) {
+        AppLogger.warning(
+          'PokéGrading.Persistence.MongoImageRepository',
+          'Incomplete reference image set loaded',
+          context: {
+            'card_reference_id': cardReferenceId,
+            'has_front': front != null,
+            'has_back': back != null,
+          },
+        );
+        return null;
+      }
+      return (front: front, back: back);
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.MongoImageRepository',
+        'Failed to load reference images',
+        context: {'card_reference_id': cardReferenceId},
         error: error,
         stackTrace: stack,
       );
