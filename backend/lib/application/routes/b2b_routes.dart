@@ -100,8 +100,13 @@ Router buildB2bRoutes({
 
     final apiKey = request.headers['authorization'] ?? '';
 
+    int apiKeyId, customerId;
+
     try {
-      B2bValidators.validateKey(apiKey, apiKeyRepository);
+      B2bAuthContext auth =
+          await B2bValidators.validateKey(apiKey, apiKeyRepository);
+      apiKeyId = auth.apiKeyId;
+      customerId = auth.customerId;
     } on B2bException catch (error) {
       final extra = error.apiKeyId != null && error.customerId != null
           ? {'customer_id': error.customerId, 'api_key_id': error.apiKeyId}
@@ -115,8 +120,8 @@ Router buildB2bRoutes({
       request: request,
       body: b2bConsultBodySummary(payload),
       extra: {
-        'api_key_id': auth.apiKeyId,
-        'customer_id': auth.customerId,
+        'api_key_id': apiKeyId,
+        'customer_id': customerId,
         'correlation_id': correlationId,
       },
     );
@@ -127,52 +132,14 @@ Router buildB2bRoutes({
       context: requestContext,
     );
 
-    if (payload['cards'] is! List) {
-      return reject(
-        400,
-        'INVALID_REQUEST',
-        'Request body must include a cards array',
-        extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
-        },
-      );
-    }
-
-    final cardsRaw = payload['cards'] as List;
-    if (cardsRaw.isEmpty) {
-      return reject(
-        400,
-        'EMPTY_CARDS',
-        'Request must include at least one card',
-        extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
-        },
-      );
-    }
-
-    final cards = <B2bConsultCardInput>[];
-    for (final item in cardsRaw) {
-      if (item is! Map) {
-        return reject(
-          400,
-          'INVALID_REQUEST',
-          'Each card must be an object with set and number',
-          extra: {
-            'api_key_id': auth.apiKeyId,
-            'customer_id': auth.customerId,
-          },
-        );
-      }
-      final map = Map<String, dynamic>.from(item);
-      cards.add(B2bConsultCardInput(
-        set: (map['set'] ?? '').toString(),
-        number: (map['number'] ?? '').toString(),
-        edition: map['edition']?.toString(),
-        language: map['language']?.toString(),
-        finish: map['finish']?.toString(),
-      ));
+    List<B2bConsultCardInput> input;
+    try {
+      input = B2bValidators.validateCardsField(payload['cards']);
+    } on B2bException catch (error) {
+      final extra = error.apiKeyId != null && error.customerId != null
+          ? {'api_key_id': error.apiKeyId, 'customer_id': error.customerId}
+          : null;
+      return reject(error.code, error.err_type, error.message, extra: extra);
     }
 
     final clientRequestId = request.headers['x-request-id'];
@@ -228,7 +195,7 @@ Router buildB2bRoutes({
         );
       }
 
-      final result = await consultLogic.consult(cards);
+      final result = await consultLogic.consult(input);
 
       if (ifNoneMatch != null && ifNoneMatch.trim() == result.etag) {
         AppLogger.info(

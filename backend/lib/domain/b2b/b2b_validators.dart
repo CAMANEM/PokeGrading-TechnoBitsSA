@@ -6,14 +6,8 @@ import '../../persistence/b2b_data_provider/api_key_repository.dart';
 import '../../core/logging/app_logger.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
-Never _throwValidationError(
-    int code,
-    String err_type,
-    String err_message,
-    int? apiKeyId,
-    String? apiKeyStatus,
-    int? customerId,
-    String? customerStatus) {
+Never _throwFullValidationError(int code, String err_type, String err_message,
+    int apiKeyId, String apiKeyStatus, int customerId, String customerStatus) {
   throw B2bException(
       code: code,
       err_type: err_type,
@@ -22,6 +16,11 @@ Never _throwValidationError(
       apiKeyStatus: apiKeyStatus,
       customerId: customerId,
       customerStatus: customerStatus);
+}
+
+Never _throwShortValidationError(
+    int code, String err_type, String err_message) {
+  throw B2bException(code: code, err_type: err_type, message: err_message);
 }
 
 /// B2B canonical codes and per-card validation (isolated from submitter validators).
@@ -97,13 +96,13 @@ class B2bValidators {
       String plaintextKey, ApiKeyRepository apiKeyRepository) async {
     String key = plaintextKey.trim();
     if (key.isEmpty) {
-      _throwValidationError(401, 'MISSING_API_KEY',
-          'Authorization header must contain API key', null, null, null, null);
+      _throwShortValidationError(
+          401, 'MISSING_API_KEY', 'Authorization header must contain API key');
     }
     B2bAuthContext? result = await apiKeyRepository.keyLookUp(key);
     if (result == null) {
-      _throwValidationError(404, 'AUTH_INVALID_API_KEY', 'Api Key Not Found',
-          null, null, null, null);
+      _throwShortValidationError(
+          404, 'AUTH_INVALID_API_KEY', 'Api Key Not Found');
     }
     if (result.apiKeyStatus == 'revoked') {
       DateTime? grace =
@@ -115,7 +114,7 @@ class B2bValidators {
             'Revoked API key rejected - grace period expired',
             context: {'api_key_id': result.apiKeyId},
           );
-          _throwValidationError(
+          _throwFullValidationError(
               409,
               'EXPIRED_GRACE_PERIOD',
               'Grace period expired',
@@ -130,7 +129,7 @@ class B2bValidators {
           'Revoked API key rejected - no grace period',
           context: {'api_key_id': result.apiKeyId},
         );
-        _throwValidationError(
+        _throwFullValidationError(
             404,
             'GRACE_PERIOD_NOT_FOUND',
             'No grace period',
@@ -151,7 +150,7 @@ class B2bValidators {
           'status': result.apiKeyStatus,
         },
       );
-      _throwValidationError(
+      _throwFullValidationError(
           409,
           'INVALID_API_KEY_STATUS',
           'Invalid status',
@@ -162,7 +161,7 @@ class B2bValidators {
     }
 
     if (result.customerStatus == 'suspended') {
-      _throwValidationError(
+      _throwFullValidationError(
           403,
           'CUSTOMER_SUSPENDED',
           'B2B customer account is suspended',
@@ -173,7 +172,7 @@ class B2bValidators {
     }
 
     if (result.apiKeyStatus == 'suspended') {
-      _throwValidationError(
+      _throwFullValidationError(
           403,
           'API_KEY_SUSPENDED',
           'API key is suspended',
@@ -183,6 +182,37 @@ class B2bValidators {
           result.customerStatus);
     }
 
+    return result;
+  }
+
+  static List<B2bConsultCardInput> validateCardsField(
+      Map<String, dynamic> cards) {
+    final result = <B2bConsultCardInput>[];
+    if (cards is! List) {
+      _throwShortValidationError(
+          400, 'INVALID_REQUEST', 'Request body must include a cards array');
+    }
+
+    final cardsRaw = cards as List;
+    if (cardsRaw.isEmpty) {
+      _throwShortValidationError(
+          400, 'EMPTY_CARDS', 'Request must include at least one card');
+    }
+
+    for (final item in cardsRaw) {
+      if (item is! Map) {
+        _throwShortValidationError(400, 'INVALID_REQUEST',
+            'Each card must be an object with set and number');
+      }
+      final map = Map<String, dynamic>.from(item);
+      result.add(B2bConsultCardInput(
+        set: (map['set'] ?? '').toString(),
+        number: (map['number'] ?? '').toString(),
+        edition: map['edition']?.toString(),
+        language: map['language']?.toString(),
+        finish: map['finish']?.toString(),
+      ));
+    }
     return result;
   }
 }
