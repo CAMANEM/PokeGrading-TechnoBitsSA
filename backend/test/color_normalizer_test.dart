@@ -29,8 +29,9 @@ void main() {
       expect(result.height, 30);
     });
 
-    test('white balance equalizes channel means for color cast image', () {
+    test('white balance corrects strong color cast (above threshold)', () {
       // Create image with strong warm cast (high R, low B).
+      // Channel spread: |200-150| + |150-80| + |200-80| = 170 > threshold (15).
       final src = _createTestImage(10, 10, r: 200, g: 150, b: 80);
       final result = ColorNormalizer.normalize(src);
 
@@ -49,10 +50,37 @@ void main() {
       final avgG = sumG / total;
       final avgB = sumB / total;
 
-      // Channel means should be closer together than the original.
-      final originalSpread = (200 - 80).toDouble();
+      // Channel means should be closer together than the original
+      // (partial correction at 60% strength).
+      final originalSpread = (200 - 80).abs();
       final resultSpread = (avgR - avgB).abs();
       expect(resultSpread, lessThan(originalSpread));
+    });
+
+    test('skips white balance for mild color cast (below threshold)', () {
+      // Create image with mild cast AND full dynamic range.
+      // This ensures both white balance (spread < 15) and histogram
+      // stretch (range >= 200) are skipped, so output matches input.
+      final src = img.Image(width: 10, height: 10);
+      for (var y = 0; y < 10; y++) {
+        for (var x = 0; x < 10; x++) {
+          // Mild cast per pixel, but range spans 10..240 across the image.
+          final base = x < 5 ? 10 : 240;
+          src.setPixel(x, y, img.ColorRgb8(base + 3, base, base - 3));
+        }
+      }
+      final result = ColorNormalizer.normalize(src);
+
+      // Verify pixel is unchanged (both steps skipped).
+      final p0 = result.getPixel(0, 0);
+      expect(p0.r.toInt(), 13); // 10+3
+      expect(p0.g.toInt(), 10);
+      expect(p0.b.toInt(), 7);  // 10-3
+
+      final p1 = result.getPixel(5, 0);
+      expect(p1.r.toInt(), 243); // 240+3
+      expect(p1.g.toInt(), 240);
+      expect(p1.b.toInt(), 237); // 240-3
     });
 
     test('preserves neutral images (no color cast)', () {
