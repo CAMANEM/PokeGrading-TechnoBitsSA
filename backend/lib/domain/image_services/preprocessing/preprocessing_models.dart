@@ -181,15 +181,19 @@ class PreprocessingMetadata {
   /// Time taken for perspective correction (milliseconds).
   final int correctionTimeMs;
 
+  /// Time taken for color normalization (milliseconds).
+  final int normalizationTimeMs;
+
   /// Total processing time (milliseconds).
   final int totalTimeMs;
 
   /// Version of the preprocessing algorithm.
-  static const String algorithmVersion = '1.0.0';
+  static const String algorithmVersion = '1.1.0';
 
   const PreprocessingMetadata({
     required this.detectionTimeMs,
     required this.correctionTimeMs,
+    required this.normalizationTimeMs,
     required this.totalTimeMs,
   });
 
@@ -197,11 +201,13 @@ class PreprocessingMetadata {
   factory PreprocessingMetadata.timed({
     required int detectionTimeMs,
     required int correctionTimeMs,
+    int normalizationTimeMs = 0,
   }) {
     return PreprocessingMetadata(
       detectionTimeMs: detectionTimeMs,
       correctionTimeMs: correctionTimeMs,
-      totalTimeMs: detectionTimeMs + correctionTimeMs,
+      normalizationTimeMs: normalizationTimeMs,
+      totalTimeMs: detectionTimeMs + correctionTimeMs + normalizationTimeMs,
     );
   }
 }
