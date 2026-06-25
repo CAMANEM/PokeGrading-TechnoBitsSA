@@ -7,6 +7,8 @@ enum ConfidenceType { fast, specialized }
 
 /// @brief ConfidenceScore
 class ConfidenceScore {
+  static const double _globalProportion = 0.40;
+  static const double _complementaryProportion = 0.20;
   static double calculateConfidence(
       VisualFeatures a, VisualFeatures b, ConfidenceType type) {
     if (a.isEmpty || b.isEmpty) {
@@ -76,10 +78,10 @@ class ConfidenceScore {
       b.edgeHashHex,
     );
 
-    return global * 0.40 +
-        centerAHash * 0.20 +
-        centerDHash * 0.20 +
-        edge * 0.20;
+    return global * _globalProportion +
+        centerAHash * _complementaryProportion +
+        centerDHash * _complementaryProportion +
+        edge * _complementaryProportion;
   }
 
   /// Compares two hex-encoded perceptual hashes and returns a similarity
