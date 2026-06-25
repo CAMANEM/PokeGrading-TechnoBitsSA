@@ -12,6 +12,7 @@ import 'package:image/image.dart' as img;
 import '../../../core/logging/app_logger.dart';
 import 'preprocessing_models.dart';
 import 'card_contour_detector.dart';
+import 'color_normalizer.dart';
 import 'perspective_transform.dart';
 
 /// Result of the complete preprocessing pipeline.
@@ -166,6 +167,22 @@ class PreprocessingService {
       // always has large values due to scaling. Contour detection already
       // validates the card shape.
 
+      // Normalize color (white balance + histogram stretch)
+      final normalizationStart = Stopwatch()..start();
+      final cardImage = img.decodeImage(
+        Uint8List.fromList(base64Decode(correctionResult.correctedImageData!)),
+      );
+      String finalImageData;
+      if (cardImage != null) {
+        final normalized = ColorNormalizer.normalize(cardImage);
+        final normalizedJpeg = img.encodeJpg(normalized, quality: 95);
+        finalImageData = base64Encode(normalizedJpeg);
+      } else {
+        // Fallback: use un-normalized image if decode fails.
+        finalImageData = correctionResult.correctedImageData!;
+      }
+      normalizationStart.stop();
+
       AppLogger.info(
         _loggerName,
         'Card preprocessing successful',
@@ -174,14 +191,16 @@ class PreprocessingService {
           'area_ratio': contourResult.contourAreaRatio.toStringAsFixed(3),
           'detection_ms': detectionStart.elapsedMilliseconds,
           'correction_ms': correctionStart.elapsedMilliseconds,
+          'normalization_ms': normalizationStart.elapsedMilliseconds,
         },
       );
 
       return PreprocessingResult.success(
-        correctedImageData: correctionResult.correctedImageData!,
+        correctedImageData: finalImageData,
         metadata: PreprocessingMetadata.timed(
           detectionTimeMs: detectionStart.elapsedMilliseconds,
           correctionTimeMs: correctionStart.elapsedMilliseconds,
+          normalizationTimeMs: normalizationStart.elapsedMilliseconds,
         ),
         detectedCorners: contourResult.corners!,
       );

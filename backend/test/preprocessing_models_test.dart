@@ -102,10 +102,22 @@ void main() {
       final metadata = PreprocessingMetadata.timed(
         detectionTimeMs: 100,
         correctionTimeMs: 50,
+        normalizationTimeMs: 25,
       );
 
       expect(metadata.detectionTimeMs, 100);
       expect(metadata.correctionTimeMs, 50);
+      expect(metadata.normalizationTimeMs, 25);
+      expect(metadata.totalTimeMs, 175);
+    });
+
+    test('timed factory defaults normalizationTimeMs to 0', () {
+      final metadata = PreprocessingMetadata.timed(
+        detectionTimeMs: 100,
+        correctionTimeMs: 50,
+      );
+
+      expect(metadata.normalizationTimeMs, 0);
       expect(metadata.totalTimeMs, 150);
     });
 
