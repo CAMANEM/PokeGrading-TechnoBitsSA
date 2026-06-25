@@ -86,6 +86,9 @@ $RECYCLE.BIN/
 logs/
 *.log.*
 
+# ─── Preprocessing output ───────────────────────────────────
+preprocess_output/
+
 # ─── Temporales ───────────────────────────────────────────────
 *.tmp
 *.temp
