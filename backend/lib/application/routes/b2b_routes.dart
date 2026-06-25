@@ -280,7 +280,7 @@ Router buildB2bRoutes({
       );
 
       return _consultResponse(
-        200,
+        _obtainCodeForResponse(result),
         responseBody,
         etag: result.etag,
         lastModified: result.lastModified,
@@ -345,6 +345,24 @@ Response _consultResponse(
       'Last-Modified': _formatHttpDate(lastModified),
     },
   );
+}
+
+int _obtainCodeForResponse(B2bConsultResult result) {
+  bool hasNotCovered = false;
+  for (final card in result.results) {
+    switch (card.status) {
+      case B2bConsultStatus.invalidParameters:
+        return 400;
+      case B2bConsultStatus.notCovered:
+        hasNotCovered = true;
+        break;
+      case B2bConsultStatus.multipleMatch:
+      case B2bConsultStatus.covered:
+        break;
+    }
+  }
+
+  return hasNotCovered ? 404 : 200;
 }
 
 /// Formats a UTC timestamp for the HTTP `Last-Modified` header.
