@@ -6,12 +6,22 @@ import '../../persistence/b2b_data_provider/api_key_repository.dart';
 import '../../core/logging/app_logger.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
-Never _throwValidationError(String code, String err) {
-  throw LogicException(
-    feature: 'b2b',
-    code: code,
-    message: err,
-  );
+Never _throwValidationError(
+    int code,
+    String err_type,
+    String err_message,
+    int? apiKeyId,
+    String? apiKeyStatus,
+    int? customerId,
+    String? customerStatus) {
+  throw B2bException(
+      code: code,
+      err_type: err_type,
+      message: err_message,
+      apiKeyId: apiKeyId,
+      apiKeyStatus: apiKeyStatus,
+      customerId: customerId,
+      customerStatus: customerStatus);
 }
 
 /// B2B canonical codes and per-card validation (isolated from submitter validators).
@@ -83,11 +93,17 @@ class B2bValidators {
     return null;
   }
 
-  static Future<void> validateKey(
+  static Future<B2bAuthContext> validateKey(
       String plaintextKey, ApiKeyRepository apiKeyRepository) async {
-    B2bAuthContext? result = await apiKeyRepository.keyLookUp(plaintextKey);
+    String key = plaintextKey.trim();
+    if (key.isEmpty) {
+      _throwValidationError(401, 'MISSING_API_KEY',
+          'Authorization header must contain API key', null, null, null, null);
+    }
+    B2bAuthContext? result = await apiKeyRepository.keyLookUp(key);
     if (result == null) {
-      _throwValidationError("404", 'Api Key Not Found');
+      _throwValidationError(404, 'AUTH_INVALID_API_KEY', 'Api Key Not Found',
+          null, null, null, null);
     }
     if (result.apiKeyStatus == 'revoked') {
       DateTime? grace =
@@ -99,7 +115,14 @@ class B2bValidators {
             'Revoked API key rejected - grace period expired',
             context: {'api_key_id': result.apiKeyId},
           );
-          _throwValidationError('409', 'Grace period expired');
+          _throwValidationError(
+              409,
+              'EXPIRED_GRACE_PERIOD',
+              'Grace period expired',
+              result.apiKeyId,
+              result.apiKeyStatus,
+              result.customerId,
+              result.customerStatus);
         }
       } else {
         AppLogger.warning(
@@ -107,7 +130,14 @@ class B2bValidators {
           'Revoked API key rejected - no grace period',
           context: {'api_key_id': result.apiKeyId},
         );
-        _throwValidationError('404', 'No grace period');
+        _throwValidationError(
+            404,
+            'GRACE_PERIOD_NOT_FOUND',
+            'No grace period',
+            result.apiKeyId,
+            result.apiKeyStatus,
+            result.customerId,
+            result.customerStatus);
       }
     }
 
@@ -121,7 +151,38 @@ class B2bValidators {
           'status': result.apiKeyStatus,
         },
       );
-      _throwValidationError('409', 'Invalid status');
+      _throwValidationError(
+          409,
+          'INVALID_API_KEY_STATUS',
+          'Invalid status',
+          result.apiKeyId,
+          result.apiKeyStatus,
+          result.customerId,
+          result.customerStatus);
     }
+
+    if (result.customerStatus == 'suspended') {
+      _throwValidationError(
+          403,
+          'CUSTOMER_SUSPENDED',
+          'B2B customer account is suspended',
+          result.apiKeyId,
+          result.apiKeyStatus,
+          result.customerId,
+          result.customerStatus);
+    }
+
+    if (result.apiKeyStatus == 'suspended') {
+      _throwValidationError(
+          403,
+          'API_KEY_SUSPENDED',
+          'API key is suspended',
+          result.apiKeyId,
+          result.apiKeyStatus,
+          result.customerId,
+          result.customerStatus);
+    }
+
+    return result;
   }
 }

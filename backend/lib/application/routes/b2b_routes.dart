@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
@@ -97,51 +98,16 @@ Router buildB2bRoutes({
       );
     }
 
-    final authHeader = request.headers['authorization'] ?? '';
-    final apiKey = _parseApiKey(authHeader);
-    if (apiKey == null) {
-      return reject(
-        401,
-        'AUTH_MISSING_API_KEY',
-        'Authorization header must be ApiKey <key>',
-        auditOutcome: 'auth_missing',
-      );
-    }
+    final apiKey = request.headers['authorization'] ?? '';
 
-    final auth = await B2bValidators.validateKey(apiKey, apiKeyRepository);
-    if (auth == null) {
-      return reject(
-        401,
-        'AUTH_INVALID_API_KEY',
-        'API key is invalid, revoked, or expired',
-        auditOutcome: 'auth_invalid',
-      );
-    }
-
-    if (auth.customerStatus == 'suspended') {
-      return reject(
-        403,
-        'CUSTOMER_SUSPENDED',
-        'B2B customer account is suspended',
-        extra: {
-          'customer_id': auth.customerId,
-          'api_key_id': auth.apiKeyId,
-        },
-        auditOutcome: 'customer_suspended',
-      );
-    }
-
-    if (auth.apiKeyStatus == 'suspended') {
-      return reject(
-        403,
-        'API_KEY_SUSPENDED',
-        'API key is suspended',
-        extra: {
-          'customer_id': auth.customerId,
-          'api_key_id': auth.apiKeyId,
-        },
-        auditOutcome: 'api_key_suspended',
-      );
+    try {
+      B2bValidators.validateKey(apiKey, apiKeyRepository);
+    } on B2bException catch (error) {
+      final extra = error.apiKeyId != null && error.customerId != null
+          ? {'customer_id': error.customerId, 'api_key_id': error.apiKeyId}
+          : null;
+      return reject(error.code, error.err_type, error.message,
+          extra: extra, auditOutcome: 'auth_invalid');
     }
 
     final payload = await readJson(request);
