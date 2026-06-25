@@ -184,16 +184,20 @@ class PreprocessingMetadata {
   /// Time taken for color normalization (milliseconds).
   final int normalizationTimeMs;
 
+  /// Time taken for ROI segmentation (milliseconds).
+  final int segmentationTimeMs;
+
   /// Total processing time (milliseconds).
   final int totalTimeMs;
 
   /// Version of the preprocessing algorithm.
-  static const String algorithmVersion = '1.1.0';
+  static const String algorithmVersion = '1.2.0';
 
   const PreprocessingMetadata({
     required this.detectionTimeMs,
     required this.correctionTimeMs,
     required this.normalizationTimeMs,
+    required this.segmentationTimeMs,
     required this.totalTimeMs,
   });
 
@@ -202,12 +206,17 @@ class PreprocessingMetadata {
     required int detectionTimeMs,
     required int correctionTimeMs,
     int normalizationTimeMs = 0,
+    int segmentationTimeMs = 0,
   }) {
     return PreprocessingMetadata(
       detectionTimeMs: detectionTimeMs,
       correctionTimeMs: correctionTimeMs,
       normalizationTimeMs: normalizationTimeMs,
-      totalTimeMs: detectionTimeMs + correctionTimeMs + normalizationTimeMs,
+      segmentationTimeMs: segmentationTimeMs,
+      totalTimeMs: detectionTimeMs +
+          correctionTimeMs +
+          normalizationTimeMs +
+          segmentationTimeMs,
     );
   }
 }

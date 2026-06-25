@@ -14,11 +14,12 @@ import 'preprocessing_models.dart';
 import 'card_contour_detector.dart';
 import 'color_normalizer.dart';
 import 'perspective_transform.dart';
+import 'roi_segmenter.dart';
 
 /// Result of the complete preprocessing pipeline.
 ///
-/// Contains the corrected image (if successful) and metadata about
-/// the processing steps.
+/// Contains the corrected image (if successful), extracted ROIs,
+/// and metadata about the processing steps.
 class PreprocessingResult {
   /// Whether preprocessing was successful.
   final bool success;
@@ -26,6 +27,13 @@ class PreprocessingResult {
   /// Base64-encoded corrected image (JPEG).
   /// Null if preprocessing failed.
   final String? correctedImageData;
+
+  /// Extracted ROI regions (centering, corners, edges, surface).
+  /// Null if ROI extraction failed or was not performed.
+  final RoiResult? rois;
+
+  /// Base64-encoded ROI images for JSON serialization.
+  final RoiData? roiData;
 
   /// Error information if preprocessing failed.
   final PreprocessingError? error;
@@ -42,6 +50,8 @@ class PreprocessingResult {
   const PreprocessingResult({
     required this.success,
     this.correctedImageData,
+    this.rois,
+    this.roiData,
     this.error,
     this.errorMessage,
     required this.metadata,
@@ -53,12 +63,16 @@ class PreprocessingResult {
     required String correctedImageData,
     required PreprocessingMetadata metadata,
     required List<Point2D> detectedCorners,
+    RoiResult? rois,
+    RoiData? roiData,
   }) {
     return PreprocessingResult(
       success: true,
       correctedImageData: correctedImageData,
       metadata: metadata,
       detectedCorners: detectedCorners,
+      rois: rois,
+      roiData: roiData,
     );
   }
 
@@ -75,6 +89,33 @@ class PreprocessingResult {
       metadata: metadata,
     );
   }
+}
+
+/// Base64-encoded ROI images for JSON serialization.
+class RoiData {
+  final String centering;
+  final String cornerTopLeft;
+  final String cornerTopRight;
+  final String cornerBottomLeft;
+  final String cornerBottomRight;
+  final String edgeTop;
+  final String edgeBottom;
+  final String edgeLeft;
+  final String edgeRight;
+  final String surface;
+
+  const RoiData({
+    required this.centering,
+    required this.cornerTopLeft,
+    required this.cornerTopRight,
+    required this.cornerBottomLeft,
+    required this.cornerBottomRight,
+    required this.edgeTop,
+    required this.edgeBottom,
+    required this.edgeLeft,
+    required this.edgeRight,
+    required this.surface,
+  });
 }
 
 /// Main service for card image preprocessing.
@@ -173,15 +214,44 @@ class PreprocessingService {
         Uint8List.fromList(base64Decode(correctionResult.correctedImageData!)),
       );
       String finalImageData;
+      img.Image? normalizedImage;
       if (cardImage != null) {
-        final normalized = ColorNormalizer.normalize(cardImage);
-        final normalizedJpeg = img.encodeJpg(normalized, quality: 95);
+        normalizedImage = ColorNormalizer.normalize(cardImage);
+        final normalizedJpeg = img.encodeJpg(normalizedImage, quality: 95);
         finalImageData = base64Encode(normalizedJpeg);
       } else {
         // Fallback: use un-normalized image if decode fails.
         finalImageData = correctionResult.correctedImageData!;
       }
       normalizationStart.stop();
+
+      // Extract ROIs (centering, corners, edges, surface)
+      final segmentationStart = Stopwatch()..start();
+      RoiData? roiData;
+      if (normalizedImage != null) {
+        try {
+          final rois = RoiSegmenter.extract(normalizedImage);
+          roiData = RoiData(
+            centering: base64Encode(img.encodeJpg(rois.centering, quality: 95)),
+            cornerTopLeft: base64Encode(img.encodeJpg(rois.cornerTopLeft, quality: 95)),
+            cornerTopRight: base64Encode(img.encodeJpg(rois.cornerTopRight, quality: 95)),
+            cornerBottomLeft: base64Encode(img.encodeJpg(rois.cornerBottomLeft, quality: 95)),
+            cornerBottomRight: base64Encode(img.encodeJpg(rois.cornerBottomRight, quality: 95)),
+            edgeTop: base64Encode(img.encodeJpg(rois.edgeTop, quality: 95)),
+            edgeBottom: base64Encode(img.encodeJpg(rois.edgeBottom, quality: 95)),
+            edgeLeft: base64Encode(img.encodeJpg(rois.edgeLeft, quality: 95)),
+            edgeRight: base64Encode(img.encodeJpg(rois.edgeRight, quality: 95)),
+            surface: base64Encode(img.encodeJpg(rois.surface, quality: 95)),
+          );
+        } catch (e) {
+          AppLogger.info(
+            _loggerName,
+            'ROI extraction failed (non-fatal)',
+            context: {'error': e.toString()},
+          );
+        }
+      }
+      segmentationStart.stop();
 
       AppLogger.info(
         _loggerName,
@@ -192,6 +262,7 @@ class PreprocessingService {
           'detection_ms': detectionStart.elapsedMilliseconds,
           'correction_ms': correctionStart.elapsedMilliseconds,
           'normalization_ms': normalizationStart.elapsedMilliseconds,
+          'segmentation_ms': segmentationStart.elapsedMilliseconds,
         },
       );
 
@@ -201,8 +272,10 @@ class PreprocessingService {
           detectionTimeMs: detectionStart.elapsedMilliseconds,
           correctionTimeMs: correctionStart.elapsedMilliseconds,
           normalizationTimeMs: normalizationStart.elapsedMilliseconds,
+          segmentationTimeMs: segmentationStart.elapsedMilliseconds,
         ),
         detectedCorners: contourResult.corners!,
+        roiData: roiData,
       );
     } catch (e, stack) {
       stopwatch.stop();
