@@ -9,6 +9,8 @@ import '../../../core/logging/app_logger.dart';
 import '../b2b_models.dart';
 import '../b2b_validators.dart';
 import '../../../persistence/b2b_data_provider/reference_catalog_repository.dart';
+import '../../../persistence/b2b_data_provider/idempotency_repository.dart';
+import '../../../persistence/b2b_data_provider/b2b_audit_repository.dart';
 
 /// Orchestrates batch catalog coverage lookup for B2B customers.
 ///
@@ -118,7 +120,8 @@ class ConsultLogic {
     final lastModified = maxModified ?? DateTime.now().toUtc();
     final etag = _computeEtag(results);
 
-    final durationMs = DateTime.now().toUtc().difference(started).inMilliseconds;
+    final durationMs =
+        DateTime.now().toUtc().difference(started).inMilliseconds;
     AppLogger.metric(
       _loggerName,
       'b2b.consult.batch',
@@ -136,6 +139,49 @@ class ConsultLogic {
       results: results,
       etag: etag,
       lastModified: lastModified,
+    );
+  }
+
+  Future<IdempotencyRecord?> consultIdempotency(int apiKey, String requestId,
+      IdempotencyRepository idempotencyRepository) async {
+    return await idempotencyRepository.find(
+        apiKeyId: apiKey, requestId: requestId);
+  }
+
+  Future<void> recordAuditConsult(
+      int apiKeyId,
+      int customerId,
+      String? clientRequestId,
+      String ip,
+      int cardCount,
+      String apiVersion,
+      B2bAuditRepository auditRepository) async {
+    await auditRepository.recordConsult(
+      apiKeyId: apiKeyId,
+      customerId: customerId,
+      requestId: clientRequestId?.trim(),
+      ipAddress: ip,
+      cardCount: cardCount,
+      apiVersion: apiVersion,
+      outcome: 'success',
+    );
+  }
+
+  Future<void> recordIdempotency(
+      String requestHash,
+      int apiKeyId,
+      String clientRequestId,
+      Map<String, dynamic> storedPayload,
+      int seconds,
+      IdempotencyRepository idempotencyRepository) async {
+    await idempotencyRepository.store(
+      apiKeyId: apiKeyId,
+      requestId: clientRequestId.trim(),
+      requestHash: requestHash,
+      responsePayload: storedPayload,
+      expiresAt: DateTime.now().toUtc().add(
+            Duration(seconds: seconds),
+          ),
     );
   }
 

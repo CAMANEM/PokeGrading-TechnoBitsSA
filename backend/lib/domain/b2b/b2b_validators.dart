@@ -4,6 +4,7 @@
 import 'b2b_models.dart';
 import '../../persistence/b2b_data_provider/api_key_repository.dart';
 import '../../core/logging/app_logger.dart';
+import '../../persistence/b2b_data_provider/rate_limit_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
 Never _throwFullValidationError(int code, String err_type, String err_message,
@@ -40,6 +41,14 @@ class B2bValidators {
     'español': 'ES',
     'japanese': 'JP'
   };
+
+  static int _secondsUntilNextMonth() {
+    final now = DateTime.now().toUtc();
+    final nextMonth = now.month == 12
+        ? DateTime(now.year + 1, 1, 1)
+        : DateTime(now.year, now.month + 1, 1);
+    return nextMonth.difference(now).inSeconds;
+  }
 
   static String lookupNameForLanguageCode(String code) {
     return languageToLookupName[code] ?? code;
@@ -185,8 +194,7 @@ class B2bValidators {
     return result;
   }
 
-  static List<B2bConsultCardInput> validateCardsField(
-      Map<String, dynamic> cards) {
+  static List<B2bConsultCardInput> validateCardsField(dynamic cards) {
     final result = <B2bConsultCardInput>[];
     if (cards is! List) {
       _throwShortValidationError(
@@ -214,5 +222,36 @@ class B2bValidators {
       ));
     }
     return result;
+  }
+
+  static Future<int?> validateRateLimit(int apiKeyId, int cardCount,
+      RateLimitRepository rateLimitRepository, int monthlyLimit) async {
+    final consumedCards =
+        await rateLimitRepository.obtainConsumed(apiKeyId: apiKeyId);
+
+    if (cardCount + consumedCards > monthlyLimit) {
+      final retryAfter = _secondsUntilNextMonth();
+      AppLogger.warning(
+        'PokéGrading.Persistence.RateLimitRepository',
+        'Rate limit exceeded',
+        context: {
+          'api_key_id': apiKeyId,
+          'consumed': consumedCards,
+          'requested': cardCount,
+          'limit': monthlyLimit,
+          'retry_after_seconds': retryAfter,
+        },
+      );
+      return retryAfter;
+    }
+    if (consumedCards > 0) {
+      await rateLimitRepository.updateConsume(
+          apiKeyId: apiKeyId, cardsConsumed: cardCount);
+      return null;
+    } else {
+      await rateLimitRepository.recordConsume(
+          apiKeyId: apiKeyId, cardsConsumed: cardCount);
+      return null;
+    }
   }
 }

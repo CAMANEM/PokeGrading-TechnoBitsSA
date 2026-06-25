@@ -55,24 +55,14 @@ class PostgresRateLimitRepository implements RateLimitRepository {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}';
   }
 
-  int _secondsUntilNextMonth() {
-    final now = DateTime.now().toUtc();
-    final nextMonth = now.month == 12
-        ? DateTime(now.year + 1, 1, 1)
-        : DateTime(now.year, now.month + 1, 1);
-    return nextMonth.difference(now).inSeconds;
-  }
-
   @override
-  Future<int?> tryConsume({
+  Future<int> obtainConsumed({
     required int apiKeyId,
-    required int cardCount,
-    required int monthlyLimit,
   }) async {
     try {
       final windowKey = _windowKey();
 
-      return _connection.runTx<int?>((tx) async {
+      return _connection.runTx<int>((tx) async {
         final existing = await tx.execute(
           '''
           SELECT cards_consumed FROM b2b_rate_usage
@@ -82,55 +72,75 @@ class PostgresRateLimitRepository implements RateLimitRepository {
           parameters: [apiKeyId, windowKey],
         );
 
-        var consumed = 0;
         if (existing.isNotEmpty) {
-          consumed = existing.first.first as int;
+          return existing.first.first as int;
         }
 
-        if (consumed + cardCount > monthlyLimit) {
-          final retryAfter = _secondsUntilNextMonth();
-          AppLogger.warning(
-            'PokéGrading.Persistence.RateLimitRepository',
-            'Rate limit exceeded',
-            context: {
-              'api_key_id': apiKeyId,
-              'consumed': consumed,
-              'requested': cardCount,
-              'limit': monthlyLimit,
-              'retry_after_seconds': retryAfter,
-            },
-          );
-          return retryAfter;
-        }
-
-        if (existing.isEmpty) {
-          await tx.execute(
-            '''
-            INSERT INTO b2b_rate_usage (api_key_id, window_key, cards_consumed)
-            VALUES (\$1, \$2, \$3)
-            ''',
-            parameters: [apiKeyId, windowKey, cardCount],
-          );
-        } else {
-          await tx.execute(
-            '''
-            UPDATE b2b_rate_usage
-            SET cards_consumed = cards_consumed + \$3
-            WHERE api_key_id = \$1 AND window_key = \$2
-            ''',
-            parameters: [apiKeyId, windowKey, cardCount],
-          );
-        }
-
-        return null;
+        return 0;
       });
     } catch (error, stack) {
       AppLogger.error(
         'PokéGrading.Persistence.RateLimitRepository',
         'Rate limit consumption failed',
+        context: {'api_key_id': apiKeyId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> recordConsume(
+      {required int apiKeyId, required int cardsConsumed}) {
+    try {
+      final windowKey = _windowKey();
+      return _connection.runTx<void>((tx) async {
+        await tx.execute(
+          '''
+            INSERT INTO b2b_rate_usage (api_key_id, window_key, cards_consumed)
+            VALUES (\$1, \$2, \$3)
+            ''',
+          parameters: [apiKeyId, windowKey, cardsConsumed],
+        );
+      });
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.RateLimitRepository',
+        'Rate limit inserting failed',
         context: {
           'api_key_id': apiKeyId,
-          'card_count': cardCount,
+          'card_count': cardsConsumed,
+        },
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateConsume(
+      {required int apiKeyId, required int cardsConsumed}) {
+    try {
+      final windowKey = _windowKey();
+      return _connection.runTx<void>((tx) async {
+        await tx.execute(
+          '''
+            UPDATE b2b_rate_usage
+            SET cards_consumed = cards_consumed + \$3
+            WHERE api_key_id = \$1 AND window_key = \$2
+            ''',
+          parameters: [apiKeyId, windowKey, cardsConsumed],
+        );
+      });
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.RateLimitRepository',
+        'Rate limit updating failed',
+        context: {
+          'api_key_id': apiKeyId,
+          'card_count': cardsConsumed,
         },
         error: error,
         stackTrace: stack,

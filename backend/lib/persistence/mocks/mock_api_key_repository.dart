@@ -9,7 +9,7 @@ class MockApiKeyRepository implements ApiKeyRepository {
   });
 
   @override
-  Future<B2bAuthContext?> validateKey(String plaintextKey) async {
+  Future<B2bAuthContext?> keyLookUp(String plaintextKey) async {
     if (plaintextKey.trim() != devApiKey.trim()) {
       return null;
     }
@@ -19,5 +19,11 @@ class MockApiKeyRepository implements ApiKeyRepository {
       customerStatus: 'active',
       apiKeyStatus: 'active',
     );
+  }
+
+  @override
+  Future<DateTime?> checkGracePeriod(int apiKeyId) {
+    // TODO: implement checkGracePeriod
+    throw UnimplementedError();
   }
 }
