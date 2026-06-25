@@ -58,7 +58,7 @@ class PostgresApiKeyRepository implements ApiKeyRepository {
   }
 
   @override
-  Future<B2bAuthContext?> validateKey(String plaintextKey) async {
+  Future<B2bAuthContext?> keyLookUp(String plaintextKey) async {
     try {
       final keyHash = _hasher.hash(plaintextKey);
       final result = await _connection.execute(
@@ -84,43 +84,6 @@ class PostgresApiKeyRepository implements ApiKeyRepository {
       final apiKeyStatus = row[2]?.toString() ?? '';
       final customerStatus = row[3]?.toString() ?? '';
 
-      if (apiKeyStatus == 'revoked') {
-        final graceEnds = await _connection.execute(
-          'SELECT grace_period_ends_at FROM b2b_api_key WHERE id = \$1',
-          parameters: [row[0]],
-        );
-        if (graceEnds.isNotEmpty && graceEnds.first.first != null) {
-          final grace = graceEnds.first.first as DateTime;
-          if (DateTime.now().toUtc().isAfter(grace)) {
-            AppLogger.warning(
-              'PokéGrading.Persistence.ApiKeyRepository',
-              'Revoked API key rejected - grace period expired',
-              context: {'api_key_id': row[0]},
-            );
-            return null;
-          }
-        } else {
-          AppLogger.warning(
-            'PokéGrading.Persistence.ApiKeyRepository',
-            'Revoked API key rejected - no grace period',
-            context: {'api_key_id': row[0]},
-          );
-          return null;
-        }
-      }
-
-      if (apiKeyStatus != 'active' && apiKeyStatus != 'revoked') {
-        AppLogger.warning(
-          'PokéGrading.Persistence.ApiKeyRepository',
-          'API key rejected - invalid status',
-          context: {
-            'api_key_id': row[0],
-            'status': apiKeyStatus,
-          },
-        );
-        return null;
-      }
-
       return B2bAuthContext(
         apiKeyId: row[0] as int,
         customerId: row[1] as int,
@@ -136,5 +99,19 @@ class PostgresApiKeyRepository implements ApiKeyRepository {
       );
       rethrow;
     }
+  }
+
+  @override
+  Future<DateTime?> checkGracePeriod(int apiKeyId) async {
+    final result = await _connection.execute(
+      'SELECT grace_period_ends_at FROM b2b_api_key WHERE id = \$1',
+      parameters: [apiKeyId],
+    );
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result.first.first as DateTime?;
   }
 }

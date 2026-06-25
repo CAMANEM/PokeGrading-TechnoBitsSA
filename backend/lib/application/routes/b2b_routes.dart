@@ -7,11 +7,13 @@ import 'package:crypto/crypto.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
+import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../domain/b2b/b2b_models.dart';
+import '../../domain/b2b/b2b_validators.dart';
 import '../../domain/b2b/consult/consult_logic.dart';
 import '../../persistence/b2b_data_provider/api_key_repository.dart';
 import '../../persistence/b2b_data_provider/b2b_audit_repository.dart';
@@ -96,51 +98,21 @@ Router buildB2bRoutes({
       );
     }
 
-    final authHeader = request.headers['authorization'] ?? '';
-    final apiKey = _parseApiKey(authHeader);
-    if (apiKey == null) {
-      return reject(
-        401,
-        'AUTH_MISSING_API_KEY',
-        'Authorization header must be ApiKey <key>',
-        auditOutcome: 'auth_missing',
-      );
-    }
+    final apiKey = request.headers['authorization'] ?? '';
 
-    final auth = await apiKeyRepository.validateKey(apiKey);
-    if (auth == null) {
-      return reject(
-        401,
-        'AUTH_INVALID_API_KEY',
-        'API key is invalid, revoked, or expired',
-        auditOutcome: 'auth_invalid',
-      );
-    }
+    int apiKeyId, customerId;
 
-    if (auth.customerStatus == 'suspended') {
-      return reject(
-        403,
-        'CUSTOMER_SUSPENDED',
-        'B2B customer account is suspended',
-        extra: {
-          'customer_id': auth.customerId,
-          'api_key_id': auth.apiKeyId,
-        },
-        auditOutcome: 'customer_suspended',
-      );
-    }
-
-    if (auth.apiKeyStatus == 'suspended') {
-      return reject(
-        403,
-        'API_KEY_SUSPENDED',
-        'API key is suspended',
-        extra: {
-          'customer_id': auth.customerId,
-          'api_key_id': auth.apiKeyId,
-        },
-        auditOutcome: 'api_key_suspended',
-      );
+    try {
+      B2bAuthContext auth =
+          await B2bValidators.validateKey(apiKey, apiKeyRepository);
+      apiKeyId = auth.apiKeyId;
+      customerId = auth.customerId;
+    } on B2bException catch (error) {
+      final extra = error.apiKeyId != null && error.customerId != null
+          ? {'customer_id': error.customerId, 'api_key_id': error.apiKeyId}
+          : null;
+      return reject(error.code, error.err_type, error.message,
+          extra: extra, auditOutcome: 'auth_invalid');
     }
 
     final payload = await readJson(request);
@@ -148,8 +120,8 @@ Router buildB2bRoutes({
       request: request,
       body: b2bConsultBodySummary(payload),
       extra: {
-        'api_key_id': auth.apiKeyId,
-        'customer_id': auth.customerId,
+        'api_key_id': apiKeyId,
+        'customer_id': customerId,
         'correlation_id': correlationId,
       },
     );
@@ -160,60 +132,21 @@ Router buildB2bRoutes({
       context: requestContext,
     );
 
-    if (payload['cards'] is! List) {
-      return reject(
-        400,
-        'INVALID_REQUEST',
-        'Request body must include a cards array',
-        extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
-        },
-      );
-    }
-
-    final cardsRaw = payload['cards'] as List;
-    if (cardsRaw.isEmpty) {
-      return reject(
-        400,
-        'EMPTY_CARDS',
-        'Request must include at least one card',
-        extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
-        },
-      );
-    }
-
-    final cards = <B2bConsultCardInput>[];
-    for (final item in cardsRaw) {
-      if (item is! Map) {
-        return reject(
-          400,
-          'INVALID_REQUEST',
-          'Each card must be an object with set and number',
-          extra: {
-            'api_key_id': auth.apiKeyId,
-            'customer_id': auth.customerId,
-          },
-        );
-      }
-      final map = Map<String, dynamic>.from(item);
-      cards.add(B2bConsultCardInput(
-        set: (map['set'] ?? '').toString(),
-        number: (map['number'] ?? '').toString(),
-        edition: map['edition']?.toString(),
-        language: map['language']?.toString(),
-        finish: map['finish']?.toString(),
-      ));
+    List<B2bConsultCardInput> input;
+    try {
+      input = B2bValidators.validateCardsField(payload['cards']);
+    } on B2bException catch (error) {
+      final extra = error.apiKeyId != null && error.customerId != null
+          ? {'api_key_id': error.apiKeyId, 'customer_id': error.customerId}
+          : null;
+      return reject(error.code, error.err_type, error.message,
+          extra: extra, auditOutcome: 'cards_invalid');
     }
 
     final clientRequestId = request.headers['x-request-id'];
     if (clientRequestId != null && clientRequestId.trim().isNotEmpty) {
-      final cached = await idempotencyRepository.find(
-        apiKeyId: auth.apiKeyId,
-        requestId: clientRequestId.trim(),
-      );
+      final cached = await consultLogic.consultIdempotency(
+          apiKeyId, clientRequestId.trim(), idempotencyRepository);
       if (cached != null) {
         AppLogger.info(
           _loggerName,
@@ -239,29 +172,30 @@ Router buildB2bRoutes({
 
     final ifNoneMatch = request.headers['if-none-match'];
 
-    try {
-      final retryAfter = await rateLimitRepository.tryConsume(
-        apiKeyId: auth.apiKeyId,
-        cardCount: cards.length,
-        monthlyLimit: b2bConfig.rateLimitCardsPerMonth,
+    final retryAfter = await B2bValidators.validateRateLimit(
+      apiKeyId,
+      input.length,
+      rateLimitRepository,
+      b2bConfig.rateLimitCardsPerMonth,
+    );
+
+    if (retryAfter != null) {
+      return reject(
+        429,
+        'RATE_LIMIT_EXCEEDED',
+        'Monthly card consult quota exceeded',
+        extra: {
+          'api_key_id': apiKeyId,
+          'customer_id': customerId,
+          'card_count': input.length,
+          'retry_after': retryAfter,
+        },
+        auditOutcome: 'rate_limited',
       );
+    }
 
-      if (retryAfter != null) {
-        return reject(
-          429,
-          'RATE_LIMIT_EXCEEDED',
-          'Monthly card consult quota exceeded',
-          extra: {
-            'api_key_id': auth.apiKeyId,
-            'customer_id': auth.customerId,
-            'card_count': cards.length,
-            'retry_after': retryAfter,
-          },
-          auditOutcome: 'rate_limited',
-        );
-      }
-
-      final result = await consultLogic.consult(cards);
+    try {
+      final result = await consultLogic.consult(input);
 
       if (ifNoneMatch != null && ifNoneMatch.trim() == result.etag) {
         AppLogger.info(
@@ -294,15 +228,8 @@ Router buildB2bRoutes({
           request.headers['x-real-ip'] ??
           'unknown';
 
-      await auditRepository.recordConsult(
-        apiKeyId: auth.apiKeyId,
-        customerId: auth.customerId,
-        requestId: clientRequestId?.trim(),
-        ipAddress: ip,
-        cardCount: cards.length,
-        apiVersion: apiVersion,
-        outcome: 'success',
-      );
+      await consultLogic.recordAuditConsult(apiKeyId, customerId,
+          clientRequestId, ip, input.length, apiVersion, auditRepository);
 
       AppLogger.audit(
         _loggerName,
@@ -310,7 +237,7 @@ Router buildB2bRoutes({
         result: 'success',
         context: {
           ...requestContext,
-          'card_count': cards.length,
+          'card_count': input.length,
           'outcome': 'success',
         },
       );
@@ -318,15 +245,14 @@ Router buildB2bRoutes({
       if (clientRequestId != null && clientRequestId.trim().isNotEmpty) {
         final requestHash =
             sha256.convert(utf8.encode(jsonEncode(payload))).toString();
-        await idempotencyRepository.store(
-          apiKeyId: auth.apiKeyId,
-          requestId: clientRequestId.trim(),
-          requestHash: requestHash,
-          responsePayload: storedPayload,
-          expiresAt: DateTime.now().toUtc().add(
-                Duration(seconds: b2bConfig.idempotencyTtlSeconds),
-              ),
-        );
+
+        await consultLogic.recordIdempotency(
+            requestHash,
+            apiKeyId,
+            clientRequestId,
+            storedPayload,
+            b2bConfig.idempotencyTtlSeconds,
+            idempotencyRepository);
 
         AppLogger.info(
           _loggerName,
@@ -346,10 +272,10 @@ Router buildB2bRoutes({
         'b2b.consult.latency',
         context: {
           'duration_ms': durationMs,
-          'card_count': cards.length,
+          'card_count': input.length,
           'status_code': 200,
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
+          'api_key_id': apiKeyId,
+          'customer_id': customerId,
         },
       );
 
@@ -376,8 +302,8 @@ Router buildB2bRoutes({
         error.code,
         error.message,
         extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
+          'api_key_id': apiKeyId,
+          'customer_id': customerId,
         },
       );
     } catch (error, stack) {
@@ -393,8 +319,8 @@ Router buildB2bRoutes({
         'INTERNAL_ERROR',
         'An unexpected error occurred',
         extra: {
-          'api_key_id': auth.apiKeyId,
-          'customer_id': auth.customerId,
+          'api_key_id': apiKeyId,
+          'customer_id': customerId,
         },
         auditOutcome: 'internal_error',
       );
@@ -402,12 +328,6 @@ Router buildB2bRoutes({
   });
 
   return router;
-}
-
-/// Parses `Authorization: ApiKey <plaintext>` header value.
-String? _parseApiKey(String authorization) {
-  final key = authorization.trim();
-  return key.isEmpty ? null : key;
 }
 
 /// JSON response with caching headers for consult results.
