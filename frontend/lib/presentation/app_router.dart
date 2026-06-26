@@ -13,6 +13,7 @@ import 'submitter_catalog/create_card/create_card_screen.dart';
 import 'user/register/register_screen.dart';
 import 'submitter_catalog/submit_evaluation/submit_evaluation_screen.dart';
 import 'submitter_catalog/search_card/search_card_screen.dart';
+import 'submitter_catalog/pre_process_card/pre_process_card_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -42,6 +43,13 @@ final appRouter = GoRouter(
       path: '/catalog/search',
       name: 'catalog_search',
       builder: (context, state) => const SearchCardScreen(),
+    ),
+    GoRoute(
+      path: '/catalog/pre-process',
+      name: 'catalog_pre_process',
+      builder: (context, state) => PreProcessCardScreen(
+        initialImageData: state.extra as String?,
+      ),
     ),
   ],
   errorBuilder: (context, state) => _NotFoundScreen(error: state.error),
