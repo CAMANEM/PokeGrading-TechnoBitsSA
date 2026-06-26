@@ -80,6 +80,7 @@ class SubmitEvaluationApi {
         body: jsonEncode({
           'front_image_data': payload.frontImageData,
           'back_image_data': payload.backImageData,
+          if (payload.cardId != null) 'card_id': payload.cardId,
         }),
       );
     } on http.ClientException catch (error) {
