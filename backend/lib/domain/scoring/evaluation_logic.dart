@@ -5,6 +5,7 @@ import 'scoring_models.dart';
 import 'scoring_validators.dart';
 import '../image_services/image_quality_service.dart';
 import '../image_services/polyglot_detection.dart';
+import '../image_services/visual_features.dart';
 import '../../core/logging/app_logger.dart';
 import '../../persistence/card_data_provider/evaluation_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
@@ -204,6 +205,9 @@ class EvaluationLogic {
     }
 
     final persistStarted = DateTime.now().toUtc();
+
+    final frontFeatures = VisualFeatureExtractor.extract(command.frontImageData);
+
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
         frontImageData: command.frontImageData,
@@ -212,6 +216,7 @@ class EvaluationLogic {
         backImageScore: backScore.score,
         cardId: command.cardId,
         correlationId: correlationId,
+        frontVisualFeatures: frontFeatures,
       ),
     );
     final persistDuration =
