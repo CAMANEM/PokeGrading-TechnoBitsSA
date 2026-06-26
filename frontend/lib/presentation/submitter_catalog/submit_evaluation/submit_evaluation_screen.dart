@@ -57,6 +57,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   String? _selectedBackImageExtension;
 
   String? _cardId;
+  bool _preprocessedImagesLoaded = false;
 
   @override
   void initState() {
@@ -69,6 +70,29 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _cardId ??= GoRouterState.of(context).uri.queryParameters['card_id'];
+
+    if (!_preprocessedImagesLoaded) {
+      final extra = GoRouterState.of(context).extra;
+      if (extra is Map<String, dynamic>) {
+        _preprocessedImagesLoaded = true;
+        final front = extra['frontImageData'] as String?;
+        final back = extra['backImageData'] as String?;
+        if (front != null && _selectedFrontImageData == null) {
+          setState(() {
+            _selectedFrontImageData = front;
+            _selectedFrontImageName = 'frontal_preprocesada.png';
+            _selectedFrontImageExtension = 'png';
+          });
+        }
+        if (back != null && _selectedBackImageData == null) {
+          setState(() {
+            _selectedBackImageData = back;
+            _selectedBackImageName = 'reverso_preprocesada.png';
+            _selectedBackImageExtension = 'png';
+          });
+        }
+      }
+    }
   }
 
   @override
