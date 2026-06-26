@@ -18,14 +18,16 @@ _PreProcessCardDraft? _preProcessCardDraft;
 
 /// @brief _PreProcessCardDraft
 class _PreProcessCardDraft {
-  final String? imageData;
-  final String? imageName;
-  final String? imageExtension;
+  final String? frontImageData;
+  final String? frontImageName;
+  final String? backImageData;
+  final String? backImageName;
 
   const _PreProcessCardDraft({
-    this.imageData,
-    this.imageName,
-    this.imageExtension,
+    this.frontImageData,
+    this.frontImageName,
+    this.backImageData,
+    this.backImageName,
   });
 }
 
@@ -43,9 +45,10 @@ class PreProcessCardScreen extends StatefulWidget {
 class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
   late final PreProcessCardProvider _provider;
 
-  String? _selectedImageData;
-  String? _selectedImageName;
-  String? _selectedImageExtension;
+  String? _frontImageData;
+  String? _frontImageName;
+  String? _backImageData;
+  String? _backImageName;
 
   String? _cardId;
   String? _cardName;
@@ -57,9 +60,9 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
     _provider = PreProcessCardProvider(PreProcessCardApi());
     _restoreDraft();
 
-    if (widget.initialImageData != null && _selectedImageData == null) {
-      _selectedImageData = widget.initialImageData;
-      _selectedImageName = 'imagen_busqueda.png';
+    if (widget.initialImageData != null && _frontImageData == null) {
+      _frontImageData = widget.initialImageData;
+      _frontImageName = 'imagen_busqueda.png';
     }
   }
 
@@ -72,11 +75,11 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
 
     if (!_initialImageProcessed &&
         widget.initialImageData != null &&
-        _selectedImageData != null &&
+        _frontImageData != null &&
         _provider.state.stage == PreProcessCardStage.initial) {
       _initialImageProcessed = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _submitPreprocess();
+        _submitFrontPreprocess();
       });
     }
   }
@@ -91,21 +94,23 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
     final draft = _preProcessCardDraft;
     if (draft == null) return;
 
-    _selectedImageData = draft.imageData;
-    _selectedImageName = draft.imageName;
-    _selectedImageExtension = draft.imageExtension;
+    _frontImageData = draft.frontImageData;
+    _frontImageName = draft.frontImageName;
+    _backImageData = draft.backImageData;
+    _backImageName = draft.backImageName;
   }
 
   void _saveDraft() {
     _preProcessCardDraft = _PreProcessCardDraft(
-      imageData: _selectedImageData,
-      imageName: _selectedImageName,
-      imageExtension: _selectedImageExtension,
+      frontImageData: _frontImageData,
+      frontImageName: _frontImageName,
+      backImageData: _backImageData,
+      backImageName: _backImageName,
     );
   }
 
-  Future<void> _submitPreprocess() async {
-    if (_selectedImageData == null) {
+  Future<void> _submitFrontPreprocess() async {
+    if (_frontImageData == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Debes cargar una imagen')),
@@ -113,8 +118,38 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
       return;
     }
     _saveDraft();
-    await _provider.preprocessImage(
-      PreProcessCardPayload(imageData: _selectedImageData!),
+    await _provider.preprocessFront(_frontImageData!);
+  }
+
+  Future<void> _submitBackPreprocess() async {
+    if (_backImageData == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes cargar la imagen del reverso')),
+      );
+      return;
+    }
+    _saveDraft();
+    await _provider.preprocessBack(_backImageData!);
+  }
+
+  void _navigateToEvaluation() {
+    _preProcessCardDraft = null;
+    final encodedCardName = Uri.encodeComponent(_cardName ?? '');
+    final frontBase64 = _provider.state.frontResult!.correctedImage;
+    final backBase64 = _provider.state.backResult?.correctedImage;
+    context.go(
+      '/evaluations?card_id=$_cardId&card_name=$encodedCardName',
+      extra: {
+        'frontImageData': frontBase64.startsWith('data:')
+            ? frontBase64
+            : 'data:image/jpeg;base64,$frontBase64',
+        'backImageData': backBase64 != null
+            ? (backBase64.startsWith('data:')
+                ? backBase64
+                : 'data:image/jpeg;base64,$backBase64')
+            : null,
+      },
     );
   }
 
@@ -124,7 +159,8 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
       listenable: _provider,
       builder: (context, _) {
         final state = _provider.state;
-        final busy = state.stage == PreProcessCardStage.preprocessing;
+        final busy = state.stage == PreProcessCardStage.preprocessing ||
+            state.stage == PreProcessCardStage.preprocessingBack;
 
         return Scaffold(
           body: Container(
@@ -160,10 +196,7 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
                             isError: state.stage == PreProcessCardStage.error,
                           ),
                         const SizedBox(height: 16),
-                        _buildContent(
-                          state: state,
-                          busy: busy,
-                        ),
+                        _buildContent(state: state, busy: busy),
                       ],
                     ),
                   ),
@@ -184,27 +217,45 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
       case PreProcessCardStage.initial:
       case PreProcessCardStage.error:
         return _CaptureForm(
-          selectedImageName: _selectedImageName,
-          selectedImageExtension: _selectedImageExtension,
+          label: 'Imagen frontal',
+          selectedImageName: _frontImageName,
           busy: busy,
           isError: state.stage == PreProcessCardStage.error,
-          onPickImage: () => _pickImage(),
-          onSubmit: _submitPreprocess,
-          onRetry: _provider.retry,
+          onPickImage: () => _pickFrontImage(),
+          onSubmit: _submitFrontPreprocess,
+          onRetry: _submitFrontPreprocess,
         );
+
       case PreProcessCardStage.preprocessing:
-        return const _ProcessingIndicator();
-      case PreProcessCardStage.success:
-        return _PreProcessResult(
-          result: state.result!,
-          cardId: _cardId,
-          onContinue: () {
+        return const _ProcessingIndicator(
+          message: 'Pre-procesando imagen frontal...',
+        );
+
+      case PreProcessCardStage.frontSuccess:
+        return _FrontSuccessAndBackCapture(
+          frontResult: state.frontResult!,
+          backImageName: _backImageName,
+          busy: busy,
+          onPickBackImage: _pickBackImage,
+          onSubmitBack: _submitBackPreprocess,
+          onBackToSearch: () {
+            _provider.reset();
             _preProcessCardDraft = null;
-            final encodedCardName = Uri.encodeComponent(_cardName ?? '');
-            context.go(
-              '/evaluations?card_id=$_cardId&card_name=$encodedCardName',
-            );
+            context.go('/catalog/search');
           },
+        );
+
+      case PreProcessCardStage.preprocessingBack:
+        return _FrontAndBackProcessing(
+          frontResult: state.frontResult!,
+        );
+
+      case PreProcessCardStage.backSuccess:
+        return _BothResults(
+          frontResult: state.frontResult!,
+          backResult: state.backResult!,
+          cardId: _cardId,
+          onContinue: _navigateToEvaluation,
           onBackToSearch: () {
             _provider.reset();
             _preProcessCardDraft = null;
@@ -214,18 +265,38 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickFrontImage() async {
+    final picked = await _pickImageFile();
+    if (picked != null) {
+      setState(() {
+        _frontImageData = picked.$1;
+        _frontImageName = picked.$2;
+      });
+    }
+  }
+
+  Future<void> _pickBackImage() async {
+    final picked = await _pickImageFile();
+    if (picked != null) {
+      setState(() {
+        _backImageData = picked.$1;
+        _backImageName = picked.$2;
+      });
+    }
+  }
+
+  Future<(String, String)?> _pickImageFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['png', 'jpg', 'jpeg', 'heic'],
       withData: true,
     );
 
-    if (result == null || result.files.isEmpty) return;
+    if (result == null || result.files.isEmpty) return null;
 
     final file = result.files.first;
     final bytes = file.bytes;
-    if (bytes == null || bytes.isEmpty) return;
+    if (bytes == null || bytes.isEmpty) return null;
 
     final extension = (file.extension ?? '').toLowerCase();
     final mimeSubtype = switch (extension) {
@@ -236,25 +307,20 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
       _ => '',
     };
 
-    if (mimeSubtype.isEmpty) return;
+    if (mimeSubtype.isEmpty) return null;
 
     const maxBytes = 10 * 1024 * 1024;
     if (bytes.length > maxBytes) {
-      if (!mounted) return;
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Imagen excede 10MB')),
       );
-      return;
+      return null;
     }
 
     final encoded = base64Encode(bytes);
     final dataUri = 'data:image/$mimeSubtype;base64,$encoded';
-
-    setState(() {
-      _selectedImageData = dataUri;
-      _selectedImageName = file.name;
-      _selectedImageExtension = extension;
-    });
+    return (dataUri, file.name);
   }
 }
 
@@ -309,8 +375,8 @@ class _Header extends StatelessWidget {
 
 /// @brief _CaptureForm
 class _CaptureForm extends StatelessWidget {
+  final String label;
   final String? selectedImageName;
-  final String? selectedImageExtension;
   final bool busy;
   final bool isError;
   final Future<void> Function() onPickImage;
@@ -318,8 +384,8 @@ class _CaptureForm extends StatelessWidget {
   final VoidCallback onRetry;
 
   const _CaptureForm({
+    required this.label,
     required this.selectedImageName,
-    required this.selectedImageExtension,
     required this.busy,
     required this.isError,
     required this.onPickImage,
@@ -330,42 +396,27 @@ class _CaptureForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _FormCard(
-      title: 'Subir imagen de carta',
+      title: 'Subir $label',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Selecciona una imagen PNG, JPG o HEIC de tu carta.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'La imagen sera normalizada: correccion de perspectiva, '
-            'balance de color y extraccion de regiones.',
+            'Selecciona una imagen PNG, JPG o HEIC.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Imagen de la carta',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: busy ? null : onPickImage,
               icon: const Icon(Icons.image_rounded),
-              label: const Text('Seleccionar imagen'),
+              label: Text('Seleccionar $label'),
             ),
           ),
           if (selectedImageName != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Archivo: $selectedImageName (${selectedImageExtension ?? ''})',
+              'Archivo: $selectedImageName',
               style: const TextStyle(
                 color: AppColors.info,
                 fontWeight: FontWeight.w600,
@@ -386,7 +437,9 @@ class _CaptureForm extends StatelessWidget {
               if (isError) const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: busy ? null : onSubmit,
+                  onPressed: busy || selectedImageName == null
+                      ? null
+                      : onSubmit,
                   icon: busy
                       ? const SizedBox(
                           width: 16,
@@ -407,42 +460,156 @@ class _CaptureForm extends StatelessWidget {
 
 /// @brief _ProcessingIndicator
 class _ProcessingIndicator extends StatelessWidget {
-  const _ProcessingIndicator();
+  final String message;
+
+  const _ProcessingIndicator({required this.message});
 
   @override
   Widget build(BuildContext context) {
     return _FormCard(
-      title: 'Pre-procesando carta',
-      child: const Column(
+      title: 'Pre-procesando',
+      child: Column(
         children: [
-          SizedBox(height: 24),
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          const SizedBox(height: 24),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
           Text(
-            'Detectando contorno y corrigiendo perspectiva...',
-            style: TextStyle(color: AppColors.textSecondary),
+            message,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Normalizando color y extrayendo regiones...',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 }
 
-/// @brief _PreProcessResult
-class _PreProcessResult extends StatelessWidget {
-  final PreProcessCardResult result;
+/// @brief _FrontSuccessAndBackCapture
+class _FrontSuccessAndBackCapture extends StatelessWidget {
+  final PreProcessCardResult frontResult;
+  final String? backImageName;
+  final bool busy;
+  final Future<void> Function() onPickBackImage;
+  final Future<void> Function() onSubmitBack;
+  final VoidCallback onBackToSearch;
+
+  const _FrontSuccessAndBackCapture({
+    required this.frontResult,
+    required this.backImageName,
+    required this.busy,
+    required this.onPickBackImage,
+    required this.onSubmitBack,
+    required this.onBackToSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ResultCard(
+          title: 'Imagen frontal normalizada',
+          result: frontResult,
+        ),
+        const SizedBox(height: 16),
+        _FormCard(
+          title: 'Imagen del reverso',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sube la imagen del reverso de la carta.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onPickBackImage,
+                  icon: const Icon(Icons.image_rounded),
+                  label: const Text('Seleccionar reverso'),
+                ),
+              ),
+              if (backImageName != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Archivo: $backImageName',
+                  style: const TextStyle(
+                    color: AppColors.info,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onBackToSearch,
+                      icon: const Icon(Icons.search_rounded),
+                      label: const Text('Buscar otra carta'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (backImageName != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: busy ? null : onSubmitBack,
+                        icon: busy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_fix_high_rounded),
+                        label:
+                            Text(busy ? 'Procesando...' : 'Pre-procesar reverso'),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// @brief _FrontAndBackProcessing
+class _FrontAndBackProcessing extends StatelessWidget {
+  final PreProcessCardResult frontResult;
+
+  const _FrontAndBackProcessing({required this.frontResult});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ResultCard(
+          title: 'Imagen frontal normalizada',
+          result: frontResult,
+        ),
+        const SizedBox(height: 16),
+        const _ProcessingIndicator(
+          message: 'Pre-procesando imagen del reverso...',
+        ),
+      ],
+    );
+  }
+}
+
+/// @brief _BothResults
+class _BothResults extends StatelessWidget {
+  final PreProcessCardResult frontResult;
+  final PreProcessCardResult backResult;
   final String? cardId;
   final VoidCallback onContinue;
   final VoidCallback onBackToSearch;
 
-  const _PreProcessResult({
-    required this.result,
+  const _BothResults({
+    required this.frontResult,
+    required this.backResult,
     required this.cardId,
     required this.onContinue,
     required this.onBackToSearch,
@@ -450,8 +617,53 @@ class _PreProcessResult extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ResultCard(
+          title: 'Imagen frontal normalizada',
+          result: frontResult,
+        ),
+        const SizedBox(height: 16),
+        _ResultCard(
+          title: 'Imagen del reverso normalizada',
+          result: backResult,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onBackToSearch,
+                icon: const Icon(Icons.search_rounded),
+                label: const Text('Buscar otra carta'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: cardId != null ? onContinue : null,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Continuar a evaluacion'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// @brief _ResultCard
+class _ResultCard extends StatelessWidget {
+  final String title;
+  final PreProcessCardResult result;
+
+  const _ResultCard({required this.title, required this.result});
+
+  @override
+  Widget build(BuildContext context) {
     return _FormCard(
-      title: 'Carta normalizada',
+      title: title,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -461,7 +673,7 @@ class _PreProcessResult extends StatelessWidget {
               base64Decode(result.correctedImage.split(',').last),
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => Container(
-                height: 300,
+                height: 200,
                 color: AppColors.surfaceDark2,
                 child: const Center(
                   child: Text(
@@ -472,38 +684,17 @@ class _PreProcessResult extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
           if (result.metadata != null) ...[
+            const SizedBox(height: 8),
             Text(
               'Deteccion: ${result.metadata!['detection_ms'] ?? 0}ms | '
-              'Correccion: ${result.metadata!['correction_ms'] ?? 0}ms | '
-              'Total: ${result.metadata!['total_ms'] ?? 0}ms',
+              'Correccion: ${result.metadata!['correction_ms'] ?? 0}ms',
               style: const TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12,
+                fontSize: 11,
               ),
             ),
-            const SizedBox(height: 16),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onBackToSearch,
-                  icon: const Icon(Icons.search_rounded),
-                  label: const Text('Buscar otra carta'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: cardId != null ? onContinue : null,
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Continuar a evaluacion'),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

@@ -12,14 +12,12 @@ class PreProcessCardProvider extends ChangeNotifier {
   PreProcessCardProvider(this._api);
 
   final PreProcessCardApi _api;
-  PreProcessCardPayload? _lastPayload;
 
   PreProcessCardState _state = const PreProcessCardState.initial();
 
   PreProcessCardState get state => _state;
 
-  Future<void> preprocessImage(PreProcessCardPayload payload) async {
-    _lastPayload = payload;
+  Future<void> preprocessFront(String imageData) async {
     _state = _state.copyWith(
       stage: PreProcessCardStage.preprocessing,
       message: null,
@@ -28,18 +26,20 @@ class PreProcessCardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _api.preprocess(payload);
+      final result = await _api.preprocess(
+        PreProcessCardPayload(imageData: imageData),
+      );
 
       _state = _state.copyWith(
-        stage: PreProcessCardStage.success,
-        result: result,
-        message: 'Carta pre-procesada correctamente',
+        stage: PreProcessCardStage.frontSuccess,
+        frontResult: result,
+        message: 'Imagen frontal pre-procesada correctamente',
       );
     } on PreProcessCardApiException catch (error) {
       ClientLogReporter.reportError(
         logger: 'PokéGrading.Client.PreProcessCardProvider',
         correlationId: '',
-        message: 'Preprocess failed',
+        message: 'Front preprocess failed',
         context: {'api_error': error.message},
       );
       _state = _state.copyWith(
@@ -50,7 +50,7 @@ class PreProcessCardProvider extends ChangeNotifier {
       ClientLogReporter.reportError(
         logger: 'PokéGrading.Client.PreProcessCardProvider',
         correlationId: '',
-        message: 'Preprocess unexpected error',
+        message: 'Front preprocess unexpected error',
         context: {'error': error.toString()},
       );
       _state = _state.copyWith(
@@ -62,19 +62,52 @@ class PreProcessCardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> retry() async {
-    final payload = _lastPayload;
-    if (payload == null) {
-      _state = const PreProcessCardState.initial();
-      notifyListeners();
-      return;
+  Future<void> preprocessBack(String imageData) async {
+    _state = _state.copyWith(
+      stage: PreProcessCardStage.preprocessingBack,
+      message: null,
+    );
+
+    notifyListeners();
+
+    try {
+      final result = await _api.preprocess(
+        PreProcessCardPayload(imageData: imageData),
+      );
+
+      _state = _state.copyWith(
+        stage: PreProcessCardStage.backSuccess,
+        backResult: result,
+        message: 'Imagen del reverso pre-procesada correctamente',
+      );
+    } on PreProcessCardApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.PreProcessCardProvider',
+        correlationId: '',
+        message: 'Back preprocess failed',
+        context: {'api_error': error.message},
+      );
+      _state = _state.copyWith(
+        stage: PreProcessCardStage.frontSuccess,
+        message: 'Error al pre-procesar reverso: ${error.message}',
+      );
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.PreProcessCardProvider',
+        correlationId: '',
+        message: 'Back preprocess unexpected error',
+        context: {'error': error.toString()},
+      );
+      _state = _state.copyWith(
+        stage: PreProcessCardStage.frontSuccess,
+        message: 'Error: ${error.toString()}',
+      );
     }
 
-    await preprocessImage(payload);
+    notifyListeners();
   }
 
   void reset() {
-    _lastPayload = null;
     _state = const PreProcessCardState.initial();
     notifyListeners();
   }
