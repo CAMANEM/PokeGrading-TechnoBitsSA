@@ -5,6 +5,7 @@ import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
+import '../../domain/image_services/visual_features.dart';
 import '../../domain/scoring/scoring_models.dart';
 import '../image_provider/image_storage_repository.dart';
 import '../lookup/lookup_resolver.dart';
@@ -79,7 +80,11 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         final lookups = LookupResolver(tx);
         final pendingStatusId = await lookups.resolveStatusId('pending');
 
-        final cardSubmitterId = await _resolveCardSubmitterId(tx, input.cardId);
+        final cardSubmitterId = await _resolveCardSubmitterId(
+          tx,
+          input.cardId,
+          input.frontVisualFeatures,
+        );
 
         final preGradeResult = await tx.execute(
           '''
@@ -152,7 +157,11 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     }
   }
 
-  Future<int> _resolveCardSubmitterId(Session tx, String? cardId) async {
+  Future<int> _resolveCardSubmitterId(
+    Session tx,
+    String? cardId,
+    VisualFeatures? features,
+  ) async {
     if (cardId != null) {
       final parsedCardId = int.tryParse(cardId);
       if (parsedCardId != null) {
@@ -189,11 +198,22 @@ class PostgresEvaluationRepository implements EvaluationRepository {
 
     final hashResult = await tx.execute(
       '''
-      INSERT INTO hash_submitter (date)
-      VALUES (\$1)
+      INSERT INTO hash_submitter (
+        average_hash_hex,
+        difference_hash_hex,
+        center_average_hash_hex,
+        center_difference_hash_hex,
+        date
+      ) VALUES (\$1, \$2, \$3, \$4, \$5)
       RETURNING id
       ''',
-      parameters: [now],
+      parameters: [
+        features?.averageHashHex,
+        features?.differenceHashHex,
+        features?.centerAverageHashHex,
+        features?.centerDifferenceHashHex,
+        now,
+      ],
     );
     final hashId = hashResult.first.first as int;
 

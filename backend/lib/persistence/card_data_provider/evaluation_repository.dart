@@ -1,6 +1,7 @@
 /// @file
 /// @brief
 
+import '../../domain/image_services/visual_features.dart';
 import '../../domain/scoring/scoring_models.dart';
 
 /// @brief AddEvaluationInput
@@ -11,6 +12,7 @@ class AddEvaluationInput {
   final double backImageScore;
   final String? cardId;
   final String correlationId;
+  final VisualFeatures? frontVisualFeatures;
 
   const AddEvaluationInput({
     required this.frontImageData,
@@ -19,6 +21,7 @@ class AddEvaluationInput {
     required this.backImageScore,
     required this.correlationId,
     this.cardId,
+    this.frontVisualFeatures,
   });
 }
 
