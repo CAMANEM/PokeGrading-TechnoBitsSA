@@ -13,7 +13,7 @@ import 'preprocessing_models.dart';
 /// Detects the rectangular contour of a card in an image.
 class CardContourDetector {
   static const double minAreaRatio = 0.05;
-  static const double maxAreaRatio = 0.98;
+  static const double maxAreaRatio = 1.0;
   static const double maxAspectRatioDeviation = 0.4;
   static const double minConfidence = 0.3;
 
