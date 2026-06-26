@@ -159,26 +159,13 @@ class PostgresEvaluationRepository implements EvaluationRepository {
 
   Future<int> _resolveCardSubmitterId(
     Session tx,
-    String? cardId,
+    String? cardReferenceId,
     VisualFeatures? features,
   ) async {
-    if (cardId != null) {
-      final parsedCardId = int.tryParse(cardId);
-      if (parsedCardId != null) {
-        final existing = await tx.execute(
-          'SELECT id FROM card_submitter WHERE id = \$1',
-          parameters: [parsedCardId],
-        );
-        if (existing.isNotEmpty) {
-          return existing.first.first as int;
-        }
-      }
-    }
-
     AppLogger.info(
       'PokéGrading.Persistence.EvaluationRepository',
-      'No card submitter found, creating default',
-      context: {if (cardId != null) 'card_id': cardId},
+      'Creating card_submitter',
+      context: {if (cardReferenceId != null) 'card_reference_id': cardReferenceId},
     );
 
     final submitterResult = await tx.execute(
@@ -217,17 +204,22 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     );
     final hashId = hashResult.first.first as int;
 
+    final parsedReferenceId = cardReferenceId != null
+        ? int.tryParse(cardReferenceId)
+        : null;
+
     final cardResult = await tx.execute(
       '''
       INSERT INTO card_submitter (
         submitter_id,
         hash_id,
+        card_reference_id,
         registration_date,
         active
-      ) VALUES (\$1, \$2, \$3, \$4)
+      ) VALUES (\$1, \$2, \$3, \$4, \$5)
       RETURNING id
       ''',
-      parameters: [submitterId, hashId, now, true],
+      parameters: [submitterId, hashId, parsedReferenceId, now, true],
     );
     return cardResult.first.first as int;
   }
