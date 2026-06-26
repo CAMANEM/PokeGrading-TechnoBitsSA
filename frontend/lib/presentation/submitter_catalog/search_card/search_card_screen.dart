@@ -180,7 +180,11 @@ class _SearchCardScreenState extends State<SearchCardScreen> {
           candidates: state.candidates,
           isSingle: state.stage == SearchCardStage.success,
           onEvaluate: (candidate) {
-            context.go('/evaluations?card_id=${candidate.id}');
+            final encodedName = Uri.encodeComponent(candidate.name);
+            context.go(
+              '/catalog/pre-process?card_id=${candidate.id}&card_name=$encodedName',
+              extra: _selectedImageData,
+            );
           },
           onManualSearch: () {
             _provider.goToManualSearch();
@@ -343,6 +347,15 @@ class _CandidateResults extends StatelessWidget {
             Text(
               'Confianza: ${candidate.confidence.toStringAsFixed(1)}%',
               style: const TextStyle(color: AppColors.success),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => onEvaluate(candidate),
+                icon: const Icon(Icons.auto_fix_high_rounded),
+                label: const Text('Pre-procesar carta'),
+              ),
             ),
           ],
         ),
