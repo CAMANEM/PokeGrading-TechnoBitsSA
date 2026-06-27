@@ -85,4 +85,28 @@ class SubmitEvaluationProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  Future<List<Grading>> getGradings() async {
+    try {
+      final result = await _api.getGradings();
+
+      return result;
+    } on SubmitEvaluationApiException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluationProvider',
+        correlationId: '',
+        message: 'Getting evaluations failed',
+        context: {'api_error': error.message},
+      );
+      return <Grading>[];
+    } catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluationProvider',
+        correlationId: '',
+        message: 'Evaluation submission unexpected error',
+        context: {'error': error.toString()},
+      );
+      return <Grading>[];
+    }
+  }
 }

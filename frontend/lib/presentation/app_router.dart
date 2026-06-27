@@ -12,6 +12,7 @@ import 'home/home_screen.dart';
 import 'submitter_catalog/create_card/create_card_screen.dart';
 import 'user/register/register_screen.dart';
 import 'submitter_catalog/submit_evaluation/submit_evaluation_screen.dart';
+import 'submitter_catalog/submit_evaluation/evaluation_table_screen.dart';
 import 'submitter_catalog/search_card/search_card_screen.dart';
 import 'submitter_catalog/pre_process_card/pre_process_card_screen.dart';
 
@@ -37,6 +38,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/evaluations',
       name: 'evaluations',
+      builder: (context, state) => const EvaluationsTableScreen(),
+    ),
+    GoRoute(
+      path: '/evaluations/submit',
+      name: 'submit_evaluation',
       builder: (context, state) => const SubmitEvaluationScreen(),
     ),
     GoRoute(

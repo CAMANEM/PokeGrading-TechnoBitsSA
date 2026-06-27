@@ -65,6 +65,20 @@ class SubmitEvaluationApi {
     );
   }
 
+  Future<List<Grading>> getGradings() async {
+    final uri = Uri.parse('${AppConfig.apiUrl}/scoring/evaluations');
+    final correlationId = const Uuid().v4();
+    final response = await _getEvaluation(uri, correlationId);
+
+    final body = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return body.map((element) => Grading.fromJson(element)).toList();
+    }
+
+    return <Grading>[];
+  }
+
   Future<http.Response> _postEvaluation(
     Uri uri,
     String correlationId,
@@ -92,6 +106,25 @@ class SubmitEvaluationApi {
       );
       throw const SubmitEvaluationApiException(
         'No se pudo completar el envio por un fallo de red. Reintenta sin volver a seleccionar las imagenes.',
+      );
+    }
+  }
+
+  Future<http.Response> _getEvaluation(Uri uri, String correlationId) async {
+    try {
+      return await _client.get(uri, headers: {
+        'content-type': 'application/json',
+        'X-Correlation-ID': correlationId
+      });
+    } on http.ClientException catch (error) {
+      ClientLogReporter.reportError(
+        logger: 'PokéGrading.Client.SubmitEvaluation',
+        correlationId: correlationId,
+        message: 'Network error during evaluation submission',
+        context: {'error': error.toString()},
+      );
+      throw const SubmitEvaluationApiException(
+        'No se pudo completar la solicitud por fallo de servidor.',
       );
     }
   }
