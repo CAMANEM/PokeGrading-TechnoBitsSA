@@ -3,14 +3,18 @@
 
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:image/image.dart' as img;
 
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
 import '../../domain/image_services/preprocessing/preprocessing.dart';
+import '../../domain/scoring/grading/grading_orchestrator.dart';
+import '../../domain/image_services/grading/enhanced_quality_service.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
@@ -225,6 +229,113 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         {
           'status': 'error',
           'error': 'preprocess_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+      );
+    }
+  });
+
+  // ─── Grading endpoint (testing) ──────────────────────────────
+  router.post('/grade', (Request request) async {
+    final payload = await readJson(request);
+    final imageData = payload['image_data']?.toString() ?? '';
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.Grading',
+      'Grading request received',
+      context: {
+        'correlation_id': correlationId,
+        'has_image': imageData.isNotEmpty,
+      },
+    );
+
+    if (imageData.isEmpty) {
+      return jsonResponse(
+        400,
+        {
+          'status': 'error',
+          'error': 'missing_image',
+          'message': 'image_data is required',
+          'correlation_id': correlationId,
+        },
+      );
+    }
+
+    try {
+      // Step 1: Preprocess the image
+      final preprocessResult = PreprocessingService.preprocess(imageData);
+
+      if (!preprocessResult.success || preprocessResult.rois == null) {
+        return jsonResponse(
+          422,
+          {
+            'status': 'error',
+            'error': preprocessResult.error?.name ?? 'preprocessing_failed',
+            'message': preprocessResult.errorMessage ?? 'Preprocessing failed',
+            'correlation_id': correlationId,
+          },
+        );
+      }
+
+      // Step 2: Run grading on the ROIs
+      final gradingStart = DateTime.now().toUtc();
+      final gradingResult = GradingOrchestrator.grade(preprocessResult.rois!);
+      final gradingDuration =
+          DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
+
+      // Step 3: Run enhanced quality analysis
+      final base64Part = imageData.contains(',')
+          ? imageData.split(',').last
+          : imageData;
+      final bytes = base64Decode(base64Part);
+      final image = img.decodeImage(Uint8List.fromList(bytes));
+
+      EnhancedQualityResult? qualityResult;
+      if (image != null) {
+        qualityResult = EnhancedQualityService.calculateEnhancedQuality(image);
+      }
+
+      AppLogger.info(
+        'PokéGrading.Routes.Grading',
+        'Grading completed',
+        context: {
+          'correlation_id': correlationId,
+          'final_grade': gradingResult.finalGrade,
+          'confidence': gradingResult.confidence,
+          'grading_ms': gradingDuration,
+        },
+      );
+
+      return jsonResponse(
+        200,
+        {
+          'success': true,
+          'grading': gradingResult.toJson(),
+          'quality': qualityResult?.toJson(),
+          'metadata': {
+            'preprocessing_ms': preprocessResult.metadata.totalTimeMs,
+            'grading_ms': gradingDuration,
+            'algorithm_version': '1.0.0',
+          },
+          'correlation_id': correlationId,
+        },
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Grading',
+        'Grading failed unexpectedly',
+        context: {'correlation_id': correlationId},
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'grading_failed',
           'message': error.toString(),
           'correlation_id': correlationId,
         },
