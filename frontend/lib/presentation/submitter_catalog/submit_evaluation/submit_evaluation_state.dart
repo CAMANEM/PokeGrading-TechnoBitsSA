@@ -93,15 +93,15 @@ class Grading {
 
   factory Grading.fromJson(Map<String, dynamic> json) {
     return Grading(
-        gradeId: json['id'],
+        gradeId: json['grade_id'],
         status: json['status'],
-        submittedDate: json['submitted'],
-        centering_grade: json['centering'],
-        corners_grade: json['corners'],
-        edges_grade: json['edges'],
-        surface_grade: json['surface'],
+        submittedDate: json['submitted_date'],
+        centering_grade: json['centering_grade'],
+        corners_grade: json['corners_grade'],
+        edges_grade: json['edges_grade'],
+        surface_grade: json['surface_grade'],
         grade: json['grade'],
         confidence: json['confidence'],
-        gradedDate: json['graded']);
+        gradedDate: json['graded_date']);
   }
 }

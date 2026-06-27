@@ -68,15 +68,32 @@ class SubmitEvaluationApi {
   Future<List<Grading>> getGradings() async {
     final uri = Uri.parse('${AppConfig.apiUrl}/scoring/evaluations');
     final correlationId = const Uuid().v4();
+
     final response = await _getEvaluation(uri, correlationId);
 
-    final body = jsonDecode(response.body);
-
     if (response.statusCode == 200) {
-      return body.map((element) => Grading.fromJson(element)).toList();
+      final List<dynamic> body = jsonDecode(response.body);
+
+      return body
+          .map((json) => Grading.fromJson(json as Map<String, dynamic>))
+          .toList();
     }
 
-    return <Grading>[];
+    final body = _decodeResponse(response.body);
+
+    ClientLogReporter.reportError(
+      logger: 'PokéGrading.Client.SubmitEvaluation',
+      correlationId: correlationId,
+      message: body['message']?.toString() ?? 'Error obteniendo evaluaciones',
+      context: {
+        'status_code': response.statusCode,
+        'error': body['error']?.toString(),
+      },
+    );
+
+    throw SubmitEvaluationApiException(
+      body['message']?.toString() ?? 'No se pudieron obtener las evaluaciones.',
+    );
   }
 
   Future<http.Response> _postEvaluation(

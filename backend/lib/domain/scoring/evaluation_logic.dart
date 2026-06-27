@@ -270,6 +270,10 @@ class EvaluationLogic {
     );
   }
 
+  Future<List<PregradeResult>> getEvaluations() async {
+    return await repository.getEvaluations();
+  }
+
   void startPregrading(RoiResult? front, RoiResult? back) {
     try {
       if (front == null || back == null) {

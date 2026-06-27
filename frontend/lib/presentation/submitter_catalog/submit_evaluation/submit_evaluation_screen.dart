@@ -155,7 +155,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                         _Header(
                           onBack: () {
                             _saveDraft();
-                            goBackOrHome(context);
+                            context.pop(state.result?.evaluationId != null);
                           },
                         ),
                         const SizedBox(height: 24),

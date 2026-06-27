@@ -60,8 +60,17 @@ class _EvaluationsTableScreenState extends State<EvaluationsTableScreen> {
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       _Header(
-                                        onNewEvaluation: () => context
-                                            .pushNamed('submit_evaluation'),
+                                        onNewEvaluation: () async {
+                                          final created = await context
+                                              .pushNamed('submit_evaluation');
+
+                                          if (created == true) {
+                                            setState(() {
+                                              obtainedGradings =
+                                                  _provider.getGradings();
+                                            });
+                                          }
+                                        },
                                         onBack: () {
                                           goBackOrHome(context);
                                         },
