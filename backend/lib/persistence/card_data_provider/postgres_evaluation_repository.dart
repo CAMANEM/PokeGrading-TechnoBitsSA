@@ -67,7 +67,8 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   }
 
   @override
-  Future<EvaluationRequest> saveEvaluation(AddEvaluationInput input) async {
+  Future<EvaluationRequest> saveEvaluation(
+      AddEvaluationInput input, GradingResult grade) async {
     AppLogger.info(
       'PokéGrading.Persistence.EvaluationRepository',
       'Saving evaluation',
@@ -93,8 +94,11 @@ class PostgresEvaluationRepository implements EvaluationRepository {
             status_id,
             log_id,
             requested_date,
-            last_modified_date
-          ) VALUES (\$1, \$2, \$3, \$4, \$5)
+            last_modified_date,
+            centering_grade,
+            corners_grade,
+            final_estimated_grade
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9)
           RETURNING id
           ''',
           parameters: [
@@ -103,6 +107,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
             input.correlationId,
             now,
             now,
+            grade.centerGrade,
+            grade.cornersGrade,
+            grade.finalGrade
           ],
         );
         final preGradeId = preGradeResult.first.first as int;
@@ -165,7 +172,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     AppLogger.info(
       'PokéGrading.Persistence.EvaluationRepository',
       'Creating card_submitter',
-      context: {if (cardReferenceId != null) 'card_reference_id': cardReferenceId},
+      context: {
+        if (cardReferenceId != null) 'card_reference_id': cardReferenceId
+      },
     );
 
     final submitterResult = await tx.execute(
@@ -204,9 +213,8 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     );
     final hashId = hashResult.first.first as int;
 
-    final parsedReferenceId = cardReferenceId != null
-        ? int.tryParse(cardReferenceId)
-        : null;
+    final parsedReferenceId =
+        cardReferenceId != null ? int.tryParse(cardReferenceId) : null;
 
     final cardResult = await tx.execute(
       '''

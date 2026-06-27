@@ -28,8 +28,7 @@ class AddEvaluationInput {
 /// @brief EvaluationRepository
 abstract class EvaluationRepository {
   Future<EvaluationRequest> saveEvaluation(
-    AddEvaluationInput input,
-  );
+      AddEvaluationInput input, GradingResult grade);
 
   Future<EvaluationRequest?> findById(String id);
 }

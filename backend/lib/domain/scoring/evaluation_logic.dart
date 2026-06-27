@@ -219,23 +219,22 @@ class EvaluationLogic {
     final correctedBackImage =
         PreprocessingService.preprocess(command.backImageData);
 
-    print(correctedFrontImage);
-    //startPregrading(correctedFrontImage.rois, correctedBackImage.rois);
+    final gradeResult = Grading.subgrades(correctedFrontImage.rois!);
 
     final frontFeatures =
         VisualFeatureExtractor.extract(command.frontImageData);
 
     final saved = await repository.saveEvaluation(
-      AddEvaluationInput(
-        frontImageData: command.frontImageData,
-        backImageData: command.backImageData,
-        frontImageScore: frontScore.score,
-        backImageScore: backScore.score,
-        cardId: command.cardId,
-        correlationId: correlationId,
-        frontVisualFeatures: frontFeatures,
-      ),
-    );
+        AddEvaluationInput(
+          frontImageData: command.frontImageData,
+          backImageData: command.backImageData,
+          frontImageScore: frontScore.score,
+          backImageScore: backScore.score,
+          cardId: command.cardId,
+          correlationId: correlationId,
+          frontVisualFeatures: frontFeatures,
+        ),
+        gradeResult);
     final persistDuration =
         DateTime.now().toUtc().difference(persistStarted).inMilliseconds;
 
@@ -268,21 +267,6 @@ class EvaluationLogic {
       createdAt: saved.createdAt,
       correlationId: correlationId,
     );
-  }
-
-  void startPregrading(RoiResult? front, RoiResult? back) {
-    try {
-      if (front == null || back == null) {
-        _throwEvaluationError("500", "Front y Back null");
-      }
-      double averageSubGradeFront = Grading.subgrades(front);
-      double averageSubGradeBack = Grading.subgrades(back);
-
-      print(averageSubGradeFront);
-      print(averageSubGradeBack);
-    } catch (error) {
-      print(error);
-    }
   }
 
   void _validate(

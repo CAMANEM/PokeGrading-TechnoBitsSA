@@ -1,6 +1,7 @@
 /*
  Mock in-memory implementation of `EvaluationRepository` for development and tests.
 */
+
 import '../card_data_provider/evaluation_repository.dart';
 import '../../domain/scoring/scoring_models.dart';
 import '../id_service/id_generator.dart';
@@ -15,7 +16,8 @@ class MockEvaluationRepository implements EvaluationRepository {
       : _idGenerator = idGenerator ?? UuidIdGenerator();
 
   @override
-  Future<EvaluationRequest> saveEvaluation(AddEvaluationInput input) async {
+  Future<EvaluationRequest> saveEvaluation(
+      AddEvaluationInput input, GradingResult grade) async {
     final id = _idGenerator.generateCardId();
     final now = DateTime.now().toUtc();
     final request = EvaluationRequest(

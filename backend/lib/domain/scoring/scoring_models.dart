@@ -32,3 +32,18 @@ class EvaluationRequest {
     this.logId,
   });
 }
+
+class GradingResult {
+  final double centerGrade;
+  final double cornersGrade;
+  final double edgesGrade;
+  final double surfaceGrade;
+  final double finalGrade;
+
+  const GradingResult(
+      {required this.centerGrade,
+      required this.cornersGrade,
+      required this.edgesGrade,
+      required this.surfaceGrade,
+      required this.finalGrade});
+}
