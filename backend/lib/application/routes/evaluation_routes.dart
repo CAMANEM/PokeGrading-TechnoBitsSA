@@ -3,14 +3,18 @@
 
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:image/image.dart' as img;
 
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
 import '../../domain/image_services/preprocessing/preprocessing.dart';
+import '../../domain/scoring/grading/grading_orchestrator.dart';
+import '../../domain/image_services/grading/enhanced_quality_service.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
@@ -107,6 +111,66 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
     }
   });
 
+  router.get('/evaluations', (Request request) async {
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.Evaluation',
+      'Evaluation list requested',
+      context: {
+        'correlation_id': correlationId,
+      },
+    );
+    try {
+      final evaluations = await evaluationLogic.getEvaluations();
+
+      return jsonResponse(
+        200,
+        evaluations.map((e) => e.toJson()).toList(),
+        headers: {
+          correlationIdHeader: correlationId,
+        },
+      );
+    } on LogicException catch (error) {
+      AppLogger.grading(
+        'PokéGrading.Routes.Evaluation',
+        'Evaluation submission rejected',
+        context: {
+          'error_code': error.code,
+          'error_message': error.message,
+        },
+      );
+      return jsonResponse(
+        submitEvaluationStatusCodeFor(error.code),
+        {
+          'status': 'error',
+          'error': error.code,
+          'message': error.message,
+          'correlation_id': correlationId,
+        },
+        headers: {correlationIdHeader: correlationId},
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Evaluation',
+        'Evaluation submission failed',
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'submission_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+        headers: {correlationIdHeader: correlationId},
+      );
+    }
+  });
+
   // ─── Preprocess endpoint (testing) ──────────────────────────────
   router.post('/preprocess', (Request request) async {
     final payload = await readJson(request);
@@ -172,8 +236,11 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         outputDir.createSync(recursive: true);
       }
 
-      final timestamp = DateTime.now().toUtc().toIso8601String()
-          .replaceAll(':', '-').replaceAll('.', '-');
+      final timestamp = DateTime.now()
+          .toUtc()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
       final filename = 'preprocessed_${timestamp}.jpg';
       final file = File('${outputDir.path}/$filename');
 
@@ -190,7 +257,8 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         context: {
           'correlation_id': correlationId,
           'output_file': file.path,
-          'corners': result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
+          'corners':
+              result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
           'detection_ms': result.metadata.detectionTimeMs,
           'correction_ms': result.metadata.correctionTimeMs,
         },
@@ -202,7 +270,8 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
           'success': true,
           'corrected_image': result.correctedImageData,
           'output_file': filename,
-          'corners': result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
+          'corners':
+              result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
           'metadata': {
             'detection_ms': result.metadata.detectionTimeMs,
             'correction_ms': result.metadata.correctionTimeMs,
@@ -225,6 +294,112 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         {
           'status': 'error',
           'error': 'preprocess_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+      );
+    }
+  });
+
+  // ─── Grading endpoint (testing) ──────────────────────────────
+  router.post('/grade', (Request request) async {
+    final payload = await readJson(request);
+    final imageData = payload['image_data']?.toString() ?? '';
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.Grading',
+      'Grading request received',
+      context: {
+        'correlation_id': correlationId,
+        'has_image': imageData.isNotEmpty,
+      },
+    );
+
+    if (imageData.isEmpty) {
+      return jsonResponse(
+        400,
+        {
+          'status': 'error',
+          'error': 'missing_image',
+          'message': 'image_data is required',
+          'correlation_id': correlationId,
+        },
+      );
+    }
+
+    try {
+      // Step 1: Preprocess the image
+      final preprocessResult = PreprocessingService.preprocess(imageData);
+
+      if (!preprocessResult.success || preprocessResult.rois == null) {
+        return jsonResponse(
+          422,
+          {
+            'status': 'error',
+            'error': preprocessResult.error?.name ?? 'preprocessing_failed',
+            'message': preprocessResult.errorMessage ?? 'Preprocessing failed',
+            'correlation_id': correlationId,
+          },
+        );
+      }
+
+      // Step 2: Run grading on the ROIs
+      final gradingStart = DateTime.now().toUtc();
+      final gradingResult = GradingOrchestrator.grade(preprocessResult.rois!);
+      final gradingDuration =
+          DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
+
+      // Step 3: Run enhanced quality analysis
+      final base64Part =
+          imageData.contains(',') ? imageData.split(',').last : imageData;
+      final bytes = base64Decode(base64Part);
+      final image = img.decodeImage(Uint8List.fromList(bytes));
+
+      EnhancedQualityResult? qualityResult;
+      if (image != null) {
+        qualityResult = EnhancedQualityService.calculateEnhancedQuality(image);
+      }
+
+      AppLogger.info(
+        'PokéGrading.Routes.Grading',
+        'Grading completed',
+        context: {
+          'correlation_id': correlationId,
+          'final_grade': gradingResult.finalGrade,
+          'confidence': gradingResult.confidence,
+          'grading_ms': gradingDuration,
+        },
+      );
+
+      return jsonResponse(
+        200,
+        {
+          'success': true,
+          'grading': gradingResult.toJson(),
+          'quality': qualityResult?.toJson(),
+          'metadata': {
+            'preprocessing_ms': preprocessResult.metadata.totalTimeMs,
+            'grading_ms': gradingDuration,
+            'algorithm_version': '1.0.0',
+          },
+          'correlation_id': correlationId,
+        },
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Grading',
+        'Grading failed unexpectedly',
+        context: {'correlation_id': correlationId},
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'grading_failed',
           'message': error.toString(),
           'correlation_id': correlationId,
         },

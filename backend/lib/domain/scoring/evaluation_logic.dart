@@ -10,6 +10,9 @@ import '../../core/logging/app_logger.dart';
 import '../../persistence/card_data_provider/evaluation_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
+import '../image_services/preprocessing/preprocessing_service.dart';
+import '../image_services/preprocessing/roi_segmenter.dart';
+import 'grading/pregrading.dart';
 
 Never _throwEvaluationError(String code, String err) {
   throw LogicException(feature: 'submit-evaluation', code: code, message: err);
@@ -206,7 +209,21 @@ class EvaluationLogic {
 
     final persistStarted = DateTime.now().toUtc();
 
-    final frontFeatures = VisualFeatureExtractor.extract(command.frontImageData);
+    /// Preprocess image as part of evaluation process
+    /// final correctedImage = PreprocessingService.preproces(command.frontiImageData);
+    /// TODO
+
+    final correctedFrontImage =
+        PreprocessingService.preprocess(command.frontImageData);
+
+    final correctedBackImage =
+        PreprocessingService.preprocess(command.backImageData);
+
+    print(correctedFrontImage);
+    //startPregrading(correctedFrontImage.rois, correctedBackImage.rois);
+
+    final frontFeatures =
+        VisualFeatureExtractor.extract(command.frontImageData);
 
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
@@ -251,6 +268,25 @@ class EvaluationLogic {
       createdAt: saved.createdAt,
       correlationId: correlationId,
     );
+  }
+
+  Future<List<PregradeResult>> getEvaluations() async {
+    return await repository.getEvaluations();
+  }
+
+  void startPregrading(RoiResult? front, RoiResult? back) {
+    try {
+      if (front == null || back == null) {
+        _throwEvaluationError("500", "Front y Back null");
+      }
+      double averageSubGradeFront = Grading.subgrades(front);
+      double averageSubGradeBack = Grading.subgrades(back);
+
+      print(averageSubGradeFront);
+      print(averageSubGradeBack);
+    } catch (error) {
+      print(error);
+    }
   }
 
   void _validate(
