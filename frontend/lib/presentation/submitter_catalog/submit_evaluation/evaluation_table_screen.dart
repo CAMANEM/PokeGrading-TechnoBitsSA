@@ -38,50 +38,114 @@ class _EvaluationsTableScreenState extends State<EvaluationsTableScreen> {
 
           final gradings = snapshot.data!;
 
-          return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Column(children: [
-                _Header(
-                  onNewEvaluation: () => context.pushNamed('submit_evaluation'),
-                  onBack: () {
-                    goBackOrHome(context);
-                  },
-                ),
-                DataTable(
-                  columns: const [
-                    DataColumn(label: Text('ID')),
-                    DataColumn(label: Text('Fecha de solicitud')),
-                    DataColumn(label: Text('Estado')),
-                    DataColumn(label: Text('Grado de centro')),
-                    DataColumn(label: Text('Grado de bordes')),
-                    DataColumn(label: Text('Grado de esquinas')),
-                    DataColumn(label: Text('Grado de superficie')),
-                    DataColumn(label: Text('Grado final')),
-                    DataColumn(label: Text('Confianza')),
-                    DataColumn(label: Text('Fecha de evaluacion')),
-                  ],
-                  rows: gradings.map((grade) {
-                    return DataRow(cells: [
-                      DataCell(Text(grade.gradeId.toString())),
-                      DataCell(Text(grade.submittedDate)),
-                      DataCell(Text(grade.status)),
-                      DataCell(Text(grade.centering_grade?.toString() ??
-                          'No ha sido evaluado')),
-                      DataCell(Text(grade.edges_grade?.toString() ??
-                          'No ha sido evaluado')),
-                      DataCell(Text(grade.corners_grade?.toString() ??
-                          'No ha sido evaluado')),
-                      DataCell(Text(grade.surface_grade?.toString() ??
-                          'No ha sido evaluado')),
-                      DataCell(Text(
-                          grade.grade?.toString() ?? 'No ha sido evaluado')),
-                      DataCell(Text(grade.confidence?.toString() ??
-                          'No ha sido evaluado')),
-                      DataCell(Text(grade.gradedDate ?? 'No ha sido evaluado'))
-                    ]);
-                  }).toList(),
-                )
-              ]));
+          return Scaffold(
+              body: Container(
+                  decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                        AppColors.backgroundDark,
+                        AppColors.surfaceDark2
+                      ])),
+                  child: SafeArea(
+                      child: Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 1200),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _Header(
+                                        onNewEvaluation: () => context
+                                            .pushNamed('submit_evaluation'),
+                                        onBack: () {
+                                          goBackOrHome(context);
+                                        },
+                                      ),
+                                      const SizedBox(
+                                        height: 24,
+                                      ),
+                                      Expanded(
+                                        child: _TableCard(
+                                            child: SingleChildScrollView(
+                                                scrollDirection:
+                                                    Axis.horizontal,
+                                                child: DataTable(
+                                                  columns: const [
+                                                    DataColumn(
+                                                        label: Text('ID')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Fecha de solicitud')),
+                                                    DataColumn(
+                                                        label: Text('Estado')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Grado de centro')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Grado de bordes')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Grado de esquinas')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Grado de superficie')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Grado final')),
+                                                    DataColumn(
+                                                        label:
+                                                            Text('Confianza')),
+                                                    DataColumn(
+                                                        label: Text(
+                                                            'Fecha de evaluacion')),
+                                                  ],
+                                                  rows: gradings.map((grade) {
+                                                    return DataRow(cells: [
+                                                      DataCell(Text(grade
+                                                          .gradeId
+                                                          .toString())),
+                                                      DataCell(Text(
+                                                          grade.submittedDate)),
+                                                      DataCell(
+                                                          Text(grade.status)),
+                                                      DataCell(Text(grade
+                                                              .centering_grade
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade
+                                                              .edges_grade
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade
+                                                              .corners_grade
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade
+                                                              .surface_grade
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade.grade
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade
+                                                              .confidence
+                                                              ?.toString() ??
+                                                          'No ha sido evaluado')),
+                                                      DataCell(Text(grade
+                                                              .gradedDate ??
+                                                          'No ha sido evaluado'))
+                                                    ]);
+                                                  }).toList(),
+                                                ))),
+                                      )
+                                    ],
+                                  )))))));
         });
   }
 }
@@ -127,6 +191,29 @@ class _Header extends StatelessWidget {
           label: const Text('Volver'),
         ),
       ],
+    );
+  }
+}
+
+class _TableCard extends StatelessWidget {
+  final Widget child;
+
+  const _TableCard({
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.borderDark,
+        ),
+      ),
+      child: child,
     );
   }
 }
