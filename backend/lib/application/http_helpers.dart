@@ -38,7 +38,7 @@ Future<Map<String, dynamic>> readJson(Request request) async {
 */
 Response jsonResponse(
   int statusCode,
-  Map<String, dynamic> body, {
+  Object body, {
   Map<String, String>? headers,
 }) {
   return Response(

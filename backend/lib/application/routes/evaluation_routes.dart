@@ -184,6 +184,66 @@ Router buildEvaluationRoutes(
     }
   });
 
+  router.get('/evaluations', (Request request) async {
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.Evaluation',
+      'Evaluation list requested',
+      context: {
+        'correlation_id': correlationId,
+      },
+    );
+    try {
+      final evaluations = await evaluationLogic.getEvaluations();
+
+      return jsonResponse(
+        200,
+        evaluations.map((e) => e.toJson()).toList(),
+        headers: {
+          correlationIdHeader: correlationId,
+        },
+      );
+    } on LogicException catch (error) {
+      AppLogger.grading(
+        'PokéGrading.Routes.Evaluation',
+        'Evaluation submission rejected',
+        context: {
+          'error_code': error.code,
+          'error_message': error.message,
+        },
+      );
+      return jsonResponse(
+        submitEvaluationStatusCodeFor(error.code),
+        {
+          'status': 'error',
+          'error': error.code,
+          'message': error.message,
+          'correlation_id': correlationId,
+        },
+        headers: {correlationIdHeader: correlationId},
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Evaluation',
+        'Evaluation submission failed',
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'submission_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+        headers: {correlationIdHeader: correlationId},
+      );
+    }
+  });
+
   // ─── Preprocess endpoint (testing) ──────────────────────────────
   router.post('/preprocess', (Request request) async {
     final payload = await readJson(request);
@@ -249,8 +309,11 @@ Router buildEvaluationRoutes(
         outputDir.createSync(recursive: true);
       }
 
-      final timestamp = DateTime.now().toUtc().toIso8601String()
-          .replaceAll(':', '-').replaceAll('.', '-');
+      final timestamp = DateTime.now()
+          .toUtc()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
       final filename = 'preprocessed_${timestamp}.jpg';
       final file = File('${outputDir.path}/$filename');
 
@@ -267,7 +330,8 @@ Router buildEvaluationRoutes(
         context: {
           'correlation_id': correlationId,
           'output_file': file.path,
-          'corners': result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
+          'corners':
+              result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
           'detection_ms': result.metadata.detectionTimeMs,
           'correction_ms': result.metadata.correctionTimeMs,
         },
@@ -279,7 +343,8 @@ Router buildEvaluationRoutes(
           'success': true,
           'corrected_image': result.correctedImageData,
           'output_file': filename,
-          'corners': result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
+          'corners':
+              result.detectedCorners?.map((c) => {'x': c.x, 'y': c.y}).toList(),
           'metadata': {
             'detection_ms': result.metadata.detectionTimeMs,
             'correction_ms': result.metadata.correctionTimeMs,
@@ -380,10 +445,15 @@ Router buildEvaluationRoutes(
         );
       }
 
-      // Step 2: Decode full image for centering + quality analysis
-      final base64Part = imageData.contains(',')
-          ? imageData.split(',').last
-          : imageData;
+      // Step 2: Run grading on the ROIs
+      final gradingStart = DateTime.now().toUtc();
+      final gradingResult = GradingOrchestrator.grade(preprocessResult.rois!);
+      final gradingDuration =
+          DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
+
+      // Step 3: Run enhanced quality analysis
+      final base64Part =
+          imageData.contains(',') ? imageData.split(',').last : imageData;
       final bytes = base64Decode(base64Part);
       final image = img.decodeImage(Uint8List.fromList(bytes));
 

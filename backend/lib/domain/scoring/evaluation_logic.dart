@@ -371,6 +371,10 @@ class EvaluationLogic {
     );
   }
 
+  Future<List<PregradeResult>> getEvaluations() async {
+    return await repository.getEvaluations();
+  }
+
   /// Saves an evaluation with `unableToGrade` status when the image cannot
   /// be processed (IQS failure or preprocessing failure).
   Future<EvaluationResult> _saveUnableToGrade({

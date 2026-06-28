@@ -39,4 +39,10 @@ class MockEvaluationRepository implements EvaluationRepository {
   Future<EvaluationRequest?> findById(String id) async {
     return _requests[id];
   }
+
+  @override
+  Future<List<PregradeResult>> getEvaluations() {
+    // TODO: implement getEvaluations
+    throw UnimplementedError();
+  }
 }

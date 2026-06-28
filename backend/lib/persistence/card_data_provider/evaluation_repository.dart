@@ -35,5 +35,7 @@ abstract class EvaluationRepository {
     AddEvaluationInput input,
   );
 
+  Future<List<PregradeResult>> getEvaluations();
+
   Future<EvaluationRequest?> findById(String id);
 }

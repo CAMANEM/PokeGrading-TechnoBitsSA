@@ -216,11 +216,11 @@ class _WelcomeCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => context.pushNamed('evaluations'),
             icon: const Icon(Icons.add_photo_alternate_rounded),
-            label: const Text('Enviar carta para evaluacion'),
+            label: const Text('Evaluaciones'),
           ),
           const SizedBox(height: 10),
           FilledButton.icon(
-            onPressed: () => context.goNamed('catalog_search'),
+            onPressed: () => context.pushNamed('catalog_search'),
             icon: const Icon(Icons.search),
             label: const Text('Busqueda rapida de carta'),
           ),
