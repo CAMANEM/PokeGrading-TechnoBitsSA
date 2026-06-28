@@ -25,7 +25,7 @@ class ImageQualityResult {
 
 /// @brief ImageQualityService
 class ImageQualityService {
-  static const int acceptedThreshold = 60;
+  static const int acceptedThreshold = 50;
 
   static img.Image _decodeImageData(String imageData) {
     final base64Part = imageData.split(',').last;

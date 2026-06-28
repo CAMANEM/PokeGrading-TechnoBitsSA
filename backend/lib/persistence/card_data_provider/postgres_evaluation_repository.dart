@@ -187,14 +187,14 @@ class PostgresEvaluationRepository implements EvaluationRepository {
 
       return result.map((row) {
         return PregradeResult(
-          gradeId: (row[0] as num).toInt(),
-          status: row[1]?.toString() ?? 'perding',
-          centering_grade: (row[2] as num?)?.toDouble(),
-          corners_grade: (row[3] as num?)?.toDouble(),
-          edges_grade: (row[4] as num?)?.toDouble(),
-          surface_grade: (row[5] as num?)?.toDouble(),
-          grade: (row[6] as num?)?.toDouble(),
-          confidence: (row[7] as num?)?.toDouble(),
+          gradeId: _toInt(row[0]) ?? 0,
+          status: row[1]?.toString() ?? 'pending',
+          centering_grade: _toDouble(row[2]),
+          corners_grade: _toDouble(row[3]),
+          edges_grade: _toDouble(row[4]),
+          surface_grade: _toDouble(row[5]),
+          grade: _toDouble(row[6]),
+          confidence: _toDouble(row[7]),
           submittedDate: (row[8] as DateTime).toIso8601String().split('T')[0],
           gradedDate: (row[9] as DateTime?)?.toIso8601String().split('T')[0],
         );
@@ -352,6 +352,20 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     EvaluationStatus.rejected => 'rejected',
     EvaluationStatus.underReview => 'under_review',
     EvaluationStatus.unableToGrade => 'unable_to_grade',
+  };
+
+  static int? _toInt(dynamic v) => switch (v) {
+    int n => n,
+    num n => n.toInt(),
+    String s => int.tryParse(s),
+    _ => null,
+  };
+
+  static double? _toDouble(dynamic v) => switch (v) {
+    double n => n,
+    num n => n.toDouble(),
+    String s => double.tryParse(s),
+    _ => null,
   };
 }
 

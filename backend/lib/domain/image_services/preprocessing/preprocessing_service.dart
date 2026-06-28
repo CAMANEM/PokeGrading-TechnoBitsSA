@@ -228,20 +228,21 @@ class PreprocessingService {
       // Extract ROIs (centering, corners, edges, surface)
       final segmentationStart = Stopwatch()..start();
       RoiData? roiData;
+      RoiResult? roisResult;
       if (normalizedImage != null) {
         try {
-          final rois = RoiSegmenter.extract(normalizedImage);
+          roisResult = RoiSegmenter.extract(normalizedImage);
           roiData = RoiData(
-            centering: base64Encode(img.encodeJpg(rois.centering, quality: 95)),
-            cornerTopLeft: base64Encode(img.encodeJpg(rois.cornerTopLeft, quality: 95)),
-            cornerTopRight: base64Encode(img.encodeJpg(rois.cornerTopRight, quality: 95)),
-            cornerBottomLeft: base64Encode(img.encodeJpg(rois.cornerBottomLeft, quality: 95)),
-            cornerBottomRight: base64Encode(img.encodeJpg(rois.cornerBottomRight, quality: 95)),
-            edgeTop: base64Encode(img.encodeJpg(rois.edgeTop, quality: 95)),
-            edgeBottom: base64Encode(img.encodeJpg(rois.edgeBottom, quality: 95)),
-            edgeLeft: base64Encode(img.encodeJpg(rois.edgeLeft, quality: 95)),
-            edgeRight: base64Encode(img.encodeJpg(rois.edgeRight, quality: 95)),
-            surface: base64Encode(img.encodeJpg(rois.surface, quality: 95)),
+            centering: base64Encode(img.encodeJpg(roisResult.centering, quality: 95)),
+            cornerTopLeft: base64Encode(img.encodeJpg(roisResult.cornerTopLeft, quality: 95)),
+            cornerTopRight: base64Encode(img.encodeJpg(roisResult.cornerTopRight, quality: 95)),
+            cornerBottomLeft: base64Encode(img.encodeJpg(roisResult.cornerBottomLeft, quality: 95)),
+            cornerBottomRight: base64Encode(img.encodeJpg(roisResult.cornerBottomRight, quality: 95)),
+            edgeTop: base64Encode(img.encodeJpg(roisResult.edgeTop, quality: 95)),
+            edgeBottom: base64Encode(img.encodeJpg(roisResult.edgeBottom, quality: 95)),
+            edgeLeft: base64Encode(img.encodeJpg(roisResult.edgeLeft, quality: 95)),
+            edgeRight: base64Encode(img.encodeJpg(roisResult.edgeRight, quality: 95)),
+            surface: base64Encode(img.encodeJpg(roisResult.surface, quality: 95)),
           );
         } catch (e) {
           AppLogger.info(
@@ -275,6 +276,7 @@ class PreprocessingService {
           segmentationTimeMs: segmentationStart.elapsedMilliseconds,
         ),
         detectedCorners: contourResult.corners!,
+        rois: roisResult,
         roiData: roiData,
       );
     } catch (e, stack) {

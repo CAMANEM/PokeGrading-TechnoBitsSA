@@ -91,74 +91,6 @@ class EvaluationLogic {
 
     _validate(command);
 
-    // ─── IQS Front ──────────────────────────────────────────────
-    final frontIqsStarted = DateTime.now().toUtc();
-    final frontScore = await ImageQualityService.calculateScore(
-      command.frontImageData,
-    );
-    final frontIqsDuration =
-        DateTime.now().toUtc().difference(frontIqsStarted).inMilliseconds;
-
-    _logStage(
-      stage: 'iqs_front',
-      durationMs: frontIqsDuration,
-      outputs: {
-        'iqs_score': frontScore.score,
-        'rejection_reasons': frontScore.rejectionReasons,
-      },
-    );
-
-    AppLogger.metric(
-      _loggerName,
-      'stage.latency',
-      context: {'stage': 'iqs_front', 'duration_ms': frontIqsDuration},
-    );
-
-    if (frontScore.score < ImageQualityService.acceptedThreshold) {
-      return _saveUnableToGrade(
-        command: command,
-        frontScore: frontScore.score,
-        backScore: 0,
-        reason: 'Imagen frontal no supera el IQS '
-            '(${frontScore.score.toStringAsFixed(1)}/100). '
-            'Motivos: ${frontScore.rejectionReasons.join(", ")}',
-      );
-    }
-
-    // ─── IQS Back ───────────────────────────────────────────────
-    final backIqsStarted = DateTime.now().toUtc();
-    final backScore = await ImageQualityService.calculateScore(
-      command.backImageData,
-    );
-    final backIqsDuration =
-        DateTime.now().toUtc().difference(backIqsStarted).inMilliseconds;
-
-    _logStage(
-      stage: 'iqs_back',
-      durationMs: backIqsDuration,
-      outputs: {
-        'iqs_score': backScore.score,
-        'rejection_reasons': backScore.rejectionReasons,
-      },
-    );
-
-    AppLogger.metric(
-      _loggerName,
-      'stage.latency',
-      context: {'stage': 'iqs_back', 'duration_ms': backIqsDuration},
-    );
-
-    if (backScore.score < ImageQualityService.acceptedThreshold) {
-      return _saveUnableToGrade(
-        command: command,
-        frontScore: frontScore.score,
-        backScore: backScore.score,
-        reason: 'Imagen trasera no supera el IQS '
-            '(${backScore.score.toStringAsFixed(1)}/100). '
-            'Motivos: ${backScore.rejectionReasons.join(", ")}',
-      );
-    }
-
     // ─── Polyglot Detection (security — hard reject, never saved) ──
     final frontPolyglotStarted = DateTime.now().toUtc();
     final frontPolyglotResult =
@@ -223,9 +155,76 @@ class EvaluationLogic {
       );
     }
 
-    // ─── Preprocessing ──────────────────────────────────────────
-    final persistStarted = DateTime.now().toUtc();
+    // ─── IQS Front (on original image — JPEG preprocessing hurts sharpness) ──
+    final frontIqsStarted = DateTime.now().toUtc();
+    final frontScore = await ImageQualityService.calculateScore(
+      command.frontImageData,
+    );
+    final frontIqsDuration =
+        DateTime.now().toUtc().difference(frontIqsStarted).inMilliseconds;
 
+    _logStage(
+      stage: 'iqs_front',
+      durationMs: frontIqsDuration,
+      outputs: {
+        'iqs_score': frontScore.score,
+        'rejection_reasons': frontScore.rejectionReasons,
+      },
+    );
+
+    AppLogger.metric(
+      _loggerName,
+      'stage.latency',
+      context: {'stage': 'iqs_front', 'duration_ms': frontIqsDuration},
+    );
+
+    if (frontScore.score < ImageQualityService.acceptedThreshold) {
+      return _saveUnableToGrade(
+        command: command,
+        frontScore: frontScore.score,
+        backScore: 0,
+        reason: 'Imagen frontal no supera el IQS '
+            '(${frontScore.score.toStringAsFixed(1)}/100). '
+            'Motivos: ${frontScore.rejectionReasons.join(", ")}',
+      );
+    }
+
+    // ─── IQS Back (on original image) ───────────────────────────
+    final backIqsStarted = DateTime.now().toUtc();
+    final backScore = await ImageQualityService.calculateScore(
+      command.backImageData,
+    );
+    final backIqsDuration =
+        DateTime.now().toUtc().difference(backIqsStarted).inMilliseconds;
+
+    _logStage(
+      stage: 'iqs_back',
+      durationMs: backIqsDuration,
+      outputs: {
+        'iqs_score': backScore.score,
+        'rejection_reasons': backScore.rejectionReasons,
+      },
+    );
+
+    AppLogger.metric(
+      _loggerName,
+      'stage.latency',
+      context: {'stage': 'iqs_back', 'duration_ms': backIqsDuration},
+    );
+
+    if (backScore.score < ImageQualityService.acceptedThreshold) {
+      AppLogger.info(
+        _loggerName,
+        'Back image IQS below threshold — proceeding anyway',
+        context: {
+          'correlation_id': correlationId,
+          'back_iqs': backScore.score,
+          'reasons': backScore.rejectionReasons,
+        },
+      );
+    }
+
+    // ─── Preprocessing (for grading — ROI extraction, perspective correction) ──
     final frontPreprocess =
         PreprocessingService.preprocess(command.frontImageData);
 
@@ -321,6 +320,7 @@ class EvaluationLogic {
     }
 
     // ─── Persist ────────────────────────────────────────────────
+    final persistStarted = DateTime.now().toUtc();
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
         frontImageData: command.frontImageData,
