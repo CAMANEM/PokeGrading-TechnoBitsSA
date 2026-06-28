@@ -86,6 +86,8 @@ Router buildEvaluationRoutes(
     final frontImageData = payload['front_image_data'].toString();
     final backImageData = (payload['back_image_data'] ?? '').toString();
     final cardId = payload['card_id']?.toString();
+    final evalSetName = payload['set_name']?.toString();
+    final evalSetFinish = payload['set_finish']?.toString() ?? payload['finish']?.toString();
     final correlationId = request.context['correlation_id'] as String? ??
         resolveCorrelationId(request.headers);
     final requestContext = httpLogContext(
@@ -106,6 +108,8 @@ Router buildEvaluationRoutes(
           backImageData: backImageData,
           cardId: cardId,
           correlationId: correlationId,
+          setName: evalSetName,
+          setFinish: evalSetFinish,
         ),
       );
 
@@ -383,7 +387,7 @@ Router buildEvaluationRoutes(
 
     // Optional card identity for baseline selection
     final cardSetName = payload['set_name']?.toString();
-    final cardFinish = payload['finish']?.toString();
+    final cardFinish = payload['set_finish']?.toString() ?? payload['finish']?.toString();
 
     AppLogger.info(
       'PokéGrading.Routes.Grading',
@@ -445,13 +449,7 @@ Router buildEvaluationRoutes(
         );
       }
 
-      // Step 2: Run grading on the ROIs
-      final gradingStart = DateTime.now().toUtc();
-      final gradingResult = GradingOrchestrator.grade(preprocessResult.rois!);
-      final gradingDuration =
-          DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
-
-      // Step 3: Run enhanced quality analysis
+      // Step 2: Decode full image for centering + quality analysis
       final base64Part =
           imageData.contains(',') ? imageData.split(',').last : imageData;
       final bytes = base64Decode(base64Part);

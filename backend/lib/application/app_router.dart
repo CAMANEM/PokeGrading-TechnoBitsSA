@@ -80,7 +80,10 @@ Router buildAppRouter(
     searchTraceRepository: searchTraceRepository,
   );
 
-  final evaluationLogic = EvaluationLogic(repository: evaluationRepository);
+  final evaluationLogic = EvaluationLogic(
+    repository: evaluationRepository,
+    baselineRegistry: baselineRegistry,
+  );
   final evaluationRouter = buildEvaluationRoutes(
     evaluationLogic,
     baselineRegistry: baselineRegistry,

@@ -90,7 +90,9 @@ class PostgresCatalogRepository implements CatalogRepository {
     hr.average_hash_hex,
     hr.difference_hash_hex,
     hr.center_average_hash_hex,
-    hr.center_difference_hash_hex
+    hr.center_difference_hash_hex,
+    cr.psa_grade,
+    cr.grading_features_json
   ''';
 
   static const _fromClause = '''
@@ -496,6 +498,14 @@ class PostgresCatalogRepository implements CatalogRepository {
       centerDifferenceHashHex: row[17]?.toString(),
     );
 
+    final psaGrade = (row[18] as num?)?.toDouble();
+
+    final rawGradingJson = row[19];
+    Map<String, dynamic>? gradingFeaturesJson;
+    if (rawGradingJson is Map) {
+      gradingFeaturesJson = Map<String, dynamic>.from(rawGradingJson);
+    }
+
     final display = CardDisplay(
       displayName: row[6]?.toString(),
       rarity: row[10]?.toString(),
@@ -504,6 +514,7 @@ class PostgresCatalogRepository implements CatalogRepository {
       illustrator: row[11]?.toString(),
       year: row[9] as int?,
       author: row[8]?.toString(),
+      psaGrade: psaGrade,
     );
 
     return PokemonCard(
@@ -512,6 +523,7 @@ class PostgresCatalogRepository implements CatalogRepository {
       display: display,
       imageData: '',
       visualFeatures: visualFeatures.isEmpty ? null : visualFeatures,
+      gradingFeaturesJson: gradingFeaturesJson,
       status: PokemonCardStatus.pendingValidation,
       isActive: true,
       audit: [],

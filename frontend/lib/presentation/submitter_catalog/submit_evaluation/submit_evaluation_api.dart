@@ -39,7 +39,7 @@ class SubmitEvaluationApi {
 
     final body = _decodeResponse(response.body);
 
-    if (response.statusCode == 201) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return SubmitEvaluationResult(
         evaluationId: body['evaluation_id'] as String,
         status: body['status'] as String,
@@ -47,6 +47,11 @@ class SubmitEvaluationApi {
           body['created_at'] as String,
         ),
         estimatedTime: body['estimated_time']?.toString(),
+        gradingResult: body['grading'] as Map<String, dynamic>?,
+        rejectionReason: body['rejection_reason']?.toString(),
+        algorithmVersion: body['metadata'] != null
+            ? (body['metadata'] as Map<String, dynamic>)['algorithm_version']?.toString()
+            : null,
       );
     }
 
@@ -112,6 +117,8 @@ class SubmitEvaluationApi {
           'front_image_data': payload.frontImageData,
           'back_image_data': payload.backImageData,
           if (payload.cardId != null) 'card_id': payload.cardId,
+          if (payload.setName != null) 'set_name': payload.setName,
+          if (payload.setFinish != null) 'set_finish': payload.setFinish,
         }),
       );
     } on http.ClientException catch (error) {

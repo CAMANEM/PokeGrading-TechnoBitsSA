@@ -57,6 +57,8 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   String? _selectedBackImageExtension;
 
   String? _cardId;
+  String? _setName;
+  String? _setFinish;
   bool _preprocessedImagesLoaded = false;
 
   @override
@@ -70,6 +72,8 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _cardId ??= GoRouterState.of(context).uri.queryParameters['card_id'];
+    _setName ??= GoRouterState.of(context).uri.queryParameters['set_name'];
+    _setFinish ??= GoRouterState.of(context).uri.queryParameters['set_finish'];
 
     if (!_preprocessedImagesLoaded) {
       final extra = GoRouterState.of(context).extra;
@@ -185,6 +189,8 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                               frontImageData: _selectedFrontImageData!,
                               backImageData: _selectedBackImageData!,
                               cardId: _cardId,
+                              setName: _setName,
+                              setFinish: _setFinish,
                             );
 
                             await _provider.submit(payload);
@@ -636,30 +642,240 @@ class _SuccessCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.success.withOpacity(0.5)),
+        border: Border.all(
+          color: result.unableToGrade
+              ? AppColors.warning.withOpacity(0.5)
+              : result.needsReview
+                  ? AppColors.info.withOpacity(0.5)
+                  : AppColors.success.withOpacity(0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Status header
+          Row(
+            children: [
+              Icon(
+                result.unableToGrade
+                    ? Icons.warning_amber_rounded
+                    : result.needsReview
+                        ? Icons.info_outline
+                        : Icons.check_circle_outline,
+                color: result.unableToGrade
+                    ? AppColors.warning
+                    : result.needsReview
+                        ? AppColors.info
+                        : AppColors.success,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  result.unableToGrade
+                      ? 'No se pudo evaluar'
+                      : result.needsReview
+                          ? 'En revisión humana'
+                          : 'Evaluación completada',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Evaluation ID
+          _InfoRow(label: 'ID de evaluación', value: result.evaluationId),
+          _InfoRow(label: 'Estado', value: result.status),
+          if (result.algorithmVersion != null)
+            _InfoRow(label: 'Versión del algoritmo', value: result.algorithmVersion!),
+
+          // Rejection reason (if unableToGrade)
+          if (result.rejectionReason != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppColors.warning, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      result.rejectionReason!,
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Grading details (if available)
+          if (result.hasGrading) ...[
+            const SizedBox(height: 20),
+            const Divider(color: AppColors.borderDark),
+            const SizedBox(height: 12),
+
+            // Final grade with uncertainty band
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    'Grado Final',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    result.finalGrade?.toStringAsFixed(2) ?? '-',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (result.gradeLowerBound != null && result.gradeUpperBound != null)
+                    Text(
+                      'Rango: ${result.gradeLowerBound!.toStringAsFixed(1)} - ${result.gradeUpperBound!.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Subgrades grid
+            Row(
+              children: [
+                Expanded(child: _SubgradeCard(label: 'Centering', grade: result.centeringGrade, weight: '40%')),
+                const SizedBox(width: 8),
+                Expanded(child: _SubgradeCard(label: 'Esquinas', grade: result.cornersGrade, weight: '20%')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _SubgradeCard(label: 'Bordes', grade: result.edgesGrade, weight: '20%')),
+                const SizedBox(width: 8),
+                Expanded(child: _SubgradeCard(label: 'Superficie', grade: result.surfaceGrade, weight: '20%')),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Confidence + coherence
+            _InfoRow(
+              label: 'Confianza',
+              value: result.confidence != null
+                  ? '${(result.confidence! * 100).toStringAsFixed(0)}%'
+                  : '-',
+            ),
+            if (result.coherenceApplied)
+              _InfoRow(label: 'Regla de coherencia', value: 'Aplicada'),
+            if (result.isCalibrated)
+              _InfoRow(label: 'Baseline', value: 'Calibrado (${result.baselineVersion ?? ""})')
+            else
+              _InfoRow(label: 'Baseline', value: result.baselineVersion ?? 'Global'),
+
+            // Explanation
+            if (result.explanation != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark2.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  result.explanation!,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+
+          const SizedBox(height: 24),
+          Center(
+            child: FilledButton(
+              onPressed: onReset,
+              child: const Text('Nueva evaluación'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// @brief _InfoRow
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          Text(value, style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+/// @brief _SubgradeCard
+class _SubgradeCard extends StatelessWidget {
+  final String label;
+  final double? grade;
+  final String weight;
+
+  const _SubgradeCard({required this.label, required this.grade, required this.weight});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark2.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderDark),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 4),
           Text(
-            'ID de evaluación',
+            grade?.toStringAsFixed(2) ?? '-',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
           ),
-          Text(result.evaluationId),
-          SizedBox(height: 16),
-          Text(
-            'Estado',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(result.status),
+          Text('($weight)', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
         ],
       ),
     );
