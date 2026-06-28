@@ -3,7 +3,7 @@
 ///
 /// Combines centering, corners, edges, and surface analysis into
 /// a final pre-grade score following BGS (Beckett Grading Services)
-/// weight standards.
+/// weight standards. Supports calibrated baselines per (set, finish).
 
 import 'dart:math';
 
@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 
 import '../../image_services/preprocessing/roi_segmenter.dart';
 import 'pregrading.dart';
+import 'baseline_registry.dart';
 import '../../image_services/grading/corner_whitening_detector.dart';
 import '../../image_services/grading/edge_whitening_detector.dart';
 import '../../image_services/grading/surface_scratch_detector.dart';
@@ -38,6 +39,21 @@ class GradingResult {
   /// Grade explanation.
   final String explanation;
 
+  /// Baseline used for this grading.
+  final BaselineSelection baseline;
+
+  /// Uncertainty band: lower bound of the grade.
+  final double gradeLowerBound;
+
+  /// Uncertainty band: upper bound of the grade.
+  final double gradeUpperBound;
+
+  /// Whether the coherence rule was applied (final ≤ lowest subgrade + 0.5).
+  final bool coherenceRuleApplied;
+
+  /// The lowest subgrade value.
+  final double lowestSubgrade;
+
   const GradingResult({
     required this.centeringGrade,
     required this.corners,
@@ -46,8 +62,14 @@ class GradingResult {
     required this.finalGrade,
     required this.confidence,
     required this.explanation,
+    required this.baseline,
+    required this.gradeLowerBound,
+    required this.gradeUpperBound,
+    required this.coherenceRuleApplied,
+    required this.lowestSubgrade,
   });
 
+  /// Converts to JSON for output.
   Map<String, dynamic> toJson() => {
     'centering_grade': double.parse(centeringGrade.toStringAsFixed(2)),
     'corners': corners.toJson(),
@@ -56,6 +78,14 @@ class GradingResult {
     'final_grade': double.parse(finalGrade.toStringAsFixed(2)),
     'confidence': double.parse(confidence.toStringAsFixed(4)),
     'explanation': explanation,
+    // Baseline info
+    ...baseline.toJson(),
+    // Uncertainty band
+    'grade_lower_bound': double.parse(gradeLowerBound.toStringAsFixed(2)),
+    'grade_upper_bound': double.parse(gradeUpperBound.toStringAsFixed(2)),
+    // Coherence
+    'coherence_rule_applied': coherenceRuleApplied,
+    'lowest_subgrade': double.parse(lowestSubgrade.toStringAsFixed(2)),
   };
 }
 
@@ -110,14 +140,26 @@ class GradingOrchestrator {
   /// Number of corners/edges for display.
   static const int totalRegions = 4;
 
+  /// Uncertainty factor: how much to expand the confidence interval.
+  /// Based on confidence: lower confidence = wider band.
+  static const double uncertaintyFactor = 0.5;
+
   /// Performs complete grading on a card's ROIs.
   ///
   /// [rois] contains all extracted regions from the card.
   /// [fullImage] is the original card image (for centering detection).
-  /// If null, uses the centering ROI (may not work for white-bordered cards).
+  /// [baselineSelection] is the selected baseline for this (set, finish).
+  ///   If null, uses the global fallback.
   ///
   /// Returns a [GradingResult] with all sub-grades and final score.
-  static GradingResult grade(RoiResult rois, {img.Image? fullImage}) {
+  static GradingResult grade(
+    RoiResult rois, {
+    img.Image? fullImage,
+    BaselineSelection? baselineSelection,
+  }) {
+    // Select baseline (use global if not provided)
+    final baseline = baselineSelection ?? BaselineSelection.global();
+
     // 1. Centering grade - use full image if provided for white border detection
     final centeringGrade = Grading.centerGrade(
       fullImage ?? rois.centering,
@@ -145,14 +187,25 @@ class GradingOrchestrator {
     final surfaceImage = img.Image.from(rois.surface);
     final surface = SurfaceScratchDetector.analyzeSurface(surfaceImage);
 
-    // 5. Calculate final grade using BGS weights
-    final finalGrade = (centeringGrade * centeringWeight +
-            corners.grade * cornersWeight +
-            edges.grade * edgesWeight +
-            surface.grade * surfaceWeight)
+    // 5. Calculate weighted grade
+    final weightedGrade = centeringGrade * centeringWeight +
+        corners.grade * cornersWeight +
+        edges.grade * edgesWeight +
+        surface.grade * surfaceWeight;
+
+    // 6. Apply coherence rule: final grade ≤ lowest subgrade + 0.5
+    final lowestSubgrade = _findLowestSubgrade(
+      centeringGrade,
+      corners.grade,
+      edges.grade,
+      surface.grade,
+    );
+    final coherenceMax = lowestSubgrade + 0.5;
+    final coherenceRuleApplied = weightedGrade > coherenceMax;
+    final finalGrade = (coherenceRuleApplied ? coherenceMax : weightedGrade)
         .clamp(minGrade, maxGrade);
 
-    // 6. Calculate confidence based on consistency
+    // 7. Calculate confidence based on consistency
     final confidence = _calculateConfidence(
       centeringGrade: centeringGrade,
       corners: corners,
@@ -160,13 +213,22 @@ class GradingOrchestrator {
       surface: surface,
     );
 
-    // 7. Generate explanation
+    // 8. Calculate uncertainty band
+    final uncertainty = _calculateUncertainty(
+      finalGrade: finalGrade,
+      confidence: confidence,
+      subgrades: [centeringGrade, corners.grade, edges.grade, surface.grade],
+    );
+
+    // 9. Generate explanation
     final explanation = _generateExplanation(
       centeringGrade: centeringGrade,
       corners: corners,
       edges: edges,
       surface: surface,
       finalGrade: finalGrade,
+      coherenceRuleApplied: coherenceRuleApplied,
+      lowestSubgrade: lowestSubgrade,
     );
 
     return GradingResult(
@@ -177,7 +239,44 @@ class GradingOrchestrator {
       finalGrade: finalGrade,
       confidence: confidence,
       explanation: explanation,
+      baseline: baseline,
+      gradeLowerBound: max(minGrade, finalGrade - uncertainty),
+      gradeUpperBound: min(maxGrade, finalGrade + uncertainty),
+      coherenceRuleApplied: coherenceRuleApplied,
+      lowestSubgrade: lowestSubgrade,
     );
+  }
+
+  /// Finds the lowest subgrade among the four dimensions.
+  static double _findLowestSubgrade(
+    double centering,
+    double corners,
+    double edges,
+    double surface,
+  ) {
+    return min(centering, min(corners, min(edges, surface)));
+  }
+
+  /// Calculates uncertainty band width based on confidence and subgrade spread.
+  ///
+  /// Lower confidence and higher subgrade spread = wider uncertainty band.
+  static double _calculateUncertainty({
+    required double finalGrade,
+    required double confidence,
+    required List<double> subgrades,
+  }) {
+    // Base uncertainty from confidence (lower confidence = wider band)
+    final confidenceUncertainty = (1.0 - confidence) * uncertaintyFactor;
+
+    // Additional uncertainty from subgrade spread
+    final mean = subgrades.reduce((a, b) => a + b) / subgrades.length;
+    final sumSquaredDev = subgrades
+        .map((g) => (g - mean) * (g - mean))
+        .reduce((a, b) => a + b);
+    final stdDev = sqrt(sumSquaredDev / subgrades.length);
+    final spreadUncertainty = stdDev * 0.3;
+
+    return (confidenceUncertainty + spreadUncertainty).clamp(0.0, 2.0);
   }
 
   /// Calculates confidence score based on consistency of sub-grades.
@@ -213,6 +312,8 @@ class GradingOrchestrator {
     required EdgeGradingResult edges,
     required SurfaceGradingResult surface,
     required double finalGrade,
+    required bool coherenceRuleApplied,
+    required double lowestSubgrade,
   }) {
     final issues = <String>[];
 
@@ -234,6 +335,11 @@ class GradingOrchestrator {
     // Check surface
     if (!surface.passes) {
       issues.add('Superficie con ${surface.scratchCount} defectos detectados');
+    }
+
+    // Note coherence rule application
+    if (coherenceRuleApplied) {
+      issues.add('Grade ajustado por regla de coherencia (max: ${lowestSubgrade.toStringAsFixed(1)} + 0.5)');
     }
 
     if (issues.isEmpty) {

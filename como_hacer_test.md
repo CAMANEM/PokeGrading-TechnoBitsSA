@@ -3,11 +3,16 @@
 ## Descripción
 
 Este documento explica cómo probar el sistema de grading completo de PokéGrading, incluyendo:
-- Detección de whitening en esquinas
-- Detección de defectos en bordes
+- Detección de whitening en esquinas (con detección de bordes blancos)
+- Detección de defectos en bordes (con detección de bordes blancos)
 - Detección de rayas en superficie
 - Análisis de calidad mejorado (Tenengrad + Entropía)
-- Cálculo de grade final ponderado
+- Cálculo de grade final ponderado (pesos BGS estándar)
+- Regla de coherencia (final ≤ subgrado más bajo + 0.5)
+- Banda de incertidumbre
+- Baselines calibrados por (set, finish)
+- Idempotencia en el endpoint de grading
+- Endpoint de calibración
 
 ## Prerequisitos
 
@@ -20,30 +25,38 @@ Este documento explica cómo probar el sistema de grading completo de PokéGradi
 
 **URL:** `POST /api/v1/scoring/grade`
 
-**Descripción:** Realiza preprocessing + grading completo de una carta.
+**Descripción:** Realiza preprocessing + grading completo de una carta. Acepta identidad de carta (set, finish) para seleccionar baseline calibrado.
 
 **Request Body:**
 ```json
 {
-  "image_data": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+  "image_data": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  "set_name": "SVP",
+  "finish": "holo",
+  "idempotency_key": "optional-client-key"
 }
 ```
+
+Campos opcionales:
+- `set_name`: Nombre del set de la carta (para selección de baseline calibrado)
+- `finish`: Tipo de acabado (holo, reverse, normal, etc.)
+- `idempotency_key`: Clave de idempotencia del cliente (opcional)
 
 **Response Exitoso (200):**
 ```json
 {
   "success": true,
   "grading": {
-    "centering_grade": 8.5,
+    "centering_grade": 8.22,
     "corners": {
       "corners": [
-        {"position": "top_left", "whitening_score": 0.1, "whitening_percentage": 0.8, "passes": true},
-        {"position": "top_right", "whitening_score": 0.0, "whitening_percentage": 0.3, "passes": true},
-        {"position": "bottom_left", "whitening_score": 0.2, "whitening_percentage": 1.2, "passes": true},
-        {"position": "bottom_right", "whitening_score": 0.3, "whitening_percentage": 1.8, "passes": true}
+        {"position": "top_left", "whitening_score": 0.0, "whitening_percentage": 0.0, "passes": true},
+        {"position": "top_right", "whitening_score": 0.0, "whitening_percentage": 0.0, "passes": true},
+        {"position": "bottom_left", "whitening_score": 0.0, "whitening_percentage": 0.0, "passes": true},
+        {"position": "bottom_right", "whitening_score": 0.0, "whitening_percentage": 0.0, "passes": true}
       ],
-      "grade": 9.2,
-      "average_whitening": 0.15,
+      "grade": 10.0,
+      "average_whitening": 0.0,
       "passed_count": 4
     },
     "edges": {
@@ -53,22 +66,31 @@ Este documento explica cómo probar el sistema de grading completo de PokéGradi
         {"position": "left", "whitening_score": 0.0, "straightness_score": 0.98, "quality_score": 0.98, "whitening_percentage": 0.2, "passes": true},
         {"position": "right", "whitening_score": 0.02, "straightness_score": 0.97, "quality_score": 0.97, "whitening_percentage": 0.3, "passes": true}
       ],
-      "grade": 9.5,
-      "average_quality": 0.94,
+      "grade": 8.47,
+      "average_quality": 0.84,
       "passed_count": 4
     },
     "surface": {
       "scratch_score": 0.85,
       "print_line_score": 0.92,
       "uniformity_score": 0.88,
-      "grade": 8.7,
+      "grade": 8.75,
       "quality_score": 0.87,
       "scratch_count": 2,
       "passes": true
     },
-    "final_grade": 8.9,
+    "final_grade": 8.72,
     "confidence": 0.92,
-    "explanation": "Carta en excelente estado. Grade estimado: 8.9/10"
+    "explanation": "Carta en excelente estado. Grade estimado: 8.7/10",
+    "baseline_version": "global_v1.0",
+    "baseline_is_calibrated": false,
+    "baseline_set": null,
+    "baseline_finish": null,
+    "baseline_reference_card_count": 0,
+    "grade_lower_bound": 8.22,
+    "grade_upper_bound": 9.22,
+    "coherence_rule_applied": true,
+    "lowest_subgrade": 8.22
   },
   "quality": {
     "score": 78.5,
@@ -89,7 +111,73 @@ Este documento explica cómo probar el sistema de grading completo de PokéGradi
 }
 ```
 
-### 2. Endpoint de Preprocessing (solo)
+Campos nuevos en la respuesta:
+- `baseline_version`: Versión del baseline utilizado
+- `baseline_is_calibrated`: true si se usó un baseline calibrado para el (set, finish)
+- `grade_lower_bound` / `grade_upper_bound`: Banda de incertidumbre del grade
+- `coherence_rule_applied`: true si la regla de coherencia ajustó el grade
+- `lowest_subgrade`: El subgrado más bajo (referencia para la regla de coherencia)
+
+### 2. Endpoint de Calibración
+
+**URL:** `POST /api/v1/scoring/calibrate`
+
+**Descripción:** Calibra un baseline para un (set, finish) específico usando un dataset de cartas con grades de PSA confirmados. Requiere mínimo 15 cartas para activar el baseline calibrado.
+
+**Request Body:**
+```json
+{
+  "set_name": "Base Set",
+  "finish": "holo",
+  "description": "Calibración con 25 cartas Charizard PSA",
+  "cards": [
+    {
+      "psa_grade": 10.0,
+      "features": {
+        "centering_symmetry": 0.95,
+        "corner_whitening_percentages": [0.0, 0.0, 0.0, 0.0],
+        "edge_whitening_percentages": [0.0, 0.0, 0.0, 0.0],
+        "edge_straightness_cvs": [0.05, 0.05, 0.05, 0.05],
+        "surface_scratch_density": 0.0,
+        "surface_uniformity_cv": 0.2
+      }
+    },
+    {
+      "psa_grade": 8.0,
+      "features": {
+        "centering_symmetry": 0.85,
+        "corner_whitening_percentages": [0.5, 0.3, 0.2, 0.4],
+        "edge_whitening_percentages": [0.1, 0.2, 0.1, 0.15],
+        "edge_straightness_cvs": [0.1, 0.12, 0.08, 0.1],
+        "surface_scratch_density": 0.01,
+        "surface_uniformity_cv": 0.35
+      }
+    }
+  ]
+}
+```
+
+**Response Exitoso (200):**
+```json
+{
+  "success": true,
+  "calibration": {
+    "set_name": "Base Set",
+    "finish": "holo",
+    "baseline_version": "base_set_holo_v1.0",
+    "card_count": 25,
+    "has_sufficient_ground_truth": true,
+    "average_psa_grade": 8.2,
+    "psa_grade_std_dev": 1.5,
+    "quality_score": 0.85,
+    "warnings": [],
+    "registered": true
+  },
+  "correlation_id": "abc-123"
+}
+```
+
+### 3. Endpoint de Preprocessing (solo)
 
 **URL:** `POST /api/v1/scoring/preprocess`
 
@@ -115,6 +203,8 @@ $base64Image = [Convert]::ToBase64String([IO.File]::ReadAllBytes("test_card.jpg"
 # 3. Envía request de grading
 $body = @{
     image_data = "data:image/jpeg;base64,$base64Image"
+    set_name = "SVP"
+    finish = "holo"
 } | ConvertTo-Json
 
 Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/grade" `
@@ -123,15 +213,50 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/grade" `
     -Body $body
 ```
 
-### Prueba con Imagen Pequeña (para testing rápido)
+### Prueba de Idempotencia
 
 ```powershell
-# Usando una imagen de ejemplo muy pequeña
+# Enviar el mismo request con idempotency_key
 $body = @{
-    image_data = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AKwA//9k="
+    image_data = "data:image/jpeg;base64,$base64Image"
+    idempotency_key = "my-unique-request-123"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/grade" `
+# Primer request - ejecuta el grading completo
+$resp1 = Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/grade" `
+    -Method POST -ContentType "application/json" -Body $body
+
+# Segundo request - retorna la respuesta cacheada (idempotent_replay: true)
+$resp2 = Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/grade" `
+    -Method POST -ContentType "application/json" -Body $body
+
+# Verificar que es una replay
+Write-Host "Replay: $($resp2.idempotent_replay)"  # True
+```
+
+### Prueba de Calibración
+
+```powershell
+$body = @{
+    set_name = "Base Set"
+    finish = "holo"
+    description = "Calibración de prueba"
+    cards = @(
+        @{
+            psa_grade = 10.0
+            features = @{
+                centering_symmetry = 0.95
+                corner_whitening_percentages = @(0, 0, 0, 0)
+                edge_whitening_percentages = @(0, 0, 0, 0)
+                edge_straightness_cvs = @(0.05, 0.05, 0.05, 0.05)
+                surface_scratch_density = 0
+                surface_uniformity_cv = 0.2
+            }
+        }
+    )
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/calibrate" `
     -Method POST `
     -ContentType "application/json" `
     -Body $body
@@ -154,17 +279,15 @@ curl -X POST http://localhost:8080/api/v1/scoring/grade \
 ## Métricas Explicadas
 
 ### 1. Centering (40% del grade final)
-- **Métrica:** Simetría de bordes
+- **Métrica:** Simetría de bordes (detección de varianza)
 - **Escala:** 1.0 (muy desalineado) a 10.0 (perfectamente centrado)
-- **Método:** Detección de bordes con Sobel + escaneo de márgenes
+- **Método:** Escaneo de bordes buscando transiciones artwork/border
 
 ### 2. Corners (20% del grade final)
 - **Métrica:** Whitening (blanqueamiento)
 - **Escala:** 0.0 (perfecto) a 1.0 (severe whitening)
-- **Método:** Análisis de brillo + saturación en espacio LAB-like
-- **Umbrales:**
-  - Perfecto: < 0.5% píxeles blanqueados
-  - Fail: > 2.0% píxeles blanqueados
+- **Método:** Detección de bordes blancos + análisis de brillo
+- **Protección:** Las cartas con bordes blancos son NORMALES — se detecta y omite automáticamente
 
 ### 3. Edges (20% del grade final)
 - **Métrica:** Whitening + Rectitud
@@ -178,10 +301,21 @@ curl -X POST http://localhost:8080/api/v1/scoring/grade \
 - **Método:** Análisis de gradiente + perfiles de proyección + varianza local
 - **Ponderación:** 50% rayas, 25% líneas impresión, 25% uniformidad
 
-### 5. Enhanced Quality (IQS mejorado)
+### 5. Regla de Coherencia (BGS Estándar)
+El grade final no puede exceder el subgrado más bajo + 0.5. Esto asegura que una carta no obtenga un grade alto si alguna dimensión está muy dañada.
+
+### 6. Banda de Incertidumbre
+Calculada a partir de la consistencia entre subgrades y el rango de los subgrades. Valores típicos: ±0.5 (alta consistencia) a ±2.0 (baja consistencia).
+
+### 7. Baselines Calibrados
+- **Global (global_v1.0):** Baseline por defecto con umbrales de PSA estándar
+- **Calibrado:** Baseline específico para un (set, finish) con mínimo 15 cartas de referencia
+- Si no hay suficiente ground truth, se usa el baseline global como fallback
+
+### 8. Enhanced Quality (IQS mejorado)
 - **Laplacian Sharpness:** Nitidez basada en Laplaciano
 - **Tenengrad Sharpness:** Nitidez basada en Sobel (complementaria)
-- **Brightness:** BrilloUsing ITU-R BT.709
+- **Brightness:** Usando ITU-R BT.709
 - **Entropy:** Contenido de información (máximo 8.0 para 8-bit)
 - **Contrast:** Contraste RMS
 
@@ -207,29 +341,55 @@ curl -X POST http://localhost:8080/api/v1/scoring/grade \
 - **0.5-0.7:** Baja confianza (graduaciones inconsistentes)
 - **< 0.5:** Muy baja confianza (revisar manualmente)
 
-## Troubleshooting
+### Baseline Info
+- `baseline_is_calibrated: false` → Se usó el baseline global (PSA estándar)
+- `baseline_is_calibrated: true` → Se usó un baseline calibrado para el (set, finish)
+- `baseline_reference_card_count` → Número de cartas de referencia usadas para calibración
 
-### Error: "image_data is required"
-- Asegúrate de enviar el campo `image_data` en el body
+## Resultados de Prueba (Imágenes de Ejemplo)
 
-### Error: "Could not decode image data"
-- Verifica que la imagen esté en formato válido (JPEG, PNG)
-- Asegúrate de que el base64 esté correctamente codificado
+### Charizard (SVP, holo)
+- **Grade Final:** 8.72 (coherence ajustado desde 8.85)
+- **Subgrades:** Centering 8.22, Corners 10.0, Edges 8.47, Surface 8.75
+- **Confianza:** 0.92
+- **Banda de Incertidumbre:** 8.22 - 9.22
+- **Regla de Coherencia:** Aplicada (8.22 + 0.5 = 8.72)
 
-### Error: "Card contour not detected"
-- La imagen debe mostrar claramente la carta completa
-- Fondo contrastante con la carta
-- Buena iluminación
+### Pikachu Snowman (SVP, holo)
+- **Grade Final:** 8.00 (coherence ajustado desde 8.29)
+- **Subgrades:** Centering 6.97, Corners 10.0, Edges 8.74, Surface 7.75
+- **Confianza:** 0.78
+- **Banda de Incertidumbre:** 7.50 - 8.50
 
-### Grade muy bajo o muy alto
-- Verifica que la imagen no esté borrosa (IQS > 60)
-- Asegúrate de que la carta esté recta en la imagen
+### Pikachu Gordo (SVP, holo)
+- **Grade Final:** 7.76 (coherence ajustado desde 7.76)
+- **Subgrades:** Centering 6.86, Corners 10.0, Edges 8.20, Surface 6.89
+- **Confianza:** 0.75
+- **Banda de Incertidumbre:** 7.26 - 8.26
 
 ## Archivos Relacionados
 
-- `backend/lib/domain/scoring/grading/grading_orchestrator.dart` - Orquestador principal
-- `backend/lib/domain/image_services/grading/corner_whitening_detector.dart` - Detección esquinas
-- `backend/lib/domain/image_services/grading/edge_whitening_detector.dart` - Detección bordes
+### Core de Grading
+- `backend/lib/domain/scoring/grading/grading_orchestrator.dart` - Orquestador principal (pesos BGS, regla de coherencia, banda de incertidumbre)
+- `backend/lib/domain/scoring/grading/pregrading.dart` - Centering (detección de varianza)
+- `backend/lib/domain/scoring/grading/baseline_config.dart` - Modelo de configuración de baseline
+- `backend/lib/domain/scoring/grading/baseline_registry.dart` - Registro de baselines por (set, finish)
+- `backend/lib/domain/scoring/grading/baseline_calibrator.dart` - Calibración desde datasets
+
+### Detección de Defectos
+- `backend/lib/domain/image_services/grading/corner_whitening_detector.dart` - Detección esquinas (con bordes blancos)
+- `backend/lib/domain/image_services/grading/edge_whitening_detector.dart` - Detección bordes (con bordes blancos)
 - `backend/lib/domain/image_services/grading/surface_scratch_detector.dart` - Detección superficie
 - `backend/lib/domain/image_services/grading/enhanced_quality_service.dart` - IQS mejorado
-- `backend/lib/application/routes/evaluation_routes.dart` - Endpoints HTTP
+
+### Endpoints HTTP
+- `backend/lib/application/routes/evaluation_routes.dart` - Endpoints de grading y calibración
+- `backend/lib/application/app_router.dart` - Router principal con DI
+
+### Persistencia
+- `backend/lib/persistence/card_data_provider/calibrated_baseline_repository.dart` - Interfaz de repositorio
+- `backend/lib/persistence/card_data_provider/postgres_calibrated_baseline_repository.dart` - Implementación PostgreSQL
+- `backend/lib/persistence/mocks/mock_calibrated_baseline_repository.dart` - Mock para testing
+
+### Base de Datos
+- `backend/db/init/005_baseline_schema.sql` - Schema de tabla calibrated_baseline

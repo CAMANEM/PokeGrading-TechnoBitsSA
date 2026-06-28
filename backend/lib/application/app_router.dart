@@ -22,6 +22,7 @@ import '../domain/catalog/create_card_logic.dart';
 import '../domain/catalog/search_card_logic.dart';
 import '../domain/scoring/evaluation_logic.dart';
 import '../domain/b2b/consult/consult_logic.dart';
+import '../domain/scoring/grading/baseline_registry.dart';
 import '../persistence/b2b_data_provider/api_key_repository.dart';
 import '../persistence/b2b_data_provider/b2b_audit_repository.dart';
 import '../persistence/b2b_data_provider/idempotency_repository.dart';
@@ -31,6 +32,7 @@ import '../persistence/user_data_provider/auth_repository.dart';
 import '../persistence/card_data_provider/catalog_repository.dart';
 import '../persistence/card_data_provider/search_trace_repository.dart';
 import '../persistence/card_data_provider/evaluation_repository.dart';
+import '../persistence/card_data_provider/calibrated_baseline_repository.dart';
 
 /*
   Builds and returns the main router with all registered routes and DI wiring.
@@ -56,8 +58,10 @@ Router buildAppRouter(
   CatalogRepository catalogRepository,
   EvaluationRepository evaluationRepository,
   SearchTraceRepository? searchTraceRepository,
-  B2bDependencies? b2bDependencies,
-) {
+  B2bDependencies? b2bDependencies, {
+  BaselineRegistry? baselineRegistry,
+  CalibratedBaselineRepository? baselineRepository,
+}) {
   final router = Router();
 
   final registerLogic = RegisterLogic(
@@ -77,7 +81,11 @@ Router buildAppRouter(
   );
 
   final evaluationLogic = EvaluationLogic(repository: evaluationRepository);
-  final evaluationRouter = buildEvaluationRoutes(evaluationLogic);
+  final evaluationRouter = buildEvaluationRoutes(
+    evaluationLogic,
+    baselineRegistry: baselineRegistry,
+    baselineRepository: baselineRepository,
+  );
 
   if (b2bDependencies != null) {
     final consultLogic = ConsultLogic(
