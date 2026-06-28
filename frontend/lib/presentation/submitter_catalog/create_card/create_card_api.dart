@@ -58,6 +58,7 @@ class CreateCardApi {
         'author': payload.author,
         'image_data': payload.imageData,
         'back_image_data': payload.backImageData,
+        if (payload.psaGrade != null) 'psa_grade': payload.psaGrade,
       };
 
       final response = await _client.post(

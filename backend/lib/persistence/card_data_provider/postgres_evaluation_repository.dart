@@ -78,7 +78,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       final saved = await _connection.runTx<_SavedEvaluation>((tx) async {
         final now = DateTime.now().toUtc();
         final lookups = LookupResolver(tx);
-        final pendingStatusId = await lookups.resolveStatusId('pending');
+        final pendingStatusId = await lookups.resolveStatusId(
+          _statusName(input.status ?? EvaluationStatus.pending),
+        );
 
         final cardSubmitterId = await _resolveCardSubmitterId(
           tx,
@@ -91,15 +93,17 @@ class PostgresEvaluationRepository implements EvaluationRepository {
           INSERT INTO pre_grade (
             card_submitter_id,
             status_id,
+            algorithm_version,
             log_id,
             requested_date,
             last_modified_date
-          ) VALUES (\$1, \$2, \$3, \$4, \$5)
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6)
           RETURNING id
           ''',
           parameters: [
             cardSubmitterId,
             pendingStatusId,
+            input.algorithmVersion,
             input.correlationId,
             now,
             now,
@@ -140,16 +144,65 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         backImageData: saved.backImageData,
         frontImageScore: saved.frontImageScore,
         backImageScore: saved.backImageScore,
-        status: EvaluationStatus.pending,
+        status: input.status ?? EvaluationStatus.pending,
         createdAt: saved.createdAt,
         cardId: saved.cardId,
         logId: input.correlationId,
+        algorithmVersion: input.algorithmVersion,
       );
     } catch (error, stack) {
       AppLogger.error(
         'PokéGrading.Persistence.EvaluationRepository',
         'Save evaluation failed',
         context: {'card_id': input.cardId},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<PregradeResult>> getEvaluations() async {
+    try {
+      final result = await _connection.execute(
+        '''
+      SELECT
+        pg.id,
+        s.name,
+        pg.centering_grade,
+        pg.corners_grade,
+        pg.edges_grade,
+        pg.surface_grade,
+        pg.final_estimated_grade,
+        pg.confidence_score,
+        pg.requested_date,
+        pg.graded_date
+      FROM pre_grade pg
+      LEFT JOIN status s ON pg.status_id = s.id
+      ORDER BY pg.requested_date DESC
+      LIMIT 20
+      ''',
+      );
+
+      return result.map((row) {
+        return PregradeResult(
+          gradeId: (row[0] as num).toInt(),
+          status: row[1]?.toString() ?? 'perding',
+          centering_grade: (row[2] as num?)?.toDouble(),
+          corners_grade: (row[3] as num?)?.toDouble(),
+          edges_grade: (row[4] as num?)?.toDouble(),
+          surface_grade: (row[5] as num?)?.toDouble(),
+          grade: (row[6] as num?)?.toDouble(),
+          confidence: (row[7] as num?)?.toDouble(),
+          submittedDate: (row[8] as DateTime).toIso8601String().split('T')[0],
+          gradedDate: (row[9] as DateTime?)?.toIso8601String().split('T')[0],
+        );
+      }).toList();
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.EvaluationRepository',
+        'getEvaluations failed',
         error: error,
         stackTrace: stack,
       );
@@ -165,7 +218,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     AppLogger.info(
       'PokéGrading.Persistence.EvaluationRepository',
       'Creating card_submitter',
-      context: {if (cardReferenceId != null) 'card_reference_id': cardReferenceId},
+      context: {
+        if (cardReferenceId != null) 'card_reference_id': cardReferenceId
+      },
     );
 
     final submitterResult = await tx.execute(
@@ -204,9 +259,8 @@ class PostgresEvaluationRepository implements EvaluationRepository {
     );
     final hashId = hashResult.first.first as int;
 
-    final parsedReferenceId = cardReferenceId != null
-        ? int.tryParse(cardReferenceId)
-        : null;
+    final parsedReferenceId =
+        cardReferenceId != null ? int.tryParse(cardReferenceId) : null;
 
     final cardResult = await tx.execute(
       '''
@@ -262,6 +316,7 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         'completed' => EvaluationStatus.completed,
         'rejected' => EvaluationStatus.rejected,
         'under_review' => EvaluationStatus.underReview,
+        'unable_to_grade' => EvaluationStatus.unableToGrade,
         _ => EvaluationStatus.pending,
       };
 
@@ -290,6 +345,14 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   Future<void> close() async {
     await _connection.close();
   }
+
+  static String _statusName(EvaluationStatus status) => switch (status) {
+    EvaluationStatus.pending => 'pending',
+    EvaluationStatus.completed => 'completed',
+    EvaluationStatus.rejected => 'rejected',
+    EvaluationStatus.underReview => 'under_review',
+    EvaluationStatus.unableToGrade => 'unable_to_grade',
+  };
 }
 
 class _SavedEvaluation {

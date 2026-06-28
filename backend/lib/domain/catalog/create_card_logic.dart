@@ -33,6 +33,7 @@ import '../../core/logging/app_logger.dart';
 import 'catalog_validators.dart';
 import 'catalog_models.dart';
 import '../image_services/visual_features.dart';
+import '../scoring/grading/grading_feature_extractor.dart';
 import '../../persistence/card_data_provider/catalog_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 
@@ -61,12 +62,14 @@ class CreateCardCommand {
   final CardDisplay? display;
   final String imageData;
   final String? backImageData;
+  final double? psaGrade;
 
   const CreateCardCommand({
     required this.identity,
     required this.imageData,
     this.display,
     this.backImageData,
+    this.psaGrade,
   });
 }
 
@@ -153,6 +156,22 @@ class CreateCardLogic {
         );
       }
 
+      // Extract grading features from image (for calibration)
+      Map<String, dynamic>? gradingFeatures;
+      try {
+        gradingFeatures = GradingFeatureExtractor.extractToMap(command.imageData);
+      } catch (error) {
+        AppLogger.warning(
+          _logger,
+          'Grading feature extraction failed (non-critical)',
+          context: {
+            'set': command.identity.set,
+            'number': command.identity.number,
+            'error': error.toString(),
+          },
+        );
+      }
+
       final created = await repository.saveCard(
         AddPokemonCardInput(
           identity: command.identity,
@@ -160,6 +179,8 @@ class CreateCardLogic {
           imageData: command.imageData,
           backImageData: command.backImageData,
           visualFeatures: features,
+          psaGrade: command.psaGrade,
+          gradingFeaturesJson: gradingFeatures,
         ),
       );
 

@@ -24,10 +24,11 @@ class MockEvaluationRepository implements EvaluationRepository {
       backImageData: input.backImageData.trim(),
       frontImageScore: input.frontImageScore,
       backImageScore: input.backImageScore,
-      status: EvaluationStatus.pending,
+      status: input.status ?? EvaluationStatus.pending,
       createdAt: now,
       cardId: input.cardId,
       logId: input.correlationId,
+      algorithmVersion: input.algorithmVersion,
     );
 
     _requests[id] = request;
@@ -37,5 +38,11 @@ class MockEvaluationRepository implements EvaluationRepository {
   @override
   Future<EvaluationRequest?> findById(String id) async {
     return _requests[id];
+  }
+
+  @override
+  Future<List<PregradeResult>> getEvaluations() {
+    // TODO: implement getEvaluations
+    throw UnimplementedError();
   }
 }

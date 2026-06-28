@@ -1,6 +1,10 @@
 /// @file
 /// @brief
 
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
+
 import 'scoring_models.dart';
 import 'scoring_validators.dart';
 import '../image_services/image_quality_service.dart';
@@ -10,6 +14,9 @@ import '../../core/logging/app_logger.dart';
 import '../../persistence/card_data_provider/evaluation_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
+import '../image_services/preprocessing/preprocessing_service.dart';
+import 'grading/grading_orchestrator.dart';
+import 'grading/baseline_registry.dart';
 
 Never _throwEvaluationError(String code, String err) {
   throw LogicException(feature: 'submit-evaluation', code: code, message: err);
@@ -21,12 +28,16 @@ class SubmitEvaluationCommand {
   final String backImageData;
   final String? cardId;
   final String correlationId;
+  final String? setFinish;
+  final String? setName;
 
   const SubmitEvaluationCommand({
     required this.frontImageData,
     required this.backImageData,
     required this.correlationId,
     this.cardId,
+    this.setFinish,
+    this.setName,
   });
 }
 
@@ -38,6 +49,8 @@ class EvaluationResult {
   final EvaluationStatus status;
   final DateTime createdAt;
   final String correlationId;
+  final GradingResult? gradingResult;
+  final String? rejectionReason;
 
   const EvaluationResult({
     required this.submissionId,
@@ -46,6 +59,8 @@ class EvaluationResult {
     required this.status,
     required this.createdAt,
     required this.correlationId,
+    this.gradingResult,
+    this.rejectionReason,
   });
 }
 
@@ -54,9 +69,20 @@ class EvaluationLogic {
   static const _loggerName = 'PokéGrading.Evaluation';
 
   final EvaluationRepository repository;
+  final BaselineRegistry baselineRegistry;
   static const String _evaluationErrorCode = 'image_rejected';
 
-  const EvaluationLogic({required this.repository});
+  /// Confidence threshold below which coherence contradictions trigger human review.
+  static const double reviewConfidenceThreshold = 0.7;
+
+  /// When coherence rule is applied, if the gap between weighted grade and
+  /// lowest subgrade exceeds this, flag for review.
+  static const double reviewGapThreshold = 2.0;
+
+  EvaluationLogic({
+    required this.repository,
+    BaselineRegistry? baselineRegistry,
+  }) : baselineRegistry = baselineRegistry ?? BaselineRegistry();
 
   Future<EvaluationResult> submit(
     SubmitEvaluationCommand command,
@@ -65,6 +91,7 @@ class EvaluationLogic {
 
     _validate(command);
 
+    // ─── IQS Front ──────────────────────────────────────────────
     final frontIqsStarted = DateTime.now().toUtc();
     final frontScore = await ImageQualityService.calculateScore(
       command.frontImageData,
@@ -84,25 +111,21 @@ class EvaluationLogic {
     AppLogger.metric(
       _loggerName,
       'stage.latency',
-      context: {
-        'stage': 'iqs_front',
-        'duration_ms': frontIqsDuration,
-      },
+      context: {'stage': 'iqs_front', 'duration_ms': frontIqsDuration},
     );
 
     if (frontScore.score < ImageQualityService.acceptedThreshold) {
-      _logGradingFailure(
-        correlationId: correlationId,
-        stage: 'iqs_front',
-        reason: frontScore.rejectionReasons.join(', '),
-      );
-      _throwEvaluationError(
-        _evaluationErrorCode,
-        'Imagen frontal no supera el IQS (${frontScore.score.toStringAsFixed(1)}/100). '
-        'Motivos: ${frontScore.rejectionReasons.join(", ")}',
+      return _saveUnableToGrade(
+        command: command,
+        frontScore: frontScore.score,
+        backScore: 0,
+        reason: 'Imagen frontal no supera el IQS '
+            '(${frontScore.score.toStringAsFixed(1)}/100). '
+            'Motivos: ${frontScore.rejectionReasons.join(", ")}',
       );
     }
 
+    // ─── IQS Back ───────────────────────────────────────────────
     final backIqsStarted = DateTime.now().toUtc();
     final backScore = await ImageQualityService.calculateScore(
       command.backImageData,
@@ -122,25 +145,21 @@ class EvaluationLogic {
     AppLogger.metric(
       _loggerName,
       'stage.latency',
-      context: {
-        'stage': 'iqs_back',
-        'duration_ms': backIqsDuration,
-      },
+      context: {'stage': 'iqs_back', 'duration_ms': backIqsDuration},
     );
 
     if (backScore.score < ImageQualityService.acceptedThreshold) {
-      _logGradingFailure(
-        correlationId: correlationId,
-        stage: 'iqs_back',
-        reason: backScore.rejectionReasons.join(', '),
-      );
-      _throwEvaluationError(
-        _evaluationErrorCode,
-        'Imagen trasera no supera el IQS (${backScore.score.toStringAsFixed(1)}/100). '
-        'Motivos: ${backScore.rejectionReasons.join(", ")}',
+      return _saveUnableToGrade(
+        command: command,
+        frontScore: frontScore.score,
+        backScore: backScore.score,
+        reason: 'Imagen trasera no supera el IQS '
+            '(${backScore.score.toStringAsFixed(1)}/100). '
+            'Motivos: ${backScore.rejectionReasons.join(", ")}',
       );
     }
 
+    // ─── Polyglot Detection (security — hard reject, never saved) ──
     final frontPolyglotStarted = DateTime.now().toUtc();
     final frontPolyglotResult =
         PolyglotDetector.inspect(command.frontImageData);
@@ -204,10 +223,104 @@ class EvaluationLogic {
       );
     }
 
+    // ─── Preprocessing ──────────────────────────────────────────
     final persistStarted = DateTime.now().toUtc();
 
-    final frontFeatures = VisualFeatureExtractor.extract(command.frontImageData);
+    final frontPreprocess =
+        PreprocessingService.preprocess(command.frontImageData);
 
+    if (!frontPreprocess.success || frontPreprocess.rois == null) {
+      return _saveUnableToGrade(
+        command: command,
+        frontScore: frontScore.score,
+        backScore: backScore.score,
+        reason: 'Preprocessing frontal falló: ${frontPreprocess.errorMessage}',
+      );
+    }
+
+    final backPreprocess =
+        PreprocessingService.preprocess(command.backImageData);
+
+    if (!backPreprocess.success || backPreprocess.rois == null) {
+      return _saveUnableToGrade(
+        command: command,
+        frontScore: frontScore.score,
+        backScore: backScore.score,
+        reason: 'Preprocessing trasero falló: ${backPreprocess.errorMessage}',
+      );
+    }
+
+    // ─── Decode full image for grading ──────────────────────────
+    final base64Part = command.frontImageData.contains(',')
+        ? command.frontImageData.split(',').last
+        : command.frontImageData;
+    final bytes = base64Decode(base64Part);
+    final fullImage = img.decodeImage(Uint8List.fromList(bytes));
+
+    // ─── Baseline selection ─────────────────────────────────────
+    final baselineSelection = baselineRegistry.select(
+      command.setName,
+      command.setFinish,
+    );
+
+    // ─── Grading ────────────────────────────────────────────────
+    final gradingStart = DateTime.now().toUtc();
+    final gradingResult = GradingOrchestrator.grade(
+      frontPreprocess.rois!,
+      fullImage: fullImage,
+      baselineSelection: baselineSelection,
+    );
+    final gradingDuration =
+        DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
+
+    _logStage(
+      stage: 'grading',
+      durationMs: gradingDuration,
+      outputs: {
+        'final_grade': gradingResult.finalGrade,
+        'confidence': gradingResult.confidence,
+        'coherence_applied': gradingResult.coherenceRuleApplied,
+      },
+    );
+
+    // ─── Determine final status ─────────────────────────────────
+    EvaluationStatus finalStatus = EvaluationStatus.completed;
+
+    if (gradingResult.coherenceRuleApplied) {
+      final weightedGrade = gradingResult.centeringGrade *
+              GradingOrchestrator.centeringWeight +
+          gradingResult.corners.grade * GradingOrchestrator.cornersWeight +
+          gradingResult.edges.grade * GradingOrchestrator.edgesWeight +
+          gradingResult.surface.grade * GradingOrchestrator.surfaceWeight;
+      final gap = weightedGrade - gradingResult.lowestSubgrade;
+
+      if (gradingResult.confidence < reviewConfidenceThreshold ||
+          gap > reviewGapThreshold) {
+        finalStatus = EvaluationStatus.underReview;
+        AppLogger.info(
+          _loggerName,
+          'Evaluation flagged for human review',
+          context: {
+            'correlation_id': correlationId,
+            'confidence': gradingResult.confidence,
+            'gap': gap,
+            'reason': gradingResult.confidence < reviewConfidenceThreshold
+                ? 'low_confidence'
+                : 'large_coherence_gap',
+          },
+        );
+      }
+    }
+
+    // ─── Visual features (non-critical) ─────────────────────────
+    VisualFeatures? frontFeatures;
+    try {
+      frontFeatures = VisualFeatureExtractor.extract(command.frontImageData);
+    } catch (_) {
+      // non-critical
+    }
+
+    // ─── Persist ────────────────────────────────────────────────
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
         frontImageData: command.frontImageData,
@@ -217,6 +330,8 @@ class EvaluationLogic {
         cardId: command.cardId,
         correlationId: correlationId,
         frontVisualFeatures: frontFeatures,
+        algorithmVersion: GradingOrchestrator.algorithmVersion,
+        status: finalStatus,
       ),
     );
     final persistDuration =
@@ -240,6 +355,8 @@ class EvaluationLogic {
         'correlation_id': correlationId,
         'front_iqs': frontScore.score,
         'back_iqs': backScore.score,
+        'final_grade': gradingResult.finalGrade,
+        'status': saved.status.name,
       },
     );
 
@@ -250,12 +367,63 @@ class EvaluationLogic {
       status: saved.status,
       createdAt: saved.createdAt,
       correlationId: correlationId,
+      gradingResult: gradingResult,
     );
   }
 
-  void _validate(
-    SubmitEvaluationCommand command,
-  ) {
+  Future<List<PregradeResult>> getEvaluations() async {
+    return await repository.getEvaluations();
+  }
+
+  /// Saves an evaluation with `unableToGrade` status when the image cannot
+  /// be processed (IQS failure or preprocessing failure).
+  Future<EvaluationResult> _saveUnableToGrade({
+    required SubmitEvaluationCommand command,
+    required double frontScore,
+    required double backScore,
+    required String reason,
+  }) async {
+    _logGradingFailure(
+      correlationId: command.correlationId,
+      stage: 'unable_to_grade',
+      reason: reason,
+    );
+
+    final saved = await repository.saveEvaluation(
+      AddEvaluationInput(
+        frontImageData: command.frontImageData,
+        backImageData: command.backImageData,
+        frontImageScore: frontScore,
+        backImageScore: backScore,
+        cardId: command.cardId,
+        correlationId: command.correlationId,
+        algorithmVersion: GradingOrchestrator.algorithmVersion,
+        status: EvaluationStatus.unableToGrade,
+      ),
+    );
+
+    AppLogger.grading(
+      _loggerName,
+      'Evaluation saved as unableToGrade',
+      context: {
+        'evaluation_id': saved.id,
+        'correlation_id': command.correlationId,
+        'reason': reason,
+      },
+    );
+
+    return EvaluationResult(
+      submissionId: saved.id,
+      frontScore: frontScore,
+      backScore: backScore,
+      status: EvaluationStatus.unableToGrade,
+      createdAt: saved.createdAt,
+      correlationId: command.correlationId,
+      rejectionReason: reason,
+    );
+  }
+
+  void _validate(SubmitEvaluationCommand command) {
     final frontError = EvaluationValidators.validateImage(
       command.frontImageData,
     );

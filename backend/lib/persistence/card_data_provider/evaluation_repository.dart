@@ -13,6 +13,8 @@ class AddEvaluationInput {
   final String? cardId;
   final String correlationId;
   final VisualFeatures? frontVisualFeatures;
+  final String? algorithmVersion;
+  final EvaluationStatus? status;
 
   const AddEvaluationInput({
     required this.frontImageData,
@@ -22,6 +24,8 @@ class AddEvaluationInput {
     required this.correlationId,
     this.cardId,
     this.frontVisualFeatures,
+    this.algorithmVersion,
+    this.status,
   });
 }
 
@@ -30,6 +34,8 @@ abstract class EvaluationRepository {
   Future<EvaluationRequest> saveEvaluation(
     AddEvaluationInput input,
   );
+
+  Future<List<PregradeResult>> getEvaluations();
 
   Future<EvaluationRequest?> findById(String id);
 }

@@ -68,6 +68,7 @@ CREATE TABLE "card_submitter" (
   "id" BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "submitter_id" bigint NOT NULL,
   "hash_id" bigint,
+  "card_reference_id" bigint,
   "img_id" BIGINT GENERATED ALWAYS AS IDENTITY,
   "display_name" varchar,
   "set_name" varchar,
@@ -113,6 +114,8 @@ CREATE TABLE "card_reference" (
   "language_id" smallint,
   "type_id" smallint,
   "rarity_id" smallint,
+  "psa_grade" decimal,
+  "grading_features_json" jsonb,
   "soft_delete" boolean DEFAULT false,
   "registration_date" timestamp,
   "modification_date" timestamp,
@@ -167,6 +170,8 @@ ALTER TABLE "admin" ADD FOREIGN KEY ("language_id") REFERENCES "language" ("id")
 ALTER TABLE "card_submitter" ADD FOREIGN KEY ("submitter_id") REFERENCES "submitter" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "card_submitter" ADD FOREIGN KEY ("hash_id") REFERENCES "hash_submitter" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "card_submitter" ADD FOREIGN KEY ("card_reference_id") REFERENCES "card_reference" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "card_submitter" ADD FOREIGN KEY ("language_id") REFERENCES "language" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
