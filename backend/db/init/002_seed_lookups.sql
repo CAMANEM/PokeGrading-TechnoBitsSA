@@ -53,3 +53,5 @@ VALUES ('admin', 'dev_admin_hash', 'admin@pokegrading.dev', NOW());
 
 INSERT INTO "submitter" ("username", "password_hash", "email", "registration_date")
 VALUES ('submitter', 'dev_submitter_hash', 'submitter@pokegrading.dev', NOW());
+
+INSERT INTO "algorithm" ("version", "release_date") VALUES ('1.0.0', NOW()) ON CONFLICT DO NOTHING;

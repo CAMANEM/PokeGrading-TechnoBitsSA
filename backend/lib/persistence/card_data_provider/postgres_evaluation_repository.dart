@@ -96,8 +96,15 @@ class PostgresEvaluationRepository implements EvaluationRepository {
             algorithm_version,
             log_id,
             requested_date,
-            last_modified_date
-          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6)
+            last_modified_date,
+            centering_grade,
+            corners_grade,
+            edges_grade,
+            surface_grade,
+            final_estimated_grade,
+            confidence_score,
+            graded_date
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13)
           RETURNING id
           ''',
           parameters: [
@@ -106,6 +113,13 @@ class PostgresEvaluationRepository implements EvaluationRepository {
             input.algorithmVersion,
             input.correlationId,
             now,
+            now,
+            input.pregradings?.centering_grade ?? 0,
+            input.pregradings?.corners_grade ?? 0,
+            input.pregradings?.edges_grade ?? 0,
+            input.pregradings?.surface_grade ?? 0,
+            input.pregradings?.grade ?? 0,
+            input.pregradings?.confidence ?? 0,
             now,
           ],
         );
@@ -347,26 +361,26 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   }
 
   static String _statusName(EvaluationStatus status) => switch (status) {
-    EvaluationStatus.pending => 'pending',
-    EvaluationStatus.completed => 'completed',
-    EvaluationStatus.rejected => 'rejected',
-    EvaluationStatus.underReview => 'under_review',
-    EvaluationStatus.unableToGrade => 'unable_to_grade',
-  };
+        EvaluationStatus.pending => 'pending',
+        EvaluationStatus.completed => 'completed',
+        EvaluationStatus.rejected => 'rejected',
+        EvaluationStatus.underReview => 'under_review',
+        EvaluationStatus.unableToGrade => 'unable_to_grade',
+      };
 
   static int? _toInt(dynamic v) => switch (v) {
-    int n => n,
-    num n => n.toInt(),
-    String s => int.tryParse(s),
-    _ => null,
-  };
+        int n => n,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      };
 
   static double? _toDouble(dynamic v) => switch (v) {
-    double n => n,
-    num n => n.toDouble(),
-    String s => double.tryParse(s),
-    _ => null,
-  };
+        double n => n,
+        num n => n.toDouble(),
+        String s => double.tryParse(s),
+        _ => null,
+      };
 }
 
 class _SavedEvaluation {

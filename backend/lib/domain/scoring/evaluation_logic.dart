@@ -286,11 +286,11 @@ class EvaluationLogic {
     EvaluationStatus finalStatus = EvaluationStatus.completed;
 
     if (gradingResult.coherenceRuleApplied) {
-      final weightedGrade = gradingResult.centeringGrade *
-              GradingOrchestrator.centeringWeight +
-          gradingResult.corners.grade * GradingOrchestrator.cornersWeight +
-          gradingResult.edges.grade * GradingOrchestrator.edgesWeight +
-          gradingResult.surface.grade * GradingOrchestrator.surfaceWeight;
+      final weightedGrade =
+          gradingResult.centeringGrade * GradingOrchestrator.centeringWeight +
+              gradingResult.corners.grade * GradingOrchestrator.cornersWeight +
+              gradingResult.edges.grade * GradingOrchestrator.edgesWeight +
+              gradingResult.surface.grade * GradingOrchestrator.surfaceWeight;
       final gap = weightedGrade - gradingResult.lowestSubgrade;
 
       if (gradingResult.confidence < reviewConfidenceThreshold ||
@@ -323,16 +323,25 @@ class EvaluationLogic {
     final persistStarted = DateTime.now().toUtc();
     final saved = await repository.saveEvaluation(
       AddEvaluationInput(
-        frontImageData: command.frontImageData,
-        backImageData: command.backImageData,
-        frontImageScore: frontScore.score,
-        backImageScore: backScore.score,
-        cardId: command.cardId,
-        correlationId: correlationId,
-        frontVisualFeatures: frontFeatures,
-        algorithmVersion: GradingOrchestrator.algorithmVersion,
-        status: finalStatus,
-      ),
+          frontImageData: command.frontImageData,
+          backImageData: command.backImageData,
+          frontImageScore: frontScore.score,
+          backImageScore: backScore.score,
+          cardId: command.cardId,
+          correlationId: correlationId,
+          frontVisualFeatures: frontFeatures,
+          algorithmVersion: GradingOrchestrator.algorithmVersion,
+          status: finalStatus,
+          pregradings: PregradeResult(
+              status: finalStatus.toString(),
+              submittedDate: persistStarted.toIso8601String().split('T')[0],
+              centering_grade: gradingResult.centeringGrade,
+              corners_grade: gradingResult.corners.grade,
+              edges_grade: gradingResult.edges.grade,
+              surface_grade: gradingResult.surface.grade,
+              grade: gradingResult.finalGrade,
+              confidence: gradingResult.confidence,
+              gradedDate: persistStarted.toIso8601String().split('T')[0])),
     );
     final persistDuration =
         DateTime.now().toUtc().difference(persistStarted).inMilliseconds;

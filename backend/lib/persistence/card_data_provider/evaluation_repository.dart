@@ -15,18 +15,19 @@ class AddEvaluationInput {
   final VisualFeatures? frontVisualFeatures;
   final String? algorithmVersion;
   final EvaluationStatus? status;
+  final PregradeResult? pregradings;
 
-  const AddEvaluationInput({
-    required this.frontImageData,
-    required this.backImageData,
-    required this.frontImageScore,
-    required this.backImageScore,
-    required this.correlationId,
-    this.cardId,
-    this.frontVisualFeatures,
-    this.algorithmVersion,
-    this.status,
-  });
+  const AddEvaluationInput(
+      {required this.frontImageData,
+      required this.backImageData,
+      required this.frontImageScore,
+      required this.backImageScore,
+      required this.correlationId,
+      this.cardId,
+      this.frontVisualFeatures,
+      this.algorithmVersion,
+      this.status,
+      this.pregradings});
 }
 
 /// @brief EvaluationRepository
