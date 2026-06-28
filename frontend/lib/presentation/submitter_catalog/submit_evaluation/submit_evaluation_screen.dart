@@ -159,7 +159,7 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
                         _Header(
                           onBack: () {
                             _saveDraft();
-                            context.pop(state.result?.evaluationId != null);
+                            goBackOrHome(context);
                           },
                         ),
                         const SizedBox(height: 24),
@@ -692,7 +692,9 @@ class _SuccessCard extends StatelessWidget {
           _InfoRow(label: 'ID de evaluación', value: result.evaluationId),
           _InfoRow(label: 'Estado', value: result.status),
           if (result.algorithmVersion != null)
-            _InfoRow(label: 'Versión del algoritmo', value: result.algorithmVersion!),
+            _InfoRow(
+                label: 'Versión del algoritmo',
+                value: result.algorithmVersion!),
 
           // Rejection reason (if unableToGrade)
           if (result.rejectionReason != null) ...[
@@ -705,12 +707,14 @@ class _SuccessCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: AppColors.warning, size: 18),
+                  const Icon(Icons.info_outline,
+                      color: AppColors.warning, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       result.rejectionReason!,
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ),
                 ],
@@ -744,7 +748,8 @@ class _SuccessCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  if (result.gradeLowerBound != null && result.gradeUpperBound != null)
+                  if (result.gradeLowerBound != null &&
+                      result.gradeUpperBound != null)
                     Text(
                       'Rango: ${result.gradeLowerBound!.toStringAsFixed(1)} - ${result.gradeUpperBound!.toStringAsFixed(1)}',
                       style: TextStyle(
@@ -760,17 +765,33 @@ class _SuccessCard extends StatelessWidget {
             // Subgrades grid
             Row(
               children: [
-                Expanded(child: _SubgradeCard(label: 'Centering', grade: result.centeringGrade, weight: '40%')),
+                Expanded(
+                    child: _SubgradeCard(
+                        label: 'Centering',
+                        grade: result.centeringGrade,
+                        weight: '40%')),
                 const SizedBox(width: 8),
-                Expanded(child: _SubgradeCard(label: 'Esquinas', grade: result.cornersGrade, weight: '20%')),
+                Expanded(
+                    child: _SubgradeCard(
+                        label: 'Esquinas',
+                        grade: result.cornersGrade,
+                        weight: '20%')),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _SubgradeCard(label: 'Bordes', grade: result.edgesGrade, weight: '20%')),
+                Expanded(
+                    child: _SubgradeCard(
+                        label: 'Bordes',
+                        grade: result.edgesGrade,
+                        weight: '20%')),
                 const SizedBox(width: 8),
-                Expanded(child: _SubgradeCard(label: 'Superficie', grade: result.surfaceGrade, weight: '20%')),
+                Expanded(
+                    child: _SubgradeCard(
+                        label: 'Superficie',
+                        grade: result.surfaceGrade,
+                        weight: '20%')),
               ],
             ),
             const SizedBox(height: 16),
@@ -785,9 +806,12 @@ class _SuccessCard extends StatelessWidget {
             if (result.coherenceApplied)
               _InfoRow(label: 'Regla de coherencia', value: 'Aplicada'),
             if (result.isCalibrated)
-              _InfoRow(label: 'Baseline', value: 'Calibrado (${result.baselineVersion ?? ""})')
+              _InfoRow(
+                  label: 'Baseline',
+                  value: 'Calibrado (${result.baselineVersion ?? ""})')
             else
-              _InfoRow(label: 'Baseline', value: result.baselineVersion ?? 'Global'),
+              _InfoRow(
+                  label: 'Baseline', value: result.baselineVersion ?? 'Global'),
 
             // Explanation
             if (result.explanation != null) ...[
@@ -838,8 +862,13 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-          Text(value, style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(label,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          Text(value,
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -852,7 +881,8 @@ class _SubgradeCard extends StatelessWidget {
   final double? grade;
   final String weight;
 
-  const _SubgradeCard({required this.label, required this.grade, required this.weight});
+  const _SubgradeCard(
+      {required this.label, required this.grade, required this.weight});
 
   @override
   Widget build(BuildContext context) {
@@ -865,7 +895,8 @@ class _SubgradeCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          Text(label,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 4),
           Text(
             grade?.toStringAsFixed(2) ?? '-',
@@ -875,7 +906,8 @@ class _SubgradeCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          Text('($weight)', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          Text('($weight)',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
         ],
       ),
     );

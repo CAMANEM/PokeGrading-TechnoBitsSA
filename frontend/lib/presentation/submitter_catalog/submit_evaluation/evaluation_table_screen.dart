@@ -60,17 +60,6 @@ class _EvaluationsTableScreenState extends State<EvaluationsTableScreen> {
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       _Header(
-                                        onNewEvaluation: () async {
-                                          final created = await context
-                                              .pushNamed('submit_evaluation');
-
-                                          if (created == true) {
-                                            setState(() {
-                                              obtainedGradings =
-                                                  _provider.getGradings();
-                                            });
-                                          }
-                                        },
                                         onBack: () {
                                           goBackOrHome(context);
                                         },
@@ -160,10 +149,9 @@ class _EvaluationsTableScreenState extends State<EvaluationsTableScreen> {
 }
 
 class _Header extends StatelessWidget {
-  final VoidCallback onNewEvaluation;
   final VoidCallback onBack;
 
-  const _Header({required this.onNewEvaluation, required this.onBack});
+  const _Header({required this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -188,11 +176,6 @@ class _Header extends StatelessWidget {
                   ),
             ),
           ],
-        ),
-        FilledButton.icon(
-          onPressed: onNewEvaluation,
-          icon: const Icon(Icons.add),
-          label: const Text('Nueva evaluación'),
         ),
         OutlinedButton.icon(
           onPressed: onBack,
