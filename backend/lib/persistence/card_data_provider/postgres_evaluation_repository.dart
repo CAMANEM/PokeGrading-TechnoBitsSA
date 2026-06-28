@@ -78,7 +78,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       final saved = await _connection.runTx<_SavedEvaluation>((tx) async {
         final now = DateTime.now().toUtc();
         final lookups = LookupResolver(tx);
-        final pendingStatusId = await lookups.resolveStatusId('pending');
+        final pendingStatusId = await lookups.resolveStatusId(
+          _statusName(input.status ?? EvaluationStatus.pending),
+        );
 
         final cardSubmitterId = await _resolveCardSubmitterId(
           tx,
@@ -91,15 +93,17 @@ class PostgresEvaluationRepository implements EvaluationRepository {
           INSERT INTO pre_grade (
             card_submitter_id,
             status_id,
+            algorithm_version,
             log_id,
             requested_date,
             last_modified_date
-          ) VALUES (\$1, \$2, \$3, \$4, \$5)
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6)
           RETURNING id
           ''',
           parameters: [
             cardSubmitterId,
             pendingStatusId,
+            input.algorithmVersion,
             input.correlationId,
             now,
             now,
@@ -140,10 +144,11 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         backImageData: saved.backImageData,
         frontImageScore: saved.frontImageScore,
         backImageScore: saved.backImageScore,
-        status: EvaluationStatus.pending,
+        status: input.status ?? EvaluationStatus.pending,
         createdAt: saved.createdAt,
         cardId: saved.cardId,
         logId: input.correlationId,
+        algorithmVersion: input.algorithmVersion,
       );
     } catch (error, stack) {
       AppLogger.error(
@@ -262,6 +267,7 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         'completed' => EvaluationStatus.completed,
         'rejected' => EvaluationStatus.rejected,
         'under_review' => EvaluationStatus.underReview,
+        'unable_to_grade' => EvaluationStatus.unableToGrade,
         _ => EvaluationStatus.pending,
       };
 
@@ -290,6 +296,14 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   Future<void> close() async {
     await _connection.close();
   }
+
+  static String _statusName(EvaluationStatus status) => switch (status) {
+    EvaluationStatus.pending => 'pending',
+    EvaluationStatus.completed => 'completed',
+    EvaluationStatus.rejected => 'rejected',
+    EvaluationStatus.underReview => 'under_review',
+    EvaluationStatus.unableToGrade => 'unable_to_grade',
+  };
 }
 
 class _SavedEvaluation {

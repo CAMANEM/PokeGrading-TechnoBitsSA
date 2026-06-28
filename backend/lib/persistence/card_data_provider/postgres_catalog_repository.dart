@@ -1,12 +1,16 @@
 /// @file
 /// @brief
 
+import 'dart:convert';
+
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
+import '../../domain/scoring/grading/baseline_calibrator.dart';
+import '../../domain/scoring/grading/grading_feature_extractor.dart';
 import '../image_provider/image_storage_repository.dart';
 import '../lookup/lookup_resolver.dart';
 import 'catalog_repository.dart';
@@ -225,10 +229,12 @@ class PostgresCatalogRepository implements CatalogRepository {
             language_id,
             type_id,
             rarity_id,
+            psa_grade,
+            grading_features_json,
             registration_date,
             active
           ) VALUES (
-            \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15
+            \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15::jsonb, \$16, \$17
           )
           RETURNING id
           ''',
@@ -246,6 +252,10 @@ class PostgresCatalogRepository implements CatalogRepository {
             languageId,
             typeId,
             rarityId,
+            input.psaGrade,
+            input.gradingFeaturesJson != null
+                ? jsonEncode(input.gradingFeaturesJson)
+                : null,
             now,
             true,
           ],
@@ -507,6 +517,64 @@ class PostgresCatalogRepository implements CatalogRepository {
       audit: [],
       createdAt: row[7] as DateTime,
     );
+  }
+
+  @override
+  Future<List<GradedCardRecord>> findGradedCardsForCalibration({
+    required String set,
+    required String finish,
+  }) async {
+    try {
+      final result = await _connection.execute(
+        '''
+        SELECT psa_grade, grading_features_json
+        FROM card_reference
+        WHERE LOWER(set_name) = LOWER(\$1)
+          AND LOWER(finish) = LOWER(\$2)
+          AND psa_grade IS NOT NULL
+          AND grading_features_json IS NOT NULL
+          AND active = true
+          AND soft_delete = false
+        ''',
+        parameters: [set, finish],
+      );
+
+      final cards = <GradedCardRecord>[];
+      for (final row in result) {
+        final psaGrade = (row[0] as num).toDouble();
+        final featuresJson = Map<String, dynamic>.from(row[1] as Map);
+        final features = GradingFeatureExtractor.fromMap(featuresJson);
+        if (features != null) {
+          cards.add(GradedCardRecord(
+            features: features,
+            psaGrade: psaGrade,
+            set: set,
+            finish: finish,
+          ));
+        }
+      }
+
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Found graded cards for calibration',
+        context: {
+          'set': set,
+          'finish': finish,
+          'card_count': cards.length,
+        },
+      );
+
+      return cards;
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'findGradedCardsForCalibration failed',
+        context: {'set': set, 'finish': finish},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   Future<void> close() async {

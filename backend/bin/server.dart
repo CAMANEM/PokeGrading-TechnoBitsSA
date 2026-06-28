@@ -40,6 +40,10 @@ import '../lib/persistence/b2b_data_provider/postgres_b2b_audit_repository.dart'
 import '../lib/persistence/b2b_data_provider/postgres_idempotency_repository.dart';
 import '../lib/persistence/b2b_data_provider/postgres_rate_limit_repository.dart';
 import '../lib/persistence/b2b_data_provider/postgres_reference_catalog_repository.dart';
+import '../lib/domain/scoring/grading/baseline_registry.dart';
+import '../lib/persistence/card_data_provider/calibrated_baseline_repository.dart';
+import '../lib/persistence/card_data_provider/postgres_calibrated_baseline_repository.dart';
+import '../lib/persistence/mocks/mock_calibrated_baseline_repository.dart';
 
 void main() async {
   final env = DotEnv(includePlatformEnvironment: true);
@@ -81,11 +85,15 @@ void main() async {
 
   final apiKeyHasher = ApiKeyHasher(pepper: config.b2b.apiKeyPepper);
 
+  late final CalibratedBaselineRepository calibratedBaselineRepository;
+  PostgresCalibratedBaselineRepository? postgresBaselineRepository;
+
   if (config.useMockRepositories) {
     userRepository = MemoryUserRepository();
     catalogRepository = MockCatalogRepository();
     evaluationRepository = MockEvaluationRepository();
     searchTraceRepository = const NoOpSearchTraceRepository();
+    calibratedBaselineRepository = MockCalibratedBaselineRepository();
     b2bDependencies = B2bDependencies(
       apiKeyRepository: MockApiKeyRepository(
         devApiKey: config.b2b.devApiKey,
@@ -127,6 +135,10 @@ void main() async {
     postgresRateLimitRepository =
         await PostgresRateLimitRepository.connect(config.database);
 
+    postgresBaselineRepository =
+        await PostgresCalibratedBaselineRepository.connect(config.database);
+    calibratedBaselineRepository = postgresBaselineRepository;
+
     b2bDependencies = B2bDependencies(
       apiKeyRepository: postgresApiKeyRepository,
       referenceCatalogRepository: postgresReferenceCatalogRepository,
@@ -138,6 +150,18 @@ void main() async {
     log.info('Using PostgreSQL + MongoDB repositories.');
   }
 
+  // Initialize baseline registry and load persisted baselines
+  final baselineRegistry = BaselineRegistry();
+  try {
+    final storedBaselines = await calibratedBaselineRepository.findAllBaselines();
+    for (final stored in storedBaselines) {
+      baselineRegistry.register(stored.setName, stored.finish, stored.entry);
+    }
+    log.info('Loaded ${storedBaselines.length} calibrated baseline(s) from database.');
+  } catch (error) {
+    log.warning('Failed to load baselines from database: $error');
+  }
+
   final router = buildAppRouter(
     env,
     config,
@@ -147,6 +171,8 @@ void main() async {
     evaluationRepository,
     searchTraceRepository,
     b2bDependencies,
+    baselineRegistry: baselineRegistry,
+    baselineRepository: calibratedBaselineRepository,
   );
 
   final handler = const Pipeline()
@@ -188,6 +214,7 @@ void main() async {
     postgresB2bAuditRepository,
     postgresIdempotencyRepository,
     postgresRateLimitRepository,
+    postgresBaselineRepository,
   );
 }
 
@@ -203,6 +230,7 @@ void _registerShutdownHandlers(
   PostgresB2bAuditRepository? postgresB2bAuditRepo,
   PostgresIdempotencyRepository? postgresIdempotencyRepo,
   PostgresRateLimitRepository? postgresRateLimitRepo,
+  PostgresCalibratedBaselineRepository? postgresBaselineRepo,
 ) {
   ProcessSignal.sigint.watch().listen((_) async {
     log.info('🛑 SIGINT signal received - Shutting down server...');
@@ -217,6 +245,7 @@ void _registerShutdownHandlers(
     if (postgresB2bAuditRepo != null) await postgresB2bAuditRepo.close();
     if (postgresIdempotencyRepo != null) await postgresIdempotencyRepo.close();
     if (postgresRateLimitRepo != null) await postgresRateLimitRepo.close();
+    if (postgresBaselineRepo != null) await postgresBaselineRepo.close();
     if (mongoImageRepo != null) await mongoImageRepo.close();
     log.info('   All database connections closed.');
     AppLogger.dispose();

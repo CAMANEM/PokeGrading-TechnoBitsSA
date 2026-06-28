@@ -4,6 +4,8 @@
 import '../card_data_provider/catalog_repository.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
+import '../../domain/scoring/grading/baseline_calibrator.dart';
+import '../../domain/scoring/grading/grading_feature_extractor.dart';
 import '../id_service/id_generator.dart';
 
 /// @brief MockCatalogRepository
@@ -40,6 +42,7 @@ class MockCatalogRepository implements CatalogRepository {
       imageData: input.imageData.trim(),
       backImageData: input.backImageData,
       visualFeatures: features,
+      gradingFeaturesJson: input.gradingFeaturesJson,
       status: PokemonCardStatus.pendingValidation,
       isActive: true,
       audit: [
@@ -144,6 +147,31 @@ class MockCatalogRepository implements CatalogRepository {
     results.sort((a, b) => b.score.compareTo(a.score));
 
     return results.map((r) => r.card).toList();
+  }
+
+  @override
+  Future<List<GradedCardRecord>> findGradedCardsForCalibration({
+    required String set,
+    required String finish,
+  }) async {
+    final cards = <GradedCardRecord>[];
+    for (final card in _cardsById.values) {
+      if (card.identity.set.toLowerCase() != set.toLowerCase()) continue;
+      if (card.identity.finish.toLowerCase() != finish.toLowerCase()) continue;
+      if (card.display?.psaGrade == null) continue;
+      if (card.gradingFeaturesJson == null) continue;
+
+      final features = GradingFeatureExtractor.fromMap(card.gradingFeaturesJson);
+      if (features != null) {
+        cards.add(GradedCardRecord(
+          features: features,
+          psaGrade: card.display!.psaGrade!,
+          set: set,
+          finish: finish,
+        ));
+      }
+    }
+    return cards;
   }
 
   /// Hex chunk size used to index hashes for the bag-of-chunks prefilter.

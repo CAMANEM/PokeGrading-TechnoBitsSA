@@ -114,6 +114,8 @@ CREATE TABLE "card_reference" (
   "language_id" smallint,
   "type_id" smallint,
   "rarity_id" smallint,
+  "psa_grade" decimal,
+  "grading_features_json" jsonb,
   "soft_delete" boolean DEFAULT false,
   "registration_date" timestamp,
   "modification_date" timestamp,
