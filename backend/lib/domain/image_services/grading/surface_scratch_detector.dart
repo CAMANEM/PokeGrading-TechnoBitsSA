@@ -33,6 +33,12 @@ class SurfaceGradingResult {
   /// Whether the surface passes quality threshold.
   final bool passes;
 
+  /// Raw scratch density (per 1000 pixels). Used for calibration.
+  final double scratchDensity;
+
+  /// Raw coefficient of variation of block means. Used for calibration.
+  final double uniformityCV;
+
   const SurfaceGradingResult({
     required this.scratchScore,
     required this.printLineScore,
@@ -41,6 +47,8 @@ class SurfaceGradingResult {
     required this.qualityScore,
     required this.scratchCount,
     required this.passes,
+    this.scratchDensity = 0.0,
+    this.uniformityCV = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -128,6 +136,15 @@ class SurfaceScratchDetector {
     // Analyze surface uniformity
     final uniformityResult = _analyzeUniformity(gray);
 
+    // Compute raw scratch density (per 1000 pixels)
+    final totalPixels = gray.width * gray.height;
+    final rawScratchDensity = totalPixels > 0
+        ? (scratchResult.$2 / totalPixels) * 1000
+        : 0.0;
+
+    // Compute raw uniformity CV
+    final rawUniformityCV = _computeUniformityCV(gray);
+
     // Combined quality score
     final qualityScore = scratchResult.$1 * scratchWeight +
         printLineResult * printLineWeight +
@@ -147,6 +164,8 @@ class SurfaceScratchDetector {
       qualityScore: qualityScore,
       scratchCount: scratchResult.$2,
       passes: passes,
+      scratchDensity: rawScratchDensity,
+      uniformityCV: rawUniformityCV,
     );
   }
 
@@ -364,5 +383,28 @@ class SurfaceScratchDetector {
     final stdDev = sqrt(sumSquaredDev / values.length);
 
     return stdDev / mean;
+  }
+
+  /// Computes the raw uniformity CV for calibration purposes.
+  static double _computeUniformityCV(img.Image gray) {
+    final blockMeans = <double>[];
+
+    for (int by = 0; by < gray.height; by += uniformityBlockSize) {
+      for (int bx = 0; bx < gray.width; bx += uniformityBlockSize) {
+        double sum = 0;
+        int count = 0;
+
+        for (int y = by; y < min(by + uniformityBlockSize, gray.height); y++) {
+          for (int x = bx; x < min(bx + uniformityBlockSize, gray.width); x++) {
+            sum += gray.getPixel(x, y).r.toDouble();
+            count++;
+          }
+        }
+
+        blockMeans.add(sum / count);
+      }
+    }
+
+    return _coefficientOfVariation(blockMeans);
   }
 }

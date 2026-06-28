@@ -4,6 +4,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:image/image.dart' as img;
@@ -12,14 +13,73 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
+import '../../domain/scoring/scoring_models.dart';
 import '../../domain/image_services/preprocessing/preprocessing.dart';
 import '../../domain/scoring/grading/grading_orchestrator.dart';
+import '../../domain/scoring/grading/baseline_registry.dart';
+import '../../domain/scoring/grading/baseline_calibrator.dart';
 import '../../domain/image_services/grading/enhanced_quality_service.dart';
+import '../../persistence/card_data_provider/calibrated_baseline_repository.dart';
+import '../../persistence/card_data_provider/catalog_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
-Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
+/// Simple in-memory idempotency cache for the grading endpoint.
+class _GradingIdempotencyCache {
+  final Map<String, _CachedGradingResponse> _cache = {};
+
+  /// TTL for cached responses (30 minutes).
+  static const _ttl = Duration(minutes: 30);
+
+  /// Looks up a cached response by key. Returns null if expired or missing.
+  Map<String, dynamic>? lookup(String key) {
+    final entry = _cache[key];
+    if (entry == null) return null;
+    if (DateTime.now().toUtc().difference(entry.createdAt) > _ttl) {
+      _cache.remove(key);
+      return null;
+    }
+    return entry.response;
+  }
+
+  /// Stores a response under the given key.
+  void store(String key, Map<String, dynamic> response) {
+    _cache[key] = _CachedGradingResponse(
+      response: response,
+      createdAt: DateTime.now().toUtc(),
+    );
+    // Evict old entries periodically
+    if (_cache.length > 100) {
+      final now = DateTime.now().toUtc();
+      _cache.removeWhere((_, v) => now.difference(v.createdAt) > _ttl);
+    }
+  }
+
+  /// Generates an idempotency key from image data + optional client key.
+  static String generateKey(String imageData, String? clientIdempotencyKey) {
+    final hash = md5.convert(utf8.encode(imageData)).toString();
+    if (clientIdempotencyKey != null && clientIdempotencyKey.isNotEmpty) {
+      return '$clientIdempotencyKey:$hash';
+    }
+    return hash;
+  }
+}
+
+class _CachedGradingResponse {
+  final Map<String, dynamic> response;
+  final DateTime createdAt;
+  const _CachedGradingResponse({required this.response, required this.createdAt});
+}
+
+Router buildEvaluationRoutes(
+  EvaluationLogic evaluationLogic, {
+  BaselineRegistry? baselineRegistry,
+  CalibratedBaselineRepository? baselineRepository,
+  CatalogRepository? catalogRepository,
+}) {
   final router = Router();
+  final registry = baselineRegistry ?? BaselineRegistry();
+  final idempotencyCache = _GradingIdempotencyCache();
 
   router.post('/evaluations', (Request request) async {
     final payload = await readJson(request);
@@ -59,13 +119,26 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         },
       );
 
+      final httpStatus = switch (result.status) {
+        EvaluationStatus.unableToGrade => 200,
+        EvaluationStatus.underReview => 200,
+        _ => 201,
+      };
+
       return jsonResponse(
-        201,
+        httpStatus,
         {
           'evaluation_id': result.submissionId,
           'correlation_id': result.correlationId,
-          'status': result.status.toString(),
+          'status': result.status.name,
           'created_at': result.createdAt.toIso8601String(),
+          if (result.gradingResult != null)
+            'grading': result.gradingResult!.toJson(),
+          if (result.rejectionReason != null)
+            'rejection_reason': result.rejectionReason,
+          'metadata': {
+            'algorithm_version': GradingOrchestrator.algorithmVersion,
+          },
           'estimated_time': '0 seconds',
         },
         headers: {correlationIdHeader: result.correlationId},
@@ -308,12 +381,18 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
     final correlationId = request.context['correlation_id'] as String? ??
         resolveCorrelationId(request.headers);
 
+    // Optional card identity for baseline selection
+    final cardSetName = payload['set_name']?.toString();
+    final cardFinish = payload['finish']?.toString();
+
     AppLogger.info(
       'PokéGrading.Routes.Grading',
       'Grading request received',
       context: {
         'correlation_id': correlationId,
         'has_image': imageData.isNotEmpty,
+        'set_name': cardSetName,
+        'finish': cardFinish,
       },
     );
 
@@ -327,6 +406,27 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
           'correlation_id': correlationId,
         },
       );
+    }
+
+    // Check idempotency cache (client may provide idempotency_key in body)
+    final idempotencyKey = payload['idempotency_key']?.toString();
+    final cacheKey = _GradingIdempotencyCache.generateKey(imageData, idempotencyKey);
+    final cached = idempotencyCache.lookup(cacheKey);
+    if (cached != null) {
+      AppLogger.info(
+        'PokéGrading.Routes.Grading',
+        'Idempotency cache hit',
+        context: {
+          'correlation_id': correlationId,
+          'cache_key': cacheKey,
+        },
+      );
+      // Return cached response with correlation_id
+      return jsonResponse(200, {
+        ...cached,
+        'idempotent_replay': true,
+        'correlation_id': correlationId,
+      });
     }
 
     try {
@@ -357,6 +457,20 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
       final bytes = base64Decode(base64Part);
       final image = img.decodeImage(Uint8List.fromList(bytes));
 
+      // Step 3: Select baseline for this (set, finish)
+      final baselineSelection = registry.select(cardSetName, cardFinish);
+
+      // Step 4: Run grading on the ROIs with baseline
+      final gradingStart = DateTime.now().toUtc();
+      final gradingResult = GradingOrchestrator.grade(
+        preprocessResult.rois!,
+        fullImage: image,
+        baselineSelection: baselineSelection,
+      );
+      final gradingDuration =
+          DateTime.now().toUtc().difference(gradingStart).inMilliseconds;
+
+      // Step 5: Run enhanced quality analysis
       EnhancedQualityResult? qualityResult;
       if (image != null) {
         qualityResult = EnhancedQualityService.calculateEnhancedQuality(image);
@@ -370,23 +484,27 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
           'final_grade': gradingResult.finalGrade,
           'confidence': gradingResult.confidence,
           'grading_ms': gradingDuration,
+          'baseline_version': gradingResult.baseline.version,
+          'baseline_calibrated': gradingResult.baseline.isCalibrated,
         },
       );
 
-      return jsonResponse(
-        200,
-        {
-          'success': true,
-          'grading': gradingResult.toJson(),
-          'quality': qualityResult?.toJson(),
-          'metadata': {
-            'preprocessing_ms': preprocessResult.metadata.totalTimeMs,
-            'grading_ms': gradingDuration,
-            'algorithm_version': '1.0.0',
-          },
-          'correlation_id': correlationId,
+      final responseBody = {
+        'success': true,
+        'grading': gradingResult.toJson(),
+        'quality': qualityResult?.toJson(),
+        'metadata': {
+          'preprocessing_ms': preprocessResult.metadata.totalTimeMs,
+          'grading_ms': gradingDuration,
+          'algorithm_version': GradingOrchestrator.algorithmVersion,
         },
-      );
+        'correlation_id': correlationId,
+      };
+
+      // Cache for idempotency
+      idempotencyCache.store(cacheKey, responseBody);
+
+      return jsonResponse(200, responseBody);
     } catch (error, stack) {
       AppLogger.error(
         'PokéGrading.Routes.Grading',
@@ -400,6 +518,306 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
         {
           'status': 'error',
           'error': 'grading_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+      );
+    }
+  });
+
+  // ─── Calibration endpoint (admin) ──────────────────────────────
+  router.post('/calibrate', (Request request) async {
+    final payload = await readJson(request);
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.Calibration',
+      'Calibration request received',
+      context: {
+        'correlation_id': correlationId,
+      },
+    );
+
+    try {
+      final setName = payload['set_name']?.toString();
+      final finish = payload['finish']?.toString();
+      final description = payload['description']?.toString() ?? 'Calibrated from dataset';
+
+      if (setName == null || setName.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_set_name',
+          'message': 'set_name is required',
+          'correlation_id': correlationId,
+        });
+      }
+      if (finish == null || finish.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_finish',
+          'message': 'finish is required',
+          'correlation_id': correlationId,
+        });
+      }
+
+      // Parse dataset of graded cards
+      final cardsJson = payload['cards'] as List?;
+      if (cardsJson == null || cardsJson.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_cards',
+          'message': 'cards array is required and must not be empty',
+          'correlation_id': correlationId,
+        });
+      }
+
+      final cards = <GradedCardRecord>[];
+      for (final cardJson in cardsJson) {
+        if (cardJson is! Map) continue;
+        final features = cardJson['features'] as Map?;
+        if (features == null) continue;
+
+        cards.add(GradedCardRecord(
+          features: CardFeatures(
+            centeringSymmetry: (features['centering_symmetry'] as num?)?.toDouble() ?? 0.5,
+            cornerWhiteningPercentages: (features['corner_whitening_percentages'] as List?)
+                ?.map((e) => (e as num).toDouble()).toList() ?? [0, 0, 0, 0],
+            edgeWhiteningPercentages: (features['edge_whitening_percentages'] as List?)
+                ?.map((e) => (e as num).toDouble()).toList() ?? [0, 0, 0, 0],
+            edgeStraightnessCVs: (features['edge_straightness_cvs'] as List?)
+                ?.map((e) => (e as num).toDouble()).toList() ?? [0.1, 0.1, 0.1, 0.1],
+            surfaceScratchDensity: (features['surface_scratch_density'] as num?)?.toDouble() ?? 0,
+            surfaceUniformityCV: (features['surface_uniformity_cv'] as num?)?.toDouble() ?? 0.3,
+          ),
+          psaGrade: (cardJson['psa_grade'] as num?)?.toDouble() ?? 5.0,
+          set: setName,
+          finish: finish,
+        ));
+      }
+
+      // Calibrate
+      final baselineVersion = '${setName.toLowerCase()}_${finish.toLowerCase()}_v1.0';
+      final result = BaselineCalibrator.calibrate(
+        cards: cards,
+        baselineVersion: baselineVersion,
+        description: description,
+      );
+
+      // Register in the in-memory registry
+      if (result.hasSufficientGroundTruth) {
+        baselineRegistry?.register(setName, finish, BaselineEntry(
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          calibratedAt: DateTime.now().toUtc(),
+          averagePsaGrade: result.averagePsaGrade,
+        ));
+      }
+
+      // Persist to database if repository is available
+      if (baselineRepository != null) {
+        await baselineRepository.storeBaseline(StoreBaselineInput(
+          setName: setName,
+          finish: finish,
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          averagePsaGrade: result.averagePsaGrade,
+          psaGradeStdDev: result.psaGradeStdDev,
+          qualityScore: result.qualityScore,
+        ));
+      }
+
+      AppLogger.info(
+        'PokéGrading.Routes.Calibration',
+        'Calibration completed',
+        context: {
+          'correlation_id': correlationId,
+          'set_name': setName,
+          'finish': finish,
+          'card_count': result.cardCount,
+          'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+          'quality_score': result.qualityScore,
+        },
+      );
+
+      return jsonResponse(
+        200,
+        {
+          'success': true,
+          'calibration': {
+            'set_name': setName,
+            'finish': finish,
+            'baseline_version': baselineVersion,
+            'card_count': result.cardCount,
+            'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+            'average_psa_grade': result.averagePsaGrade,
+            'psa_grade_std_dev': result.psaGradeStdDev,
+            'quality_score': result.qualityScore,
+            'warnings': result.warnings,
+            'registered': result.hasSufficientGroundTruth,
+          },
+          'correlation_id': correlationId,
+        },
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.Calibration',
+        'Calibration failed unexpectedly',
+        context: {'correlation_id': correlationId},
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'calibration_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+      );
+    }
+  });
+
+  // ─── Auto-calibrate endpoint (admin) ──────────────────────────────
+  router.post('/auto-calibrate', (Request request) async {
+    final payload = await readJson(request);
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.AutoCalibrate',
+      'Auto-calibration request received',
+      context: {
+        'correlation_id': correlationId,
+      },
+    );
+
+    try {
+      final setName = payload['set_name']?.toString();
+      final finish = payload['finish']?.toString();
+
+      if (setName == null || setName.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_set_name',
+          'message': 'set_name is required',
+          'correlation_id': correlationId,
+        });
+      }
+      if (finish == null || finish.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_finish',
+          'message': 'finish is required',
+          'correlation_id': correlationId,
+        });
+      }
+
+      if (catalogRepository == null) {
+        return jsonResponse(500, {
+          'status': 'error',
+          'error': 'catalog_repository_not_available',
+          'message': 'Catalog repository not configured',
+          'correlation_id': correlationId,
+        });
+      }
+
+      // Query graded reference cards from the database
+      final cards = await catalogRepository.findGradedCardsForCalibration(
+        set: setName,
+        finish: finish,
+      );
+
+      // Calibrate (BaselineCalibrator.calibrate handles empty list gracefully)
+      final baselineVersion = '${setName.toLowerCase()}_${finish.toLowerCase()}_v1.0';
+      final description = 'Auto-calibrado desde ${cards.length} cartas de referencia';
+      final result = BaselineCalibrator.calibrate(
+        cards: cards,
+        baselineVersion: baselineVersion,
+        description: description,
+      );
+
+      // Add context-specific warnings for insufficient cards
+      if (cards.isEmpty) {
+        result.warnings.add(
+          'No graded cards found for $setName / $finish. Global baseline will be used.',
+        );
+      } else if (!result.hasSufficientGroundTruth) {
+        result.warnings.add(
+          'Insufficient cards: ${cards.length}/${BaselineRegistry.minimumReferenceCards} minimum. '
+          'Global baseline will be used as fallback.',
+        );
+      }
+
+      // Register in the in-memory registry only with sufficient ground truth
+      if (result.hasSufficientGroundTruth) {
+        registry.register(setName, finish, BaselineEntry(
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          calibratedAt: DateTime.now().toUtc(),
+          averagePsaGrade: result.averagePsaGrade,
+        ));
+      }
+
+      // Persist to database if we have any cards to calibrate from
+      if (cards.isNotEmpty && baselineRepository != null) {
+        await baselineRepository.storeBaseline(StoreBaselineInput(
+          setName: setName,
+          finish: finish,
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          averagePsaGrade: result.averagePsaGrade,
+          psaGradeStdDev: result.psaGradeStdDev,
+          qualityScore: result.qualityScore,
+        ));
+      }
+
+      AppLogger.info(
+        'PokéGrading.Routes.AutoCalibrate',
+        'Auto-calibration completed',
+        context: {
+          'correlation_id': correlationId,
+          'set_name': setName,
+          'finish': finish,
+          'card_count': result.cardCount,
+          'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+          'quality_score': result.qualityScore,
+        },
+      );
+
+      return jsonResponse(
+        200,
+        {
+          'success': true,
+          'calibration': {
+            'set_name': setName,
+            'finish': finish,
+            'baseline_version': baselineVersion,
+            'card_count': result.cardCount,
+            'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+            'average_psa_grade': result.averagePsaGrade,
+            'psa_grade_std_dev': result.psaGradeStdDev,
+            'quality_score': result.qualityScore,
+            'warnings': result.warnings,
+            'registered': result.hasSufficientGroundTruth,
+          },
+          'correlation_id': correlationId,
+        },
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.AutoCalibrate',
+        'Auto-calibration failed unexpectedly',
+        context: {'correlation_id': correlationId},
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'auto_calibration_failed',
           'message': error.toString(),
           'correlation_id': correlationId,
         },

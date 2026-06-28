@@ -6,6 +6,7 @@
 */
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
+import '../../domain/scoring/grading/baseline_calibrator.dart';
 
 /*
  Input DTO used by the repository to persist a new Pokemon card.
@@ -18,6 +19,8 @@ class AddPokemonCardInput {
   final String imageData;
   final String? backImageData;
   final VisualFeatures? visualFeatures;
+  final double? psaGrade;
+  final Map<String, dynamic>? gradingFeaturesJson;
 
   const AddPokemonCardInput({
     required this.identity,
@@ -25,6 +28,8 @@ class AddPokemonCardInput {
     this.display,
     this.backImageData,
     this.visualFeatures,
+    this.psaGrade,
+    this.gradingFeaturesJson,
   });
 }
 
@@ -41,4 +46,11 @@ abstract class CatalogRepository {
   Future<List<PokemonCard>> findByVisualFeatures(VisualFeatures query);
 
   Future<List<PokemonCard>> fuzzySearchCards(String query);
+
+  /// Finds all graded reference cards for a (set, finish) combination.
+  /// Used by the calibration pipeline to build GradedCardRecord lists.
+  Future<List<GradedCardRecord>> findGradedCardsForCalibration({
+    required String set,
+    required String finish,
+  });
 }

@@ -46,6 +46,7 @@ class CardDisplay {
   final String? illustrator;
   final int? year;
   final String? author;
+  final double? psaGrade;
 
   const CardDisplay(
       {this.displayName,
@@ -54,7 +55,8 @@ class CardDisplay {
       this.hp,
       this.illustrator,
       this.year,
-      this.author});
+      this.author,
+      this.psaGrade});
 }
 
 /// @brief PokemonCard
@@ -65,6 +67,7 @@ class PokemonCard {
   final String imageData;
   final String? backImageData;
   final VisualFeatures? visualFeatures;
+  final Map<String, dynamic>? gradingFeaturesJson;
   final PokemonCardStatus status;
   final bool isActive;
   final List<Map<String, dynamic>> audit;
@@ -77,6 +80,7 @@ class PokemonCard {
     this.display,
     this.backImageData,
     this.visualFeatures,
+    this.gradingFeaturesJson,
     this.status = PokemonCardStatus.pendingValidation,
     this.isActive = true,
     this.audit = const [],
@@ -90,6 +94,7 @@ class PokemonCard {
     String? imageData,
     String? backImageData,
     VisualFeatures? visualFeatures,
+    Map<String, dynamic>? gradingFeaturesJson,
     PokemonCardStatus? status,
     bool? isActive,
     List<Map<String, dynamic>>? audit,
@@ -102,6 +107,7 @@ class PokemonCard {
       imageData: imageData ?? this.imageData,
       backImageData: backImageData ?? this.backImageData,
       visualFeatures: visualFeatures ?? this.visualFeatures,
+      gradingFeaturesJson: gradingFeaturesJson ?? this.gradingFeaturesJson,
       status: status ?? this.status,
       isActive: isActive ?? this.isActive,
       audit: audit ?? this.audit,
