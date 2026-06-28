@@ -41,8 +41,18 @@ class MockEvaluationRepository implements EvaluationRepository {
   }
 
   @override
-  Future<List<PregradeResult>> getEvaluations() {
-    // TODO: implement getEvaluations
-    throw UnimplementedError();
+  Future<List<PregradeResult>> getEvaluations() async {
+    return _requests.values.map((r) => PregradeResult(
+      gradeId: int.tryParse(r.id) ?? 0,
+      status: r.status.name,
+      submittedDate: r.createdAt.toIso8601String().split('T')[0],
+      centering_grade: null,
+      corners_grade: null,
+      edges_grade: null,
+      surface_grade: null,
+      grade: null,
+      confidence: null,
+      gradedDate: null,
+    )).toList();
   }
 }

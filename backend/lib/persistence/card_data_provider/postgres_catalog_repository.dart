@@ -498,7 +498,11 @@ class PostgresCatalogRepository implements CatalogRepository {
       centerDifferenceHashHex: row[17]?.toString(),
     );
 
-    final psaGrade = (row[18] as num?)?.toDouble();
+    final psaGrade = switch (row[18]) {
+      num n => n.toDouble(),
+      String s => double.tryParse(s),
+      _ => null,
+    };
 
     final rawGradingJson = row[19];
     Map<String, dynamic>? gradingFeaturesJson;
@@ -510,9 +514,19 @@ class PostgresCatalogRepository implements CatalogRepository {
       displayName: row[6]?.toString(),
       rarity: row[10]?.toString(),
       pokemonType: row[13]?.toString(),
-      hp: row[12] as int?,
+      hp: switch (row[12]) {
+        int v => v,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      },
       illustrator: row[11]?.toString(),
-      year: row[9] as int?,
+      year: switch (row[9]) {
+        int v => v,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      },
       author: row[8]?.toString(),
       psaGrade: psaGrade,
     );
@@ -553,7 +567,11 @@ class PostgresCatalogRepository implements CatalogRepository {
 
       final cards = <GradedCardRecord>[];
       for (final row in result) {
-        final psaGrade = (row[0] as num).toDouble();
+        final psaGrade = switch (row[0]) {
+          num n => n.toDouble(),
+          String s => double.tryParse(s) ?? 0.0,
+          _ => 0.0,
+        };
         final featuresJson = Map<String, dynamic>.from(row[1] as Map);
         final features = GradingFeatureExtractor.fromMap(featuresJson);
         if (features != null) {
