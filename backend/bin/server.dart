@@ -27,6 +27,8 @@ import '../lib/persistence/mocks/mock_catalog_repository.dart';
 import '../lib/persistence/card_data_provider/postgres_catalog_repository.dart';
 import '../lib/persistence/mocks/mock_evaluation_repository.dart';
 import '../lib/persistence/card_data_provider/postgres_evaluation_repository.dart';
+import '../lib/persistence/card_data_provider/postgres_pre_grading_repository.dart';
+import '../lib/domain/scoring/pre_grading_logic.dart';
 import '../lib/persistence/card_data_provider/noop_search_trace_repository.dart';
 import '../lib/persistence/image_provider/image_storage_repository.dart';
 import '../lib/persistence/image_provider/mongo_image_repository.dart';
@@ -67,6 +69,8 @@ void main() async {
 
   late final EvaluationRepository evaluationRepository;
   PostgresEvaluationRepository? postgresEvaluationRepository;
+
+  PreGradingRepository? preGradingRepository;
 
   late final SearchTraceRepository searchTraceRepository;
 
@@ -109,6 +113,11 @@ void main() async {
       mongoImageRepository,
     );
 
+    preGradingRepository = await PostgresPreGradingRepository.connect(
+      postgresEvaluationRepository!.connection,
+      mongoImageRepository,
+    );
+
     userRepository = postgresUserRepository;
     catalogRepository = postgresCatalogRepository;
     evaluationRepository = postgresEvaluationRepository;
@@ -147,6 +156,7 @@ void main() async {
     evaluationRepository,
     searchTraceRepository,
     b2bDependencies,
+    preGradingRepository: preGradingRepository,
   );
 
   final handler = const Pipeline()

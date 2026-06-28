@@ -34,6 +34,18 @@ dependencies:
   file_picker: ^8.1.2
   image: ^4.5.4
 
+  # ─── OpenCV (Pre-Grading) ────────────────────────────────
+  dartcv4: ^2.2.1
+
 dev_dependencies:
   lints: ^3.0.0
   test: ^1.25.0
+
+hooks:
+  user_defines:
+    dartcv4:
+      include_modules:
+        - core
+        - imgcodecs
+        - imgproc
+        - quality

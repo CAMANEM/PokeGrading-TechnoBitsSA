@@ -21,6 +21,7 @@ import '../domain/authentication/register_logic.dart';
 import '../domain/catalog/create_card_logic.dart';
 import '../domain/catalog/search_card_logic.dart';
 import '../domain/scoring/evaluation_logic.dart';
+import '../domain/scoring/pre_grading_logic.dart';
 import '../domain/b2b/consult/consult_logic.dart';
 import '../persistence/b2b_data_provider/api_key_repository.dart';
 import '../persistence/b2b_data_provider/b2b_audit_repository.dart';
@@ -56,8 +57,9 @@ Router buildAppRouter(
   CatalogRepository catalogRepository,
   EvaluationRepository evaluationRepository,
   SearchTraceRepository? searchTraceRepository,
-  B2bDependencies? b2bDependencies,
-) {
+  B2bDependencies? b2bDependencies, {
+  PreGradingRepository? preGradingRepository,
+}) {
   final router = Router();
 
   final registerLogic = RegisterLogic(
@@ -77,7 +79,13 @@ Router buildAppRouter(
   );
 
   final evaluationLogic = EvaluationLogic(repository: evaluationRepository);
-  final evaluationRouter = buildEvaluationRoutes(evaluationLogic);
+  final preGradingLogic = preGradingRepository != null
+      ? PreGradingLogic(repository: preGradingRepository)
+      : null;
+  final evaluationRouter = buildEvaluationRoutes(
+    evaluationLogic,
+    preGradingLogic: preGradingLogic,
+  );
 
   if (b2bDependencies != null) {
     final consultLogic = ConsultLogic(

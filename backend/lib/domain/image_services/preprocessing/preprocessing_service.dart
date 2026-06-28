@@ -216,7 +216,61 @@ class PreprocessingService {
       String finalImageData;
       img.Image? normalizedImage;
       if (cardImage != null) {
-        normalizedImage = ColorNormalizer.normalize(cardImage);
+        // Log decoded dimensions for debugging
+        AppLogger.info(
+          _loggerName,
+          'Decoded corrected image',
+          context: {
+            'width': cardImage.width,
+            'height': cardImage.height,
+            'numChannels': cardImage.numChannels,
+          },
+        );
+
+        // If decoded dimensions differ from standard, resize to standard.
+        // This can happen when JPEG encode/decode pads to block boundaries.
+        img.Image sizedCardImage = cardImage;
+        if (cardImage.width != CardDimensions.standardWidth ||
+            cardImage.height != CardDimensions.standardHeight) {
+          AppLogger.info(
+            _loggerName,
+            'Image dimensions differ from standard, resizing before normalization',
+            context: {
+              'decoded_width': cardImage.width,
+              'decoded_height': cardImage.height,
+              'target_width': CardDimensions.standardWidth,
+              'target_height': CardDimensions.standardHeight,
+            },
+          );
+          sizedCardImage = img.copyResize(
+            cardImage,
+            width: CardDimensions.standardWidth,
+            height: CardDimensions.standardHeight,
+            interpolation: img.Interpolation.linear,
+          );
+        }
+
+        normalizedImage = ColorNormalizer.normalize(sizedCardImage);
+
+        // Ensure normalized image has standard dimensions (defense in depth)
+        if (normalizedImage.width != CardDimensions.standardWidth ||
+            normalizedImage.height != CardDimensions.standardHeight) {
+          AppLogger.info(
+            _loggerName,
+            'Normalized image has non-standard dimensions, resizing',
+            context: {
+              'norm_width': normalizedImage.width,
+              'norm_height': normalizedImage.height,
+            },
+          );
+          normalizedImage = img.copyResize(
+            normalizedImage,
+            width: CardDimensions.standardWidth,
+            height: CardDimensions.standardHeight,
+            interpolation: img.Interpolation.linear,
+          );
+        }
+
         final normalizedJpeg = img.encodeJpg(normalizedImage, quality: 95);
         finalImageData = base64Encode(normalizedJpeg);
       } else {
@@ -227,10 +281,20 @@ class PreprocessingService {
 
       // Extract ROIs (centering, corners, edges, surface)
       final segmentationStart = Stopwatch()..start();
+      RoiResult? rois;
       RoiData? roiData;
       if (normalizedImage != null) {
+        AppLogger.info(
+          _loggerName,
+          'Extracting ROIs from image',
+          context: {
+            'width': normalizedImage.width,
+            'height': normalizedImage.height,
+            'numChannels': normalizedImage.numChannels,
+          },
+        );
         try {
-          final rois = RoiSegmenter.extract(normalizedImage);
+          rois = RoiSegmenter.extract(normalizedImage);
           roiData = RoiData(
             centering: base64Encode(img.encodeJpg(rois.centering, quality: 95)),
             cornerTopLeft: base64Encode(img.encodeJpg(rois.cornerTopLeft, quality: 95)),
@@ -243,11 +307,17 @@ class PreprocessingService {
             edgeRight: base64Encode(img.encodeJpg(rois.edgeRight, quality: 95)),
             surface: base64Encode(img.encodeJpg(rois.surface, quality: 95)),
           );
-        } catch (e) {
-          AppLogger.info(
+        } catch (e, stack) {
+          AppLogger.error(
             _loggerName,
-            'ROI extraction failed (non-fatal)',
-            context: {'error': e.toString()},
+            'ROI extraction failed',
+            error: e,
+            stackTrace: stack,
+            context: {
+              'image_width': normalizedImage.width,
+              'image_height': normalizedImage.height,
+              'image_numChannels': normalizedImage.numChannels,
+            },
           );
         }
       }
@@ -275,6 +345,7 @@ class PreprocessingService {
           segmentationTimeMs: segmentationStart.elapsedMilliseconds,
         ),
         detectedCorners: contourResult.corners!,
+        rois: rois,
         roiData: roiData,
       );
     } catch (e, stack) {

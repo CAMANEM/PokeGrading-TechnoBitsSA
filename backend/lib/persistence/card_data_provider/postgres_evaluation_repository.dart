@@ -18,6 +18,8 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   final Connection _connection;
   final ImageStorageRepository _images;
 
+  Connection get connection => _connection;
+
   PostgresEvaluationRepository._(
     this._connection,
     this._images,
@@ -98,7 +100,7 @@ class PostgresEvaluationRepository implements EvaluationRepository {
             centering_grade,
             corners_grade,
             final_estimated_grade
-          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9)
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8)
           RETURNING id
           ''',
           parameters: [

@@ -10,11 +10,15 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
+import '../../domain/scoring/pre_grading_logic.dart';
 import '../../domain/image_services/preprocessing/preprocessing.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
-Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
+Router buildEvaluationRoutes(
+  EvaluationLogic evaluationLogic, {
+  PreGradingLogic? preGradingLogic,
+}) {
   final router = Router();
 
   router.post('/evaluations', (Request request) async {
@@ -231,6 +235,104 @@ Router buildEvaluationRoutes(EvaluationLogic evaluationLogic) {
       );
     }
   });
+
+  // ─── Pre-Grading endpoint (submitter vs reference) ─────────────
+  if (preGradingLogic != null) {
+    router.post('/pre-grade', (Request request) async {
+      final payload = await readJson(request);
+      final cardSubmitterId = payload['card_submitter_id'] as int?;
+      final cardReferenceId = payload['card_reference_id'] as int?;
+      final correlationId = request.context['correlation_id'] as String? ??
+          resolveCorrelationId(request.headers);
+      final requestContext = httpLogContext(request: request, body: {
+        'card_submitter_id': cardSubmitterId,
+        'card_reference_id': cardReferenceId,
+      });
+
+      AppLogger.info(
+        'PokéGrading.Routes.PreGrading',
+        'Pre-grading request received',
+        context: requestContext,
+      );
+
+      if (cardSubmitterId == null || cardReferenceId == null) {
+        return jsonResponse(
+          400,
+          {
+            'status': 'error',
+            'error': 'missing_parameters',
+            'message': 'card_submitter_id and card_reference_id are required',
+            'correlation_id': correlationId,
+          },
+        );
+      }
+
+      try {
+        final result = await preGradingLogic.execute(PreGradingCommand(
+          cardSubmitterId: cardSubmitterId,
+          cardReferenceId: cardReferenceId,
+          correlationId: correlationId,
+        ));
+
+        AppLogger.info(
+          'PokéGrading.Routes.PreGrading',
+          'Pre-grading completed',
+          context: {
+            ...requestContext,
+            'pre_grade_id': result.preGradeId,
+            'final_grade': result.grading.finalGrade,
+          },
+        );
+
+        return jsonResponse(201, {
+          'pre_grade_id': result.preGradeId,
+          'grading': {
+            'center_grade': result.grading.centerGrade,
+            'corners_grade': result.grading.cornersGrade,
+            'edges_grade': result.grading.edgesGrade,
+            'surface_grade': result.grading.surfaceGrade,
+            'final_grade': result.grading.finalGrade,
+          },
+          'confidence_score': result.grading.confidenceScore,
+          'uncertainty_band': result.grading.uncertaintyBand,
+          'requires_manual_review': result.grading.requiresManualReview,
+          'review_reason': result.grading.reviewReason,
+          'graded_at': result.gradedAt.toIso8601String(),
+          'correlation_id': correlationId,
+        });
+      } on LogicException catch (error) {
+        AppLogger.warning(
+          'PokéGrading.Routes.PreGrading',
+          'Pre-grading rejected',
+          context: {
+            ...requestContext,
+            'error_code': error.code,
+            'error_message': error.message,
+          },
+        );
+        return jsonResponse(422, {
+          'status': 'error',
+          'error': error.code,
+          'message': error.message,
+          'correlation_id': correlationId,
+        });
+      } catch (error, stack) {
+        AppLogger.error(
+          'PokéGrading.Routes.PreGrading',
+          'Pre-grading failed',
+          context: requestContext,
+          error: error,
+          stackTrace: stack,
+        );
+        return jsonResponse(500, {
+          'status': 'error',
+          'error': 'pregrading_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        });
+      }
+    });
+  }
 
   return router;
 }

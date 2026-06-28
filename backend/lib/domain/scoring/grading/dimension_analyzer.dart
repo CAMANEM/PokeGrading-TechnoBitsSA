@@ -21,7 +21,7 @@ class DimensionAnalyzer {
   }
 
   static int findRightBorder(img.Image image) {
-    for (int x = image.width; x >= 0; x--) {
+    for (int x = image.width - 1; x >= 0; x--) {
       int edgePixels = 0;
       for (int y = 0; y < image.height; y++) {
         final pixel = image.getPixel(x, y);
@@ -57,7 +57,7 @@ class DimensionAnalyzer {
   }
 
   static int findBottomBorder(img.Image image) {
-    for (int y = image.height; y >= 0; y--) {
+    for (int y = image.height - 1; y >= 0; y--) {
       int edgePixels = 0;
       for (int x = 0; x < image.width; x++) {
         final pixel = image.getPixel(x, y);

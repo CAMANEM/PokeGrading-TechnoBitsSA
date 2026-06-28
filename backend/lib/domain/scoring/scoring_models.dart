@@ -39,11 +39,22 @@ class GradingResult {
   final double edgesGrade;
   final double surfaceGrade;
   final double finalGrade;
+  final double confidenceScore;
+  final double uncertaintyBand;
+  final String baselineUsed;
+  final bool requiresManualReview;
+  final String? reviewReason;
 
-  const GradingResult(
-      {required this.centerGrade,
-      required this.cornersGrade,
-      required this.edgesGrade,
-      required this.surfaceGrade,
-      required this.finalGrade});
+  const GradingResult({
+    required this.centerGrade,
+    required this.cornersGrade,
+    required this.edgesGrade,
+    required this.surfaceGrade,
+    required this.finalGrade,
+    this.confidenceScore = 0.0,
+    this.uncertaintyBand = 0.0,
+    this.baselineUsed = 'global_v1',
+    this.requiresManualReview = false,
+    this.reviewReason,
+  });
 }

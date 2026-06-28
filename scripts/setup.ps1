@@ -100,7 +100,82 @@ if (Test-CommandExists "git") {
   }
 }
 
-# --- 4. Verificar Docker ------------------------------------------------------
+# --- 4. Verificar Visual Studio Build Tools (C++ workload) -------------------
+Write-Step "Verificando Visual Studio Build Tools (C++ workload)..."
+
+# Verificar si ya esta instalado
+$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$buildToolsInstalled = $false
+
+if (Test-Path $vsWhere) {
+  $installPath = & $vsWhere -latest -property installationPath 2>$null
+  if ($installPath) {
+    # Verificar que el workload de C++ este instalado
+    $vsWhereProducts = & $vsWhere -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath 2>$null
+    if ($vsWhereProducts) {
+      $buildToolsInstalled = $true
+      Write-Ok "Visual Studio Build Tools con workload C++ encontrado"
+    }
+  }
+}
+
+if (-not $buildToolsInstalled) {
+  Write-Warn "Visual Studio Build Tools no encontrado o sin workload C++."
+  Write-Host "  Instalando VS Build Tools con C++ workload (~5-10 GB)..." -ForegroundColor Yellow
+  Write-Host "  Esto puede tardar varios minutos..." -ForegroundColor Yellow
+
+  try {
+    # Descargar el instalador de Build Tools
+    $vsBuildToolsUrl = "https://aka.ms/vs/17/release/vs_BuildTools.exe"
+    $vsBuildToolsInstaller = "$env:TEMP\vs_BuildTools.exe"
+
+    Write-Host "  Descargando instalador..." -ForegroundColor Gray
+    Invoke-WebRequest -Uri $vsBuildToolsUrl -OutFile $vsBuildToolsInstaller -UseBasicParsing
+
+    Write-Host "  Instalando con workload C++ desktop..." -ForegroundColor Gray
+
+    # Ejecutar el instalador con los componentes necesarios
+    # Componentes clave para dartcv4/OpenCV:
+    #   Microsoft.VisualStudio.Workload.VCTools - Workload de herramientas C++
+    #   Microsoft.VisualStudio.Component.VC.Tools.x86.x64 - Compilador MSVC
+    #   Microsoft.VisualStudio.Component.Windows11SDK.22621 - Windows SDK
+    Start-Process -FilePath $vsBuildToolsInstaller -ArgumentList @(
+      "--quiet",
+      "--wait",
+      "--norestart",
+      "--nocache",
+      "--add", "Microsoft.VisualStudio.Workload.VCTools",
+      "--includeRecommended"
+    ) -Wait -NoNewWindow
+
+    # Limpiar instalador
+    Remove-Item $vsBuildToolsInstaller -Force -ErrorAction SilentlyContinue
+
+    # Verificar que se instalo
+    if (Test-Path $vsWhere) {
+      $vsWhereProducts = & $vsWhere -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath 2>$null
+      if ($vsWhereProducts) {
+        Write-Ok "VS Build Tools con workload C++ instalado exitosamente"
+      } else {
+        Write-Warn "VS Build Tools se instalo pero no se pudo verificar el workload C++"
+        Write-Host "  Puede que necesites reiniciar la terminal" -ForegroundColor Yellow
+      }
+    } else {
+      Write-Warn "VS Build Tools instalado, pero vswhere no encontrado para verificar"
+    }
+  } catch {
+    Write-Err "Error instalando VS Build Tools: $_"
+    Write-Host "  Descargalo manualmente desde:" -ForegroundColor Yellow
+    Write-Host "  https://visualstudio.microsoft.com/visual-cpp-build-tools/" -ForegroundColor Cyan
+    Write-Host ""
+    $response = Read-Host "  Deseas continuar sin VS Build Tools? (s/N)"
+    if ($response -notmatch "^[sS]$") {
+      exit 1
+    }
+  }
+}
+
+# --- 5. Verificar Docker ------------------------------------------------------
 Write-Step "Verificando Docker..."
 if (Test-CommandExists "docker") {
   $dockerVersion = docker --version 2>$null
@@ -138,7 +213,7 @@ if (Test-CommandExists "docker") {
   }
 }
 
-# --- 5. Instalar Flutter SDK --------------------------------------------------
+# --- 6. Instalar Flutter SDK --------------------------------------------------
 Write-Step "Verificando Flutter SDK..."
 
 $FLUTTER_EXE = ""
@@ -221,7 +296,7 @@ if (Test-CommandExists "dart") {
 
 Write-Ok "Dart encontrado: $DART_EXE"
 
-# --- 6. Flutter Doctor --------------------------------------------------------
+# --- 7. Flutter Doctor --------------------------------------------------------
 Write-Step "Ejecutando flutter doctor..."
 try {
   & $FLUTTER_EXE doctor --no-version-check 2>&1 | Select-Object -First 20
@@ -229,7 +304,7 @@ try {
   Write-Warn "flutter doctor tuvo problemas (normal en primera ejecucion)"
 }
 
-# --- 7. Configurar .env -------------------------------------------------------
+# --- 8. Configurar .env -------------------------------------------------------
 Write-Step "Configurando variables de entorno..."
 
 $envFile = Join-Path $PROJECT_ROOT ".env"
@@ -242,21 +317,21 @@ if (-not (Test-Path $envFile)) {
   Write-Ok ".env ya existe (no se sobreescribe)"
 }
 
-# --- 8. Instalar dependencias del Backend -------------------------------------
+# --- 9. Instalar dependencias del Backend -------------------------------------
 Write-Step "Instalando dependencias del Backend (Dart)..."
 
 Set-Location (Join-Path $PROJECT_ROOT "backend")
 & $DART_EXE pub get
 Write-Ok "Dependencias del backend instaladas"
 
-# --- 9. Instalar dependencias del Frontend ------------------------------------
+# --- 10. Instalar dependencias del Frontend ------------------------------------
 Write-Step "Instalando dependencias del Frontend (Flutter)..."
 
 Set-Location (Join-Path $PROJECT_ROOT "frontend")
 & $FLUTTER_EXE pub get
 Write-Ok "Dependencias del frontend instaladas"
 
-# --- 10. Habilitar Flutter Web ------------------------------------------------
+# --- 11. Habilitar Flutter Web ------------------------------------------------
 Write-Step "Habilitando Flutter Web..."
 try {
   & $FLUTTER_EXE config --enable-web 2>&1 | Out-Null
@@ -265,7 +340,7 @@ try {
   Write-Warn "No se pudo habilitar Flutter Web (puede ya estar habilitado)"
 }
 
-# --- 11. Levantar PostgreSQL con Docker ---------------------------------------
+# --- 12. Levantar PostgreSQL con Docker ---------------------------------------
 if (Test-CommandExists "docker") {
   try {
     docker info 2>&1 | Out-Null
@@ -279,10 +354,10 @@ if (Test-CommandExists "docker") {
   }
 }
 
-# --- 12. Volver al directorio del proyecto ------------------------------------
+# --- 13. Volver al directorio del proyecto ------------------------------------
 Set-Location $PROJECT_ROOT
 
-# --- 13. Resumen Final --------------------------------------------------------
+# --- 14. Resumen Final --------------------------------------------------------
 Write-Host ""
 Write-Host "======================================================" -ForegroundColor Green
 Write-Host "  [SUCCESS] Setup completado exitosamente!" -ForegroundColor Green

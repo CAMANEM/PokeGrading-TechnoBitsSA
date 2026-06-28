@@ -11,7 +11,6 @@ import '../../persistence/card_data_provider/evaluation_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import 'package:pokegrading_logging/pokegrading_logging.dart';
 import '../image_services/preprocessing/preprocessing_service.dart';
-import '../image_services/preprocessing/roi_segmenter.dart';
 import 'grading/pregrading.dart';
 
 Never _throwEvaluationError(String code, String err) {
@@ -216,8 +215,12 @@ class EvaluationLogic {
     final correctedFrontImage =
         PreprocessingService.preprocess(command.frontImageData);
 
-    final correctedBackImage =
-        PreprocessingService.preprocess(command.backImageData);
+    if (correctedFrontImage.rois == null) {
+      _throwEvaluationError(
+        _evaluationErrorCode,
+        'No se pudieron extraer las regiones de interes (ROIs) de la imagen frontal.',
+      );
+    }
 
     final gradeResult = Grading.subgrades(correctedFrontImage.rois!);
 

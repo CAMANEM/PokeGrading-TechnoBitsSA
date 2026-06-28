@@ -62,6 +62,18 @@ if %ERRORLEVEL% EQU 0 (
   echo %YELLOW%  Descarga Git desde: https://git-scm.com/download/win%RESET%
 )
 
+:: Verificar VS Build Tools
+echo.
+echo %CYAN%^> Verificando Visual Studio Build Tools...%RESET%
+where cl >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+  echo %GREEN%[OK] MSVC compiler (cl.exe) found%RESET%
+) else (
+  echo %YELLOW%[WARN] MSVC compiler not found in PATH.%RESET%
+  echo %YELLOW%  VS Build Tools may still be installing (10-15 min).%RESET%
+  echo %YELLOW%  Check: winget list Microsoft.VisualStudio.2022.BuildTools%RESET%
+)
+
 :: Verificar Docker
 where docker >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
