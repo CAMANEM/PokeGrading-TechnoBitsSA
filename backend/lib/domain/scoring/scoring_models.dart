@@ -6,6 +6,7 @@ enum EvaluationStatus {
   underReview,
   completed,
   rejected,
+  unableToGrade,
 }
 
 /// @brief EvaluationRequest
@@ -19,6 +20,7 @@ class EvaluationRequest {
   final DateTime createdAt;
   final String? cardId;
   final String? logId;
+  final String? algorithmVersion;
 
   const EvaluationRequest({
     required this.id,
@@ -30,5 +32,6 @@ class EvaluationRequest {
     required this.createdAt,
     this.cardId,
     this.logId,
+    this.algorithmVersion,
   });
 }

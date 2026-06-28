@@ -85,6 +85,7 @@ Router buildAppRouter(
     evaluationLogic,
     baselineRegistry: baselineRegistry,
     baselineRepository: baselineRepository,
+    catalogRepository: catalogRepository,
   );
 
   if (b2bDependencies != null) {

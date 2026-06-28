@@ -13,12 +13,14 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_helpers.dart';
 import '../../core/middleware/correlation_middleware.dart';
 import '../../domain/scoring/evaluation_logic.dart';
+import '../../domain/scoring/scoring_models.dart';
 import '../../domain/image_services/preprocessing/preprocessing.dart';
 import '../../domain/scoring/grading/grading_orchestrator.dart';
 import '../../domain/scoring/grading/baseline_registry.dart';
 import '../../domain/scoring/grading/baseline_calibrator.dart';
 import '../../domain/image_services/grading/enhanced_quality_service.dart';
 import '../../persistence/card_data_provider/calibrated_baseline_repository.dart';
+import '../../persistence/card_data_provider/catalog_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
 import '../http_helpers.dart';
 
@@ -73,6 +75,7 @@ Router buildEvaluationRoutes(
   EvaluationLogic evaluationLogic, {
   BaselineRegistry? baselineRegistry,
   CalibratedBaselineRepository? baselineRepository,
+  CatalogRepository? catalogRepository,
 }) {
   final router = Router();
   final registry = baselineRegistry ?? BaselineRegistry();
@@ -116,13 +119,26 @@ Router buildEvaluationRoutes(
         },
       );
 
+      final httpStatus = switch (result.status) {
+        EvaluationStatus.unableToGrade => 200,
+        EvaluationStatus.underReview => 200,
+        _ => 201,
+      };
+
       return jsonResponse(
-        201,
+        httpStatus,
         {
           'evaluation_id': result.submissionId,
           'correlation_id': result.correlationId,
-          'status': result.status.toString(),
+          'status': result.status.name,
           'created_at': result.createdAt.toIso8601String(),
+          if (result.gradingResult != null)
+            'grading': result.gradingResult!.toJson(),
+          if (result.rejectionReason != null)
+            'rejection_reason': result.rejectionReason,
+          'metadata': {
+            'algorithm_version': GradingOrchestrator.algorithmVersion,
+          },
           'estimated_time': '0 seconds',
         },
         headers: {correlationIdHeader: result.correlationId},
@@ -410,7 +426,7 @@ Router buildEvaluationRoutes(
         'metadata': {
           'preprocessing_ms': preprocessResult.metadata.totalTimeMs,
           'grading_ms': gradingDuration,
-          'algorithm_version': '1.0.0',
+          'algorithm_version': GradingOrchestrator.algorithmVersion,
         },
         'correlation_id': correlationId,
       };
@@ -586,6 +602,152 @@ Router buildEvaluationRoutes(
         {
           'status': 'error',
           'error': 'calibration_failed',
+          'message': error.toString(),
+          'correlation_id': correlationId,
+        },
+      );
+    }
+  });
+
+  // ─── Auto-calibrate endpoint (admin) ──────────────────────────────
+  router.post('/auto-calibrate', (Request request) async {
+    final payload = await readJson(request);
+    final correlationId = request.context['correlation_id'] as String? ??
+        resolveCorrelationId(request.headers);
+
+    AppLogger.info(
+      'PokéGrading.Routes.AutoCalibrate',
+      'Auto-calibration request received',
+      context: {
+        'correlation_id': correlationId,
+      },
+    );
+
+    try {
+      final setName = payload['set_name']?.toString();
+      final finish = payload['finish']?.toString();
+
+      if (setName == null || setName.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_set_name',
+          'message': 'set_name is required',
+          'correlation_id': correlationId,
+        });
+      }
+      if (finish == null || finish.isEmpty) {
+        return jsonResponse(400, {
+          'status': 'error',
+          'error': 'missing_finish',
+          'message': 'finish is required',
+          'correlation_id': correlationId,
+        });
+      }
+
+      if (catalogRepository == null) {
+        return jsonResponse(500, {
+          'status': 'error',
+          'error': 'catalog_repository_not_available',
+          'message': 'Catalog repository not configured',
+          'correlation_id': correlationId,
+        });
+      }
+
+      // Query graded reference cards from the database
+      final cards = await catalogRepository.findGradedCardsForCalibration(
+        set: setName,
+        finish: finish,
+      );
+
+      // Calibrate (BaselineCalibrator.calibrate handles empty list gracefully)
+      final baselineVersion = '${setName.toLowerCase()}_${finish.toLowerCase()}_v1.0';
+      final description = 'Auto-calibrado desde ${cards.length} cartas de referencia';
+      final result = BaselineCalibrator.calibrate(
+        cards: cards,
+        baselineVersion: baselineVersion,
+        description: description,
+      );
+
+      // Add context-specific warnings for insufficient cards
+      if (cards.isEmpty) {
+        result.warnings.add(
+          'No graded cards found for $setName / $finish. Global baseline will be used.',
+        );
+      } else if (!result.hasSufficientGroundTruth) {
+        result.warnings.add(
+          'Insufficient cards: ${cards.length}/${BaselineRegistry.minimumReferenceCards} minimum. '
+          'Global baseline will be used as fallback.',
+        );
+      }
+
+      // Register in the in-memory registry only with sufficient ground truth
+      if (result.hasSufficientGroundTruth) {
+        registry.register(setName, finish, BaselineEntry(
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          calibratedAt: DateTime.now().toUtc(),
+          averagePsaGrade: result.averagePsaGrade,
+        ));
+      }
+
+      // Persist to database if we have any cards to calibrate from
+      if (cards.isNotEmpty && baselineRepository != null) {
+        await baselineRepository.storeBaseline(StoreBaselineInput(
+          setName: setName,
+          finish: finish,
+          config: result.config,
+          referenceCardCount: result.cardCount,
+          averagePsaGrade: result.averagePsaGrade,
+          psaGradeStdDev: result.psaGradeStdDev,
+          qualityScore: result.qualityScore,
+        ));
+      }
+
+      AppLogger.info(
+        'PokéGrading.Routes.AutoCalibrate',
+        'Auto-calibration completed',
+        context: {
+          'correlation_id': correlationId,
+          'set_name': setName,
+          'finish': finish,
+          'card_count': result.cardCount,
+          'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+          'quality_score': result.qualityScore,
+        },
+      );
+
+      return jsonResponse(
+        200,
+        {
+          'success': true,
+          'calibration': {
+            'set_name': setName,
+            'finish': finish,
+            'baseline_version': baselineVersion,
+            'card_count': result.cardCount,
+            'has_sufficient_ground_truth': result.hasSufficientGroundTruth,
+            'average_psa_grade': result.averagePsaGrade,
+            'psa_grade_std_dev': result.psaGradeStdDev,
+            'quality_score': result.qualityScore,
+            'warnings': result.warnings,
+            'registered': result.hasSufficientGroundTruth,
+          },
+          'correlation_id': correlationId,
+        },
+      );
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Routes.AutoCalibrate',
+        'Auto-calibration failed unexpectedly',
+        context: {'correlation_id': correlationId},
+        error: error,
+        stackTrace: stack,
+      );
+      return jsonResponse(
+        500,
+        {
+          'status': 'error',
+          'error': 'auto_calibration_failed',
           'message': error.toString(),
           'correlation_id': correlationId,
         },

@@ -97,6 +97,10 @@ class GradingResult {
 /// - Edges: 20%
 /// - Surface: 20%
 class GradingOrchestrator {
+  /// Algorithm version identifier. Immutable — old evaluations reference the
+  /// version that produced them and are never re-graded.
+  static const String algorithmVersion = '1.0.0';
+
   /// Weight for centering grade (BGS standard: 40%).
   static const double centeringWeight = 0.40;
 

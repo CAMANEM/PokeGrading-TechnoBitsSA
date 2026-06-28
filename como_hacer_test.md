@@ -13,6 +13,10 @@ Este documento explica cómo probar el sistema de grading completo de PokéGradi
 - Baselines calibrados por (set, finish)
 - Idempotencia en el endpoint de grading
 - Endpoint de calibración
+- Endpoint de auto-calibración
+- Versión inmutable del algoritmo (persistida en cada evaluación)
+- Derivación a `unableToGrade` cuando no se pueden calcular subgrades
+- Derivación a `underReview` por contradicciones de coherencia
 
 ## Prerequisitos
 
@@ -177,7 +181,95 @@ Campos nuevos en la respuesta:
 }
 ```
 
-### 3. Endpoint de Preprocessing (solo)
+### 3. Endpoint de Auto-Calibración
+
+**URL:** `POST /api/v1/scoring/auto-calibrate`
+
+**Descripción:** Calibra automáticamente un baseline para un (set, finish) consultando cartas de referencia con `psa_grade` y `grading_features_json` en la base de datos. El feature extraction ocurre al momento de crear las cartas de referencia (POST /cards). Requiere mínimo 15 cartas con features extraídas para activar el baseline calibrado. Si no hay suficiente ground truth, retorna 200 con warnings y el sistema usa el baseline global como fallback.
+
+**Request Body:**
+```json
+{
+  "set_name": "SVP",
+  "finish": "holo"
+}
+```
+
+**Response Exitoso - Baseline calibrado (200):**
+```json
+{
+  "success": true,
+  "calibration": {
+    "set_name": "SVP",
+    "finish": "holo",
+    "baseline_version": "svp_holo_v1.0",
+    "card_count": 25,
+    "has_sufficient_ground_truth": true,
+    "average_psa_grade": 9.0,
+    "psa_grade_std_dev": 0.8,
+    "quality_score": 0.85,
+    "warnings": [],
+    "registered": true
+  },
+  "correlation_id": "abc-123"
+}
+```
+
+**Response con warnings - Cartas insuficientes (200):**
+```json
+{
+  "success": true,
+  "calibration": {
+    "set_name": "SVP",
+    "finish": "holo",
+    "baseline_version": "svp_holo_v1.0",
+    "card_count": 5,
+    "has_sufficient_ground_truth": false,
+    "average_psa_grade": 8.5,
+    "psa_grade_std_dev": 1.0,
+    "quality_score": 0.72,
+    "warnings": [
+      "Insufficient cards: 5/15 minimum. Global baseline will be used as fallback."
+    ],
+    "registered": false
+  },
+  "correlation_id": "abc-123"
+}
+```
+
+**Response sin cartas - Sin datos (200):**
+```json
+{
+  "success": true,
+  "calibration": {
+    "set_name": "SVP",
+    "finish": "holo",
+    "baseline_version": "svp_holo_v1.0",
+    "card_count": 0,
+    "has_sufficient_ground_truth": false,
+    "average_psa_grade": 0,
+    "psa_grade_std_dev": 0,
+    "quality_score": 0,
+    "warnings": [
+      "No graded cards found for SVP / holo. Global baseline will be used."
+    ],
+    "registered": false
+  },
+  "correlation_id": "abc-123"
+}
+```
+
+**Comportamiento por cantidad de cartas:**
+- **0 cartas:** 200 con warning, no persiste, no registra → grading usa baseline global
+- **1-14 cartas:** 200 con warning, persiste, no registra → grading usa baseline global
+- **≥15 cartas:** 200 con success, persiste, registra → grading usa baseline calibrado
+
+**Flujo completo:**
+1. Crear cartas de referencia con `POST /cards` incluyendo `psa_grade` → se extraen features automáticamente
+2. Ejecutar `POST /auto-calibrate` con `set_name` y `finish` → calibra baseline desde la DB
+3. Calificar cartas con `POST /grade` → usa el baseline calibrado si hay ≥15 cartas, fallback global si no
+
+### 4. Endpoint de Preprocessing (solo)
 
 **URL:** `POST /api/v1/scoring/preprocess`
 
@@ -257,6 +349,21 @@ $body = @{
 } | ConvertTo-Json -Depth 5
 
 Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/calibrate" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+### Prueba de Auto-Calibración
+
+```powershell
+# Calibrar desde cartas de referencia en la DB
+$body = @{
+    set_name = "SVP"
+    finish = "holo"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/scoring/auto-calibrate" `
     -Method POST `
     -ContentType "application/json" `
     -Body $body
@@ -346,6 +453,36 @@ Calculada a partir de la consistencia entre subgrades y el rango de los subgrade
 - `baseline_is_calibrated: true` → Se usó un baseline calibrado para el (set, finish)
 - `baseline_reference_card_count` → Número de cartas de referencia usadas para calibración
 
+### Evaluation Statuses
+
+| Status | Significado |
+|--------|-------------|
+| `pending` | Evaluación creada, procesándose |
+| `completed` | Grading completado exitosamente |
+| `unable_to_grade` | No se pudo calcular (IQS bajo, preprocessing falló) — requiere calificación manual |
+| `under_review` | Coherencia detectó contradicción — requiere revisión humana |
+| `rejected` | Rechazada (polyglot/malicioso) |
+
+### Versión del Algoritmo (Inmutabilidad)
+Cada evaluación persiste el `algorithm_version` exacto que la generó (`1.0.0`). Al liberar una nueva versión del algoritmo:
+- Las evaluaciones viejas **nunca se modifican** — mantienen su versión original
+- Las evaluaciones nuevas usan la nueva versión
+- El campo `algorithm_version` está en la tabla `pre_grade` con FK a la tabla `algorithm`
+
+### Derivación a `unableToGrade`
+Cuando el sistema no puede calcular subgrades, **guarda la evaluación** con status `unable_to_grade` en vez de rechazarla:
+- IQS frontal < 60 → `unable_to_grade` con razón del rechazo
+- IQS trasero < 60 → `unable_to_grade` con razón del rechazo
+- Preprocessing frontal falla → `unable_to_grade`
+- Preprocessing trasero falla → `unable_to_grade`
+- Polyglot detectado → **rechazo duro** (no se guarda, por seguridad)
+
+### Derivación a `underReview`
+Cuando el grading completa pero detecta una posible contradicción:
+- `coherenceRuleApplied == true` Y `confidence < 0.7` → `under_review`
+- `coherenceRuleApplied == true` Y `gap > 2.0` entre weighted grade y lowest subgrade → `under_review`
+- Se marca `recommend_paid_evaluation: true` para escalar a revisor humano
+
 ## Resultados de Prueba (Imágenes de Ejemplo)
 
 ### Charizard (SVP, holo)
@@ -370,11 +507,13 @@ Calculada a partir de la consistencia entre subgrades y el rango de los subgrade
 ## Archivos Relacionados
 
 ### Core de Grading
-- `backend/lib/domain/scoring/grading/grading_orchestrator.dart` - Orquestador principal (pesos BGS, regla de coherencia, banda de incertidumbre)
+- `backend/lib/domain/scoring/grading/grading_orchestrator.dart` - Orquestador principal (pesos BGS, regla de coherencia, banda de incertidumbre, constante `algorithmVersion`)
 - `backend/lib/domain/scoring/grading/pregrading.dart` - Centering (detección de varianza)
 - `backend/lib/domain/scoring/grading/baseline_config.dart` - Modelo de configuración de baseline
 - `backend/lib/domain/scoring/grading/baseline_registry.dart` - Registro de baselines por (set, finish)
 - `backend/lib/domain/scoring/grading/baseline_calibrator.dart` - Calibración desde datasets
+- `backend/lib/domain/scoring/evaluation_logic.dart` - Lógica de evaluación (status-based: completed, unableToGrade, underReview)
+- `backend/lib/domain/scoring/scoring_models.dart` - Modelos (EvaluationStatus, EvaluationRequest)
 
 ### Detección de Defectos
 - `backend/lib/domain/image_services/grading/corner_whitening_detector.dart` - Detección esquinas (con bordes blancos)
@@ -383,13 +522,14 @@ Calculada a partir de la consistencia entre subgrades y el rango de los subgrade
 - `backend/lib/domain/image_services/grading/enhanced_quality_service.dart` - IQS mejorado
 
 ### Endpoints HTTP
-- `backend/lib/application/routes/evaluation_routes.dart` - Endpoints de grading y calibración
+- `backend/lib/application/routes/evaluation_routes.dart` - Endpoints de grading, calibración y auto-calibración
 - `backend/lib/application/app_router.dart` - Router principal con DI
 
 ### Persistencia
 - `backend/lib/persistence/card_data_provider/calibrated_baseline_repository.dart` - Interfaz de repositorio
 - `backend/lib/persistence/card_data_provider/postgres_calibrated_baseline_repository.dart` - Implementación PostgreSQL
 - `backend/lib/persistence/mocks/mock_calibrated_baseline_repository.dart` - Mock para testing
+- `backend/lib/domain/scoring/grading/grading_feature_extractor.dart` - Extracción de features desde imagen base64
 
 ### Base de Datos
 - `backend/db/init/005_baseline_schema.sql` - Schema de tabla calibrated_baseline

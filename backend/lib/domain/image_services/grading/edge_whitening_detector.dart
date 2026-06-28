@@ -29,6 +29,9 @@ class EdgeWhiteningResult {
   /// Whether this edge passes quality threshold.
   final bool passes;
 
+  /// Raw coefficient of variation of brightness along the edge. Used for calibration.
+  final double straightnessCV;
+
   const EdgeWhiteningResult({
     required this.position,
     required this.whiteningScore,
@@ -36,6 +39,7 @@ class EdgeWhiteningResult {
     required this.qualityScore,
     required this.whiteningPercentage,
     required this.passes,
+    this.straightnessCV = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -156,17 +160,19 @@ class EdgeWhiteningDetector {
     final whiteningResult = _analyzeWhitening(edgeImage, position: position);
 
     // Analyze straightness using brightness consistency
-    final straightnessResult = _analyzeStraightness(
+    final straightnessResult = _analyzeStraightnessWithCV(
       edgeImage,
       position: position,
     );
+    final straightnessScore = straightnessResult.$1;
+    final rawStraightnessCV = straightnessResult.$2;
 
     // If no whitening damage detected, apply a minimum straightness floor.
     // For unprocessed photos, brightness-based straightness is unreliable,
     // but 0% whitening indicates the edge is physically intact.
     final effectiveStraightness = whiteningResult.$2 < whiteningPerfectThreshold
-        ? max(straightnessResult, 0.5)
-        : straightnessResult;
+        ? max(straightnessScore, 0.5)
+        : straightnessScore;
 
     // Combined quality score (lower whiteningScore = better, so invert it)
     final qualityScore = (1.0 - whiteningResult.$1) * whiteningWeight +
@@ -182,6 +188,7 @@ class EdgeWhiteningDetector {
       qualityScore: qualityScore,
       whiteningPercentage: whiteningResult.$2,
       passes: passes,
+      straightnessCV: rawStraightnessCV,
     );
   }
 
@@ -294,7 +301,9 @@ class EdgeWhiteningDetector {
 
   /// Analyzes edge straightness by measuring brightness consistency.
   /// Normalizes brightness values before computing CV to handle uneven lighting.
-  static double _analyzeStraightness(
+  /// Analyzes straightness and returns both the score and raw CV.
+  /// Returns (straightnessScore, rawCV).
+  static (double, double) _analyzeStraightnessWithCV(
     img.Image edgeImage, {
     required String position,
   }) {
@@ -324,24 +333,31 @@ class EdgeWhiteningDetector {
       }
     }
 
-    if (edgeBrightness.isEmpty || edgeBrightness.length < 10) return 0.5;
+    if (edgeBrightness.isEmpty || edgeBrightness.length < 10) return (0.5, 0.0);
 
     // Normalize: clip to 5th-95th percentile range to remove lighting gradients
     final sorted = List<double>.from(edgeBrightness)..sort();
     final p5 = sorted[(sorted.length * 0.05).round()];
     final p95 = sorted[(sorted.length * 0.95).round()];
     final range = p95 - p5;
-    if (range < 1) return 1.0; // Already uniform
+    if (range < 1) return (1.0, 0.0); // Already uniform
     
     final normalized = edgeBrightness.map((v) => 
         ((v - p5) / range * 255).clamp(0.0, 255.0)).toList();
 
     final cv = _coefficientOfVariation(normalized);
 
-    if (cv < straightnessCVPerfect) return 1.0;
-    if (cv > straightnessCVPoor) return 0.0;
-    return 1.0 - (cv - straightnessCVPerfect) /
-        (straightnessCVPoor - straightnessCVPerfect);
+    double score;
+    if (cv < straightnessCVPerfect) {
+      score = 1.0;
+    } else if (cv > straightnessCVPoor) {
+      score = 0.0;
+    } else {
+      score = 1.0 - (cv - straightnessCVPerfect) /
+          (straightnessCVPoor - straightnessCVPerfect);
+    }
+
+    return (score, cv);
   }
 
   /// Calculates coefficient of variation (std dev / mean).
