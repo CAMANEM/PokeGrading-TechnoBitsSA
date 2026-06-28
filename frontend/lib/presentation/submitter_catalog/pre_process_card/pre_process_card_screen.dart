@@ -139,7 +139,7 @@ class _PreProcessCardScreenState extends State<PreProcessCardScreen> {
     final frontBase64 = _provider.state.frontResult!.correctedImage;
     final backBase64 = _provider.state.backResult?.correctedImage;
     context.go(
-      '/evaluations?card_id=$_cardId&card_name=$encodedCardName',
+      '/evaluations/submit?card_id=$_cardId&card_name=$encodedCardName',
       extra: {
         'frontImageData': frontBase64.startsWith('data:')
             ? frontBase64

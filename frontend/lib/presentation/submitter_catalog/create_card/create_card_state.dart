@@ -47,6 +47,7 @@ class CreateCardPayload {
   final String? author;
   final String imageData;
   final String? backImageData;
+  final double? psaGrade;
 
   const CreateCardPayload({
     required this.identity,
@@ -59,6 +60,7 @@ class CreateCardPayload {
     this.year,
     this.author,
     this.backImageData,
+    this.psaGrade,
   });
 }
 

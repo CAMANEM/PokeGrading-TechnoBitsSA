@@ -231,6 +231,9 @@ Router buildCatalogRoutes(
         author: payload['author']?.toString());
     final backImageData = payload['back_image_data']?.toString();
     final imageData = (payload['image_data'] ?? '').toString();
+    final psaGrade = payload['psa_grade'] is num
+        ? (payload['psa_grade'] as num).toDouble()
+        : double.tryParse((payload['psa_grade'] ?? '').toString());
     final requestContext = httpLogContext(
       request: request,
       body: catalogCreateBodySummary(payload),
@@ -243,6 +246,7 @@ Router buildCatalogRoutes(
           display: display,
           imageData: imageData,
           backImageData: backImageData,
+          psaGrade: psaGrade,
         ),
       );
 

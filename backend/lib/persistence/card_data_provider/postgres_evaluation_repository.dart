@@ -78,7 +78,9 @@ class PostgresEvaluationRepository implements EvaluationRepository {
       final saved = await _connection.runTx<_SavedEvaluation>((tx) async {
         final now = DateTime.now().toUtc();
         final lookups = LookupResolver(tx);
-        final pendingStatusId = await lookups.resolveStatusId('pending');
+        final pendingStatusId = await lookups.resolveStatusId(
+          _statusName(input.status ?? EvaluationStatus.pending),
+        );
 
         final cardSubmitterId = await _resolveCardSubmitterId(
           tx,
@@ -91,17 +93,33 @@ class PostgresEvaluationRepository implements EvaluationRepository {
           INSERT INTO pre_grade (
             card_submitter_id,
             status_id,
+            algorithm_version,
             log_id,
             requested_date,
-            last_modified_date
-          ) VALUES (\$1, \$2, \$3, \$4, \$5)
+            last_modified_date,
+            centering_grade,
+            corners_grade,
+            edges_grade,
+            surface_grade,
+            final_estimated_grade,
+            confidence_score,
+            graded_date
+          ) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13)
           RETURNING id
           ''',
           parameters: [
             cardSubmitterId,
             pendingStatusId,
+            input.algorithmVersion,
             input.correlationId,
             now,
+            now,
+            input.pregradings?.centering_grade ?? 0,
+            input.pregradings?.corners_grade ?? 0,
+            input.pregradings?.edges_grade ?? 0,
+            input.pregradings?.surface_grade ?? 0,
+            input.pregradings?.grade ?? 0,
+            input.pregradings?.confidence ?? 0,
             now,
           ],
         );
@@ -140,10 +158,11 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         backImageData: saved.backImageData,
         frontImageScore: saved.frontImageScore,
         backImageScore: saved.backImageScore,
-        status: EvaluationStatus.pending,
+        status: input.status ?? EvaluationStatus.pending,
         createdAt: saved.createdAt,
         cardId: saved.cardId,
         logId: input.correlationId,
+        algorithmVersion: input.algorithmVersion,
       );
     } catch (error, stack) {
       AppLogger.error(
@@ -182,14 +201,14 @@ class PostgresEvaluationRepository implements EvaluationRepository {
 
       return result.map((row) {
         return PregradeResult(
-          gradeId: (row[0] as num).toInt(),
-          status: row[1]?.toString() ?? 'perding',
-          centering_grade: (row[2] as num?)?.toDouble(),
-          corners_grade: (row[3] as num?)?.toDouble(),
-          edges_grade: (row[4] as num?)?.toDouble(),
-          surface_grade: (row[5] as num?)?.toDouble(),
-          grade: (row[6] as num?)?.toDouble(),
-          confidence: (row[7] as num?)?.toDouble(),
+          gradeId: _toInt(row[0]) ?? 0,
+          status: row[1]?.toString() ?? 'pending',
+          centering_grade: _toDouble(row[2]),
+          corners_grade: _toDouble(row[3]),
+          edges_grade: _toDouble(row[4]),
+          surface_grade: _toDouble(row[5]),
+          grade: _toDouble(row[6]),
+          confidence: _toDouble(row[7]),
           submittedDate: (row[8] as DateTime).toIso8601String().split('T')[0],
           gradedDate: (row[9] as DateTime?)?.toIso8601String().split('T')[0],
         );
@@ -311,6 +330,7 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         'completed' => EvaluationStatus.completed,
         'rejected' => EvaluationStatus.rejected,
         'under_review' => EvaluationStatus.underReview,
+        'unable_to_grade' => EvaluationStatus.unableToGrade,
         _ => EvaluationStatus.pending,
       };
 
@@ -339,6 +359,28 @@ class PostgresEvaluationRepository implements EvaluationRepository {
   Future<void> close() async {
     await _connection.close();
   }
+
+  static String _statusName(EvaluationStatus status) => switch (status) {
+        EvaluationStatus.pending => 'pending',
+        EvaluationStatus.completed => 'completed',
+        EvaluationStatus.rejected => 'rejected',
+        EvaluationStatus.underReview => 'under_review',
+        EvaluationStatus.unableToGrade => 'unable_to_grade',
+      };
+
+  static int? _toInt(dynamic v) => switch (v) {
+        int n => n,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      };
+
+  static double? _toDouble(dynamic v) => switch (v) {
+        double n => n,
+        num n => n.toDouble(),
+        String s => double.tryParse(s),
+        _ => null,
+      };
 }
 
 class _SavedEvaluation {

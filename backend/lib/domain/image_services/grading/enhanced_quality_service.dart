@@ -63,7 +63,7 @@ class EnhancedQualityResult {
 /// Enhanced Image Quality Service with additional metrics.
 class EnhancedQualityService {
   /// Acceptance threshold (0-100). Images below this are rejected.
-  static const int acceptedThreshold = 60;
+  static const int acceptedThreshold = 50;
 
   /// Luminance coefficient for Red channel (ITU-R BT.709).
   static const double luminanceR = 0.2126;

@@ -1,12 +1,16 @@
 /// @file
 /// @brief
 
+import 'dart:convert';
+
 import 'package:postgres/postgres.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../domain/catalog/catalog_models.dart';
 import '../../domain/image_services/visual_features.dart';
+import '../../domain/scoring/grading/baseline_calibrator.dart';
+import '../../domain/scoring/grading/grading_feature_extractor.dart';
 import '../image_provider/image_storage_repository.dart';
 import '../lookup/lookup_resolver.dart';
 import 'catalog_repository.dart';
@@ -86,7 +90,9 @@ class PostgresCatalogRepository implements CatalogRepository {
     hr.average_hash_hex,
     hr.difference_hash_hex,
     hr.center_average_hash_hex,
-    hr.center_difference_hash_hex
+    hr.center_difference_hash_hex,
+    cr.psa_grade,
+    cr.grading_features_json
   ''';
 
   static const _fromClause = '''
@@ -225,10 +231,12 @@ class PostgresCatalogRepository implements CatalogRepository {
             language_id,
             type_id,
             rarity_id,
+            psa_grade,
+            grading_features_json,
             registration_date,
             active
           ) VALUES (
-            \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15
+            \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15::jsonb, \$16, \$17
           )
           RETURNING id
           ''',
@@ -246,6 +254,10 @@ class PostgresCatalogRepository implements CatalogRepository {
             languageId,
             typeId,
             rarityId,
+            input.psaGrade,
+            input.gradingFeaturesJson != null
+                ? jsonEncode(input.gradingFeaturesJson)
+                : null,
             now,
             true,
           ],
@@ -486,14 +498,37 @@ class PostgresCatalogRepository implements CatalogRepository {
       centerDifferenceHashHex: row[17]?.toString(),
     );
 
+    final psaGrade = switch (row[18]) {
+      num n => n.toDouble(),
+      String s => double.tryParse(s),
+      _ => null,
+    };
+
+    final rawGradingJson = row[19];
+    Map<String, dynamic>? gradingFeaturesJson;
+    if (rawGradingJson is Map) {
+      gradingFeaturesJson = Map<String, dynamic>.from(rawGradingJson);
+    }
+
     final display = CardDisplay(
       displayName: row[6]?.toString(),
       rarity: row[10]?.toString(),
       pokemonType: row[13]?.toString(),
-      hp: row[12] as int?,
+      hp: switch (row[12]) {
+        int v => v,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      },
       illustrator: row[11]?.toString(),
-      year: row[9] as int?,
+      year: switch (row[9]) {
+        int v => v,
+        num n => n.toInt(),
+        String s => int.tryParse(s),
+        _ => null,
+      },
       author: row[8]?.toString(),
+      psaGrade: psaGrade,
     );
 
     return PokemonCard(
@@ -502,11 +537,74 @@ class PostgresCatalogRepository implements CatalogRepository {
       display: display,
       imageData: '',
       visualFeatures: visualFeatures.isEmpty ? null : visualFeatures,
+      gradingFeaturesJson: gradingFeaturesJson,
       status: PokemonCardStatus.pendingValidation,
       isActive: true,
       audit: [],
       createdAt: row[7] as DateTime,
     );
+  }
+
+  @override
+  Future<List<GradedCardRecord>> findGradedCardsForCalibration({
+    required String set,
+    required String finish,
+  }) async {
+    try {
+      final result = await _connection.execute(
+        '''
+        SELECT psa_grade, grading_features_json
+        FROM card_reference
+        WHERE LOWER(set_name) = LOWER(\$1)
+          AND LOWER(finish) = LOWER(\$2)
+          AND psa_grade IS NOT NULL
+          AND grading_features_json IS NOT NULL
+          AND active = true
+          AND soft_delete = false
+        ''',
+        parameters: [set, finish],
+      );
+
+      final cards = <GradedCardRecord>[];
+      for (final row in result) {
+        final psaGrade = switch (row[0]) {
+          num n => n.toDouble(),
+          String s => double.tryParse(s) ?? 0.0,
+          _ => 0.0,
+        };
+        final featuresJson = Map<String, dynamic>.from(row[1] as Map);
+        final features = GradingFeatureExtractor.fromMap(featuresJson);
+        if (features != null) {
+          cards.add(GradedCardRecord(
+            features: features,
+            psaGrade: psaGrade,
+            set: set,
+            finish: finish,
+          ));
+        }
+      }
+
+      AppLogger.info(
+        'PokéGrading.Persistence.CatalogRepository',
+        'Found graded cards for calibration',
+        context: {
+          'set': set,
+          'finish': finish,
+          'card_count': cards.length,
+        },
+      );
+
+      return cards;
+    } catch (error, stack) {
+      AppLogger.error(
+        'PokéGrading.Persistence.CatalogRepository',
+        'findGradedCardsForCalibration failed',
+        context: {'set': set, 'finish': finish},
+        error: error,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   Future<void> close() async {

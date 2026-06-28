@@ -33,6 +33,7 @@ class _CreateCardDraft {
   final String illustrator;
   final String year;
   final String author;
+  final String psaGrade;
   final String? selectedLanguage;
   final String? selectedRarity;
   final String? selectedType;
@@ -55,6 +56,7 @@ class _CreateCardDraft {
     required this.illustrator,
     required this.year,
     required this.author,
+    required this.psaGrade,
     required this.selectedLanguage,
     required this.selectedRarity,
     required this.selectedType,
@@ -92,6 +94,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
   final _illustratorController = TextEditingController();
   final _yearController = TextEditingController();
   final _authorController = TextEditingController();
+  final _psaGradeController = TextEditingController();
   String? _selectedLanguage;
   String? _selectedRarity;
   String? _selectedType;
@@ -124,6 +127,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
     _illustratorController.dispose();
     _yearController.dispose();
     _authorController.dispose();
+    _psaGradeController.dispose();
     super.dispose();
   }
 
@@ -143,6 +147,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
     _illustratorController.text = draft.illustrator;
     _yearController.text = draft.year;
     _authorController.text = draft.author;
+    _psaGradeController.text = draft.psaGrade;
     _selectedLanguage = draft.selectedLanguage;
     _selectedRarity = draft.selectedRarity;
     _selectedType = draft.selectedType;
@@ -187,6 +192,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
       illustrator: _illustratorController.text,
       year: _yearController.text,
       author: _authorController.text,
+      psaGrade: _psaGradeController.text,
       selectedLanguage: _selectedLanguage,
       selectedRarity: _selectedRarity,
       selectedType: _selectedType,
@@ -299,6 +305,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
                                   : _authorController.text.trim(),
                               imageData: _selectedFrontImageData!,
                               backImageData: _selectedBackImageData,
+                              psaGrade: double.tryParse(_psaGradeController.text.trim()),
                             );
 
                             await _provider.submitImagePayload(payload);
@@ -316,6 +323,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
                             _illustratorController.clear();
                             _yearController.clear();
                             _authorController.clear();
+                            _psaGradeController.clear();
                             setState(() {
                               _selectedFrontImageData = null;
                               _selectedFrontImageName = null;
@@ -384,6 +392,7 @@ class _CreateCardScreenState extends State<CreateCardScreen> {
           illustratorController: _illustratorController,
           yearController: _yearController,
           authorController: _authorController,
+          psaGradeController: _psaGradeController,
           selectedRarity: _selectedRarity,
           selectedType: _selectedType,
           onRarityChanged: (v) => setState(() => _selectedRarity = v),
@@ -650,6 +659,7 @@ class _IdentityForm extends StatelessWidget {
   final TextEditingController illustratorController;
   final TextEditingController yearController;
   final TextEditingController authorController;
+  final TextEditingController psaGradeController;
   final String? selectedRarity;
   final String? selectedType;
   final void Function(String?) onRarityChanged;
@@ -670,6 +680,7 @@ class _IdentityForm extends StatelessWidget {
     required this.illustratorController,
     required this.yearController,
     required this.authorController,
+    required this.psaGradeController,
     required this.selectedRarity,
     required this.selectedType,
     required this.onRarityChanged,
@@ -864,6 +875,19 @@ class _IdentityForm extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            _InputField(
+              controller: psaGradeController,
+              label: 'PSA Grade (opcional, si es carta de referencia)',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return null;
+                final grade = double.tryParse(value.trim());
+                if (grade == null) return 'Numero invalido';
+                if (grade < 1.0 || grade > 10.0) return 'Debe ser entre 1.0 y 10.0';
+                return null;
+              },
             ),
             const SizedBox(height: 18),
             SizedBox(

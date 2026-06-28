@@ -91,6 +91,15 @@ Future<void> _processImage(String name, String path) async {
   print('  ─────────────────────────────────────────');
   print('  FINAL GRADE:   ${gradingResult.finalGrade.toStringAsFixed(2)}/10.0');
   print('  CONFIDENCE:    ${(gradingResult.confidence * 100).toStringAsFixed(1)}%');
+  print('  UNCERTAINTY:   ${gradingResult.gradeLowerBound.toStringAsFixed(2)} - ${gradingResult.gradeUpperBound.toStringAsFixed(2)}');
+  print('  LOWEST SUB:    ${gradingResult.lowestSubgrade.toStringAsFixed(2)} ${gradingResult.coherenceRuleApplied ? "(COHERENCE APPLIED)" : ""}');
+  print('');
+  print('  ─────────────────────────────────────────');
+  print('  BASELINE:');
+  print('    Version:     ${gradingResult.baseline.version}');
+  print('    Calibrated:  ${gradingResult.baseline.isCalibrated ? "YES (set: ${gradingResult.baseline.set}, finish: ${gradingResult.baseline.finish})" : "NO (global fallback)"}');
+  print('    Ref Cards:   ${gradingResult.baseline.referenceCardCount}');
+  print('');
   print('  EXPLANATION:   ${gradingResult.explanation}');
   print('');
   print('  ─────────────────────────────────────────');
