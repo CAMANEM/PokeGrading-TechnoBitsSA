@@ -834,14 +834,6 @@ class _SuccessCard extends StatelessWidget {
               ),
             ],
           ],
-
-          const SizedBox(height: 24),
-          Center(
-            child: FilledButton(
-              onPressed: onReset,
-              child: const Text('Nueva evaluación'),
-            ),
-          ),
         ],
       ),
     );

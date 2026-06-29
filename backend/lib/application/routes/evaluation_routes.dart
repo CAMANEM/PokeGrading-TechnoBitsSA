@@ -55,13 +55,11 @@ class _GradingIdempotencyCache {
     }
   }
 
-  /// Generates an idempotency key from image data + optional client key.
+  /// Generates an idempotency key from image content hash.
+  /// Client key is stored as metadata but does not affect the lookup key,
+  /// ensuring content-based deduplication works across retries.
   static String generateKey(String imageData, String? clientIdempotencyKey) {
-    final hash = md5.convert(utf8.encode(imageData)).toString();
-    if (clientIdempotencyKey != null && clientIdempotencyKey.isNotEmpty) {
-      return '$clientIdempotencyKey:$hash';
-    }
-    return hash;
+    return md5.convert(utf8.encode(imageData)).toString();
   }
 }
 
@@ -94,6 +92,31 @@ Router buildEvaluationRoutes(
       request: request,
       body: evaluationBodySummary(payload),
     );
+
+    // ─── Idempotency check ─────────────────────────────────────
+    final clientKey = request.headers['x-idempotency-key'];
+    final combinedData = '$frontImageData|$backImageData';
+    final cacheKey = _GradingIdempotencyCache.generateKey(combinedData, clientKey);
+    final cached = idempotencyCache.lookup(cacheKey);
+    if (cached != null) {
+      AppLogger.info(
+        'PokéGrading.Routes.Evaluation',
+        'Idempotency cache hit',
+        context: {
+          'correlation_id': correlationId,
+          'cache_key': cacheKey,
+        },
+      );
+      return jsonResponse(
+        200,
+        {
+          ...cached,
+          'idempotent_replay': true,
+          'correlation_id': correlationId,
+        },
+        headers: {correlationIdHeader: correlationId},
+      );
+    }
 
     AppLogger.info(
       'PokéGrading.Routes.Evaluation',
@@ -129,22 +152,27 @@ Router buildEvaluationRoutes(
         _ => 201,
       };
 
+      final responseBody = {
+        'evaluation_id': result.submissionId,
+        'correlation_id': result.correlationId,
+        'status': result.status.name,
+        'created_at': result.createdAt.toIso8601String(),
+        if (result.gradingResult != null)
+          'grading': result.gradingResult!.toJson(),
+        if (result.rejectionReason != null)
+          'rejection_reason': result.rejectionReason,
+        'metadata': {
+          'algorithm_version': GradingOrchestrator.algorithmVersion,
+        },
+        'estimated_time': '0 seconds',
+      };
+
+      // Cache for idempotency
+      idempotencyCache.store(cacheKey, responseBody);
+
       return jsonResponse(
         httpStatus,
-        {
-          'evaluation_id': result.submissionId,
-          'correlation_id': result.correlationId,
-          'status': result.status.name,
-          'created_at': result.createdAt.toIso8601String(),
-          if (result.gradingResult != null)
-            'grading': result.gradingResult!.toJson(),
-          if (result.rejectionReason != null)
-            'rejection_reason': result.rejectionReason,
-          'metadata': {
-            'algorithm_version': GradingOrchestrator.algorithmVersion,
-          },
-          'estimated_time': '0 seconds',
-        },
+        responseBody,
         headers: {correlationIdHeader: result.correlationId},
       );
     } on LogicException catch (error) {
