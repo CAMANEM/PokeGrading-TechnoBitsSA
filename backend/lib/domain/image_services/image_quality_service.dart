@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'package:image/image.dart' as img;
 
+import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 
 /// @brief ImageQualityResult
@@ -25,8 +26,6 @@ class ImageQualityResult {
 
 /// @brief ImageQualityService
 class ImageQualityService {
-  static const int acceptedThreshold = 50;
-
   static img.Image _decodeImageData(String imageData) {
     final base64Part = imageData.split(',').last;
 
@@ -45,7 +44,10 @@ class ImageQualityService {
     return image;
   }
 
-  static double _calculateSharpnessScore(img.Image image) {
+  static double _calculateSharpnessScore(
+    img.Image image,
+    ThresholdConfig t,
+  ) {
     final gray = img.grayscale(image);
 
     final laplacian = img.convolution(
@@ -79,17 +81,18 @@ class ImageQualityService {
 
     final variance = (sumSq / n) - (mean * mean);
 
-    if (variance >= 150) {
+    if (variance >= t.iqsSharpnessPerfectVariance) {
       return 1.0;
     }
 
-    return (variance / 150).clamp(0, 1);
+    return (variance / t.iqsSharpnessPerfectVariance).clamp(0, 1);
   }
 
-  static double _calculateBrightnessScore(img.Image image) {
+  static double _calculateBrightnessScore(
+    img.Image image,
+    ThresholdConfig t,
+  ) {
     double total = 0;
-    const minAcceptance = 80;
-    const maxAcceptance = 180;
 
     for (final pixel in image) {
       total += 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
@@ -97,23 +100,27 @@ class ImageQualityService {
 
     double brightness = total / (image.width * image.height);
     
-    if (brightness >= minAcceptance && brightness <= maxAcceptance) {
+    if (brightness >= t.iqsBrightnessMin && brightness <= t.iqsBrightnessMax) {
       return 1.0;
     }
 
-    if (brightness < minAcceptance) {
-      return (brightness / minAcceptance).clamp(0, 1);
+    if (brightness < t.iqsBrightnessMin) {
+      return (brightness / t.iqsBrightnessMin).clamp(0, 1);
     }
 
-    return (1 - (brightness - maxAcceptance) / (255 - maxAcceptance))
+    return (1 - (brightness - t.iqsBrightnessMax) / (255 - t.iqsBrightnessMax))
         .clamp(0, 1);
   }
 
-  static ImageQualityResult calculateScore(String imageData) {
+  static ImageQualityResult calculateScore(
+    String imageData, {
+    ThresholdConfig? thresholds,
+  }) {
+    final t = thresholds ?? const ThresholdConfig();
     final image = _decodeImageData(imageData);
 
-    final brightness = _calculateBrightnessScore(image); // 0-1
-    final sharpness = _calculateSharpnessScore(image); // 0-1
+    final brightness = _calculateBrightnessScore(image, t); // 0-1
+    final sharpness = _calculateSharpnessScore(image, t); // 0-1
 
     final overall = (sharpness + brightness) / 2;
 
@@ -123,13 +130,13 @@ class ImageQualityService {
 
     final reasons = <String>[];
 
-    if (sharpness100 < acceptedThreshold) {
+    if (sharpness100 < t.iqsAcceptedThreshold) {
       reasons.add(
         'Imagen borrosa (Nitidez: ${sharpness100.toStringAsFixed(1)}/100)',
       );
     }
 
-    if (brightness100 < acceptedThreshold) {
+    if (brightness100 < t.iqsAcceptedThreshold) {
       reasons.add(
         'Imagen oscura (Brillo: ${brightness100.toStringAsFixed(1)}/100)',
       );
