@@ -21,7 +21,7 @@ VALUES (
   'active',
   NOW()
 );
-
+/*
 -- language_id: 3 = English (canonical EN)
 INSERT INTO "card_reference" (
   "set_name",
@@ -84,3 +84,4 @@ VALUES
     NOW(),
     NOW()
   );
+*/
