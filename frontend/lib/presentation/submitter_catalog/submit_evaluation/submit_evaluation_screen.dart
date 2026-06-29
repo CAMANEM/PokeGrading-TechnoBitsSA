@@ -75,26 +75,25 @@ class _SubmitEvaluationScreenState extends State<SubmitEvaluationScreen> {
     _setName ??= GoRouterState.of(context).uri.queryParameters['set_name'];
     _setFinish ??= GoRouterState.of(context).uri.queryParameters['set_finish'];
 
-    if (!_preprocessedImagesLoaded) {
-      final extra = GoRouterState.of(context).extra;
-      if (extra is Map<String, dynamic>) {
-        _preprocessedImagesLoaded = true;
-        final front = extra['frontImageData'] as String?;
-        final back = extra['backImageData'] as String?;
-        if (front != null && _selectedFrontImageData == null) {
-          setState(() {
-            _selectedFrontImageData = front;
-            _selectedFrontImageName = 'frontal_preprocesada.png';
-            _selectedFrontImageExtension = 'png';
-          });
-        }
-        if (back != null && _selectedBackImageData == null) {
-          setState(() {
-            _selectedBackImageData = back;
-            _selectedBackImageName = 'reverso_preprocesada.png';
-            _selectedBackImageExtension = 'png';
-          });
-        }
+    final extra = GoRouterState.of(context).extra;
+    if (extra is Map<String, dynamic> && !_preprocessedImagesLoaded) {
+      _preprocessedImagesLoaded = true;
+      _submitEvaluationDraft = null;
+      final front = extra['frontImageData'] as String?;
+      final back = extra['backImageData'] as String?;
+      if (front != null) {
+        setState(() {
+          _selectedFrontImageData = front;
+          _selectedFrontImageName = 'frontal_preprocesada.png';
+          _selectedFrontImageExtension = 'png';
+        });
+      }
+      if (back != null) {
+        setState(() {
+          _selectedBackImageData = back;
+          _selectedBackImageName = 'reverso_preprocesada.png';
+          _selectedBackImageExtension = 'png';
+        });
       }
     }
   }
