@@ -181,9 +181,9 @@ void main() async {
         corsHeaders(
           headers: {
             'Access-Control-Allow-Headers':
-                'Origin, Content-Type, Accept, Authorization, X-Correlation-ID, X-Request-Id, If-None-Match',
+                'Origin, Content-Type, Accept, Authorization, X-Correlation-ID, X-Request-Id, X-Idempotency-Key, If-None-Match',
             'Access-Control-Expose-Headers':
-                'X-Correlation-ID, ETag, Last-Modified, Retry-After',
+                'X-Correlation-ID, X-Idempotency-Key, ETag, Last-Modified, Retry-After',
           },
         ),
       )

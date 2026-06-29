@@ -106,12 +106,14 @@ class SubmitEvaluationApi {
     String correlationId,
     SubmitEvaluationPayload payload,
   ) async {
+    final idempotencyKey = const Uuid().v4();
     try {
       return await _client.post(
         uri,
         headers: {
           'content-type': 'application/json',
           'X-Correlation-ID': correlationId,
+          'X-Idempotency-Key': idempotencyKey,
         },
         body: jsonEncode({
           'front_image_data': payload.frontImageData,
