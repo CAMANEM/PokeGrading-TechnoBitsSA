@@ -242,7 +242,23 @@ SELECT id, username, email, registration_date FROM submitter;
 **MongoDB**
 
 ```bash
-docker exec -it pokegrading_mongodb mongosh pokegrading_images --eval "db.submitter_images.find().limit(5)"
+# Contar documentos en cada colección
+docker exec pokegrading_mongodb mongosh --quiet pokegrading_images --eval "print('reference_images: ' + db.reference_images.countDocuments()); print('reference_fs.files: ' + db['reference_fs.files'].countDocuments()); print('reference_fs.chunks: ' + db['reference_fs.chunks'].countDocuments())"
+
+# Ver todas las reference_images
+docker exec pokegrading_mongodb mongosh --quiet pokegrading_images --eval "db.reference_images.find().pretty()"
+
+# Ver todos los archivos GridFS
+docker exec pokegrading_mongodb mongosh --quiet pokegrading_images --eval "db['reference_fs.files'].find().pretty()"
+
+# Descargar una imagen para verificar que se puede leer
+docker exec pokegrading_mongodb mongosh --quiet pokegrading_images --eval "const file = db['reference_fs.files'].findOne({filename: 'reference_1_front_1782748144315'}); const chunk = db['reference_fs.chunks'].findOne({files_id: file._id}); print('filename: ' + file.filename + ', size: ' + file.length + ' bytes, chunk: ' + chunk.data.length() + ' bytes')"
+
+# Verificar que cada card_reference tiene front y back
+docker exec pokegrading_mongodb mongosh --quiet pokegrading_images --eval "db.reference_images.aggregate([{\$group: {_id: '\$card_reference_id', sides: {\$addToSet: '\$side'}}}]).forEach(doc => print('card_reference_id: ' + doc._id + ' → ' + doc.sides.join(', ')))"
+
+# Verificar PostgreSQL también
+docker exec pokegrading_postgres psql -U pokegrading_user -d pokegrading -c "SELECT id, card_name, card_number, set_name FROM card_reference ORDER BY card_number;"
 ```
 
 ---
