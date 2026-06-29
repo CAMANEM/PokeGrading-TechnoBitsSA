@@ -1,0 +1,137 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PokeGrading B2B API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "paths": {
+    "/api/v1/b2b/consult": {
+      "post": {
+        "summary": "Consult catalog coverage",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultRequest"
+              },
+              "example": {
+                "cards": [
+                  {
+                    "set": "base1",
+                    "number": "4"
+                  },
+                  {
+                    "set": "base1",
+                    "number": "25",
+                    "language": "en"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consult completed"
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "403": {
+            "description": "Suspended customer or API key"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      }
+    },
+    "schemas": {
+      "ConsultRequest": {
+        "type": "object",
+        "required": [
+          "cards"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            }
+          }
+        }
+      },
+      "Card": {
+        "type": "object",
+        "required": [
+          "set",
+          "number"
+        ],
+        "properties": {
+          "set": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "edition": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "finish": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
