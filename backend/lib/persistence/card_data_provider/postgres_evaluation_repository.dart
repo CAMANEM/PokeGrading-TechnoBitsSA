@@ -282,9 +282,34 @@ class PostgresEvaluationRepository implements EvaluationRepository {
         submitter_id,
         hash_id,
         card_reference_id,
+        display_name,
+        set_name,
+        card_number,
+        edition,
+        finish,
+        illustrator,
+        year,
+        hp,
+        language_id,
+        type_id,
+        rarity_id,
         registration_date,
         active
-      ) VALUES (\$1, \$2, \$3, \$4, \$5)
+      ) VALUES (
+        \$1, \$2, \$3,
+        (SELECT display_name    FROM card_reference WHERE id = \$3),
+        (SELECT set_name        FROM card_reference WHERE id = \$3),
+        (SELECT card_number     FROM card_reference WHERE id = \$3),
+        (SELECT edition         FROM card_reference WHERE id = \$3),
+        (SELECT finish          FROM card_reference WHERE id = \$3),
+        (SELECT illustrator     FROM card_reference WHERE id = \$3),
+        (SELECT year            FROM card_reference WHERE id = \$3),
+        (SELECT hp              FROM card_reference WHERE id = \$3),
+        (SELECT language_id     FROM card_reference WHERE id = \$3),
+        (SELECT type_id         FROM card_reference WHERE id = \$3),
+        (SELECT rarity_id       FROM card_reference WHERE id = \$3),
+        \$4, \$5
+      )
       RETURNING id
       ''',
       parameters: [submitterId, hashId, parsedReferenceId, now, true],
