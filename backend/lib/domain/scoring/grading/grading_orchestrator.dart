@@ -15,6 +15,7 @@ import 'baseline_registry.dart';
 import '../../image_services/grading/corner_whitening_detector.dart';
 import '../../image_services/grading/edge_whitening_detector.dart';
 import '../../image_services/grading/surface_scratch_detector.dart';
+import '../../../core/config/app_config.dart';
 
 /// Complete grading result with all sub-grades.
 class GradingResult {
@@ -101,31 +102,11 @@ class GradingOrchestrator {
   /// version that produced them and are never re-graded.
   static const String algorithmVersion = '1.0.0';
 
-  /// Weight for centering grade (BGS standard: 40%).
-  static const double centeringWeight = 0.40;
-
-  /// Weight for corners grade (BGS standard: 20%).
-  static const double cornersWeight = 0.20;
-
-  /// Weight for edges grade (BGS standard: 20%).
-  static const double edgesWeight = 0.20;
-
-  /// Weight for surface grade (BGS standard: 20%).
-  static const double surfaceWeight = 0.20;
-
   /// Minimum grade value.
   static const double minGrade = 1.0;
 
   /// Maximum grade value.
   static const double maxGrade = 10.0;
-
-  /// --- Confidence Calculation Constants ---
-
-  /// Standard deviation threshold for high confidence.
-  static const double highConfidenceStdDev = 0.5;
-
-  /// Standard deviation threshold for low confidence.
-  static const double lowConfidenceStdDev = 2.0;
 
   /// Maximum confidence value (when stdDev is high).
   static const double minConfidence = 0.5;
@@ -160,7 +141,9 @@ class GradingOrchestrator {
     RoiResult rois, {
     img.Image? fullImage,
     BaselineSelection? baselineSelection,
+    ThresholdConfig? thresholds,
   }) {
+    final t = thresholds ?? const ThresholdConfig();
     // Select baseline (use global if not provided)
     final baseline = baselineSelection ?? BaselineSelection.global();
 
@@ -192,10 +175,10 @@ class GradingOrchestrator {
     final surface = SurfaceScratchDetector.analyzeSurface(surfaceImage);
 
     // 5. Calculate weighted grade
-    final weightedGrade = centeringGrade * centeringWeight +
-        corners.grade * cornersWeight +
-        edges.grade * edgesWeight +
-        surface.grade * surfaceWeight;
+    final weightedGrade = centeringGrade * t.gradingCenteringWeight +
+        corners.grade * t.gradingCornersWeight +
+        edges.grade * t.gradingEdgesWeight +
+        surface.grade * t.gradingSurfaceWeight;
 
     // 6. Apply coherence rule: final grade ≤ lowest subgrade + 0.5
     final lowestSubgrade = _findLowestSubgrade(
@@ -215,6 +198,7 @@ class GradingOrchestrator {
       corners: corners,
       edges: edges,
       surface: surface,
+      thresholds: t,
     );
 
     // 8. Calculate uncertainty band
@@ -292,7 +276,9 @@ class GradingOrchestrator {
     required CornerGradingResult corners,
     required EdgeGradingResult edges,
     required SurfaceGradingResult surface,
+    ThresholdConfig? thresholds,
   }) {
+    final t = thresholds ?? const ThresholdConfig();
     final grades = [centeringGrade, corners.grade, edges.grade, surface.grade];
 
     // Calculate standard deviation
@@ -303,10 +289,10 @@ class GradingOrchestrator {
     final stdDev = sqrt(sumSquaredDev / grades.length);
 
     // Map stdDev to confidence
-    if (stdDev <= highConfidenceStdDev) return 1.0;
-    if (stdDev >= lowConfidenceStdDev) return minConfidence;
-    return 1.0 - (stdDev - highConfidenceStdDev) /
-        (lowConfidenceStdDev - highConfidenceStdDev);
+    if (stdDev <= t.gradingHighConfidenceStdDev) return 1.0;
+    if (stdDev >= t.gradingLowConfidenceStdDev) return minConfidence;
+    return 1.0 - (stdDev - t.gradingHighConfidenceStdDev) /
+        (t.gradingLowConfidenceStdDev - t.gradingHighConfidenceStdDev);
   }
 
   /// Generates human-readable explanation of the grade.

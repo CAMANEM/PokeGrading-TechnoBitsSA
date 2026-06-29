@@ -10,6 +10,7 @@ import 'scoring_validators.dart';
 import '../image_services/image_quality_service.dart';
 import '../image_services/polyglot_detection.dart';
 import '../image_services/visual_features.dart';
+import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../persistence/card_data_provider/evaluation_repository.dart';
 import 'package:pokegrading_exceptions/pokegrading_exceptions.dart';
@@ -70,19 +71,15 @@ class EvaluationLogic {
 
   final EvaluationRepository repository;
   final BaselineRegistry baselineRegistry;
+  final ThresholdConfig _thresholds;
   static const String _evaluationErrorCode = 'image_rejected';
-
-  /// Confidence threshold below which coherence contradictions trigger human review.
-  static const double reviewConfidenceThreshold = 0.7;
-
-  /// When coherence rule is applied, if the gap between weighted grade and
-  /// lowest subgrade exceeds this, flag for review.
-  static const double reviewGapThreshold = 2.0;
 
   EvaluationLogic({
     required this.repository,
     BaselineRegistry? baselineRegistry,
-  }) : baselineRegistry = baselineRegistry ?? BaselineRegistry();
+    ThresholdConfig? thresholds,
+  })  : baselineRegistry = baselineRegistry ?? BaselineRegistry(),
+        _thresholds = thresholds ?? const ThresholdConfig();
 
   Future<EvaluationResult> submit(
     SubmitEvaluationCommand command,
@@ -159,6 +156,7 @@ class EvaluationLogic {
     final frontIqsStarted = DateTime.now().toUtc();
     final frontScore = await ImageQualityService.calculateScore(
       command.frontImageData,
+      thresholds: _thresholds,
     );
     final frontIqsDuration =
         DateTime.now().toUtc().difference(frontIqsStarted).inMilliseconds;
@@ -178,7 +176,7 @@ class EvaluationLogic {
       context: {'stage': 'iqs_front', 'duration_ms': frontIqsDuration},
     );
 
-    if (frontScore.score < ImageQualityService.acceptedThreshold) {
+    if (frontScore.score < _thresholds.iqsAcceptedThreshold) {
       return _saveUnableToGrade(
         command: command,
         frontScore: frontScore.score,
@@ -193,6 +191,7 @@ class EvaluationLogic {
     final backIqsStarted = DateTime.now().toUtc();
     final backScore = await ImageQualityService.calculateScore(
       command.backImageData,
+      thresholds: _thresholds,
     );
     final backIqsDuration =
         DateTime.now().toUtc().difference(backIqsStarted).inMilliseconds;
@@ -212,7 +211,7 @@ class EvaluationLogic {
       context: {'stage': 'iqs_back', 'duration_ms': backIqsDuration},
     );
 
-    if (backScore.score < ImageQualityService.acceptedThreshold) {
+    if (backScore.score < _thresholds.iqsAcceptedThreshold) {
       AppLogger.info(
         _loggerName,
         'Back image IQS below threshold — proceeding anyway',
@@ -287,14 +286,14 @@ class EvaluationLogic {
 
     if (gradingResult.coherenceRuleApplied) {
       final weightedGrade =
-          gradingResult.centeringGrade * GradingOrchestrator.centeringWeight +
-              gradingResult.corners.grade * GradingOrchestrator.cornersWeight +
-              gradingResult.edges.grade * GradingOrchestrator.edgesWeight +
-              gradingResult.surface.grade * GradingOrchestrator.surfaceWeight;
+          gradingResult.centeringGrade * _thresholds.gradingCenteringWeight +
+              gradingResult.corners.grade * _thresholds.gradingCornersWeight +
+              gradingResult.edges.grade * _thresholds.gradingEdgesWeight +
+              gradingResult.surface.grade * _thresholds.gradingSurfaceWeight;
       final gap = weightedGrade - gradingResult.lowestSubgrade;
 
-      if (gradingResult.confidence < reviewConfidenceThreshold ||
-          gap > reviewGapThreshold) {
+      if (gradingResult.confidence < _thresholds.evalReviewConfidenceThreshold ||
+          gap > _thresholds.evalReviewGapThreshold) {
         finalStatus = EvaluationStatus.underReview;
         AppLogger.info(
           _loggerName,
@@ -303,7 +302,7 @@ class EvaluationLogic {
             'correlation_id': correlationId,
             'confidence': gradingResult.confidence,
             'gap': gap,
-            'reason': gradingResult.confidence < reviewConfidenceThreshold
+            'reason': gradingResult.confidence < _thresholds.evalReviewConfidenceThreshold
                 ? 'low_confidence'
                 : 'large_coherence_gap',
           },

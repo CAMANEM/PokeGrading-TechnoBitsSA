@@ -11,6 +11,7 @@ import 'catalog_models.dart';
 
 import '../../persistence/card_data_provider/catalog_repository.dart';
 import '../../persistence/card_data_provider/search_trace_repository.dart';
+import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 
 /// @brief SearchByImageCommand
@@ -60,10 +61,14 @@ class SearchCardLogic {
   static const _loggerName = 'PokéGrading.SearchCard';
 
   final CatalogRepository repository;
-  static const double acceptedConfidence = 90.0;
   final SearchTraceRepository? traceRepository;
+  final ThresholdConfig _thresholds;
 
-  SearchCardLogic({required this.repository, this.traceRepository});
+  SearchCardLogic({
+    required this.repository,
+    this.traceRepository,
+    ThresholdConfig? thresholds,
+  }) : _thresholds = thresholds ?? const ThresholdConfig();
 
   Future<SearchCardResult> searchByImg(SearchByImageCommand command) async {
     final started = DateTime.now().toUtc();
@@ -71,8 +76,9 @@ class SearchCardLogic {
 
     final queryFeatures = VisualFeatureExtractor.extract(command.imageData);
     final iqsBelow =
-        ImageQualityService.calculateScore(command.imageData).score <
-            ImageQualityService.acceptedThreshold;
+        ImageQualityService.calculateScore(command.imageData,
+                thresholds: _thresholds).score <
+            _thresholds.iqsAcceptedThreshold;
 
     if (queryFeatures.isEmpty || iqsBelow) {
       _logSearchMetric(
@@ -113,7 +119,7 @@ class SearchCardLogic {
 
     scored.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-    if (scored.isNotEmpty && scored.first.confidence >= acceptedConfidence) {
+    if (scored.isNotEmpty && scored.first.confidence >= _thresholds.searchAcceptedConfidence) {
       _logSearchMetric(
         stage: 'identify_${modeName}',
         mode: modeName,
@@ -126,7 +132,7 @@ class SearchCardLogic {
         candidates: scored,
         decision: 'auto_accept',
         decisionReason:
-            'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% >= threshold $acceptedConfidence%',
+            'Top candidate confidence ${scored.first.confidence.toStringAsFixed(1)}% >= threshold ${_thresholds.searchAcceptedConfidence}%',
       );
       return SearchCardResult(
         type: SearchResultType.singleCandidate,

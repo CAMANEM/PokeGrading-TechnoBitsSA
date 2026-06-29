@@ -11,6 +11,8 @@ import 'dart:math';
 
 import 'package:image/image.dart' as img;
 
+import '../../../core/config/app_config.dart';
+
 /// Enhanced image quality result with additional metrics.
 class EnhancedQualityResult {
   /// Overall quality score (0-100).
@@ -62,9 +64,6 @@ class EnhancedQualityResult {
 
 /// Enhanced Image Quality Service with additional metrics.
 class EnhancedQualityService {
-  /// Acceptance threshold (0-100). Images below this are rejected.
-  static const int acceptedThreshold = 50;
-
   /// Luminance coefficient for Red channel (ITU-R BT.709).
   static const double luminanceR = 0.2126;
 
@@ -77,96 +76,41 @@ class EnhancedQualityService {
   /// Maximum pixel value for 8-bit images.
   static const double maxPixelValue = 255.0;
 
-  /// --- Laplacian Sharpness Constants ---
-
-  /// Variance threshold for perfect sharpness score.
-  static const double laplacianPerfectVariance = 150.0;
-
-  /// --- Tenengrad Sharpness Constants ---
-
-  /// Average gradient magnitude squared for perfect sharpness.
-  static const double tenengradPerfectMagnitude = 500.0;
-
-  /// --- Brightness Constants ---
-
-  /// Minimum acceptable brightness (ITU-R BT.709 luminance).
-  static const double brightnessMinAcceptance = 80.0;
-
-  /// Maximum acceptable brightness.
-  static const double brightnessMaxAcceptance = 180.0;
-
-  /// --- Entropy Constants ---
-
-  /// Maximum entropy for perfect score (8-bit image max is 8.0).
-  static const double entropyPerfectValue = 7.0;
-
-  /// Minimum entropy for zero score (very low information).
-  static const double entropyMinValue = 3.0;
-
-  /// --- Contrast Constants ---
-
-  /// Lower bound of ideal RMS contrast range.
-  static const double contrastIdealLower = 0.2;
-
-  /// Upper bound of ideal RMS contrast range.
-  static const double contrastIdealUpper = 0.6;
-
-  /// RMS contrast below this is considered low contrast.
-  static const double contrastLowThreshold = 0.1;
-
-  /// RMS contrast above this is considered high contrast.
-  static const double contrastHighThreshold = 0.8;
-
-  /// --- Score Weight Constants ---
-
-  /// Weight for Laplacian in combined sharpness.
-  static const double laplacianSharpnessWeight = 0.6;
-
-  /// Weight for Tenengrad in combined sharpness.
-  static const double tenengradSharpnessWeight = 0.4;
-
-  /// Weight for sharpness in overall quality.
-  static const double sharpnessOverallWeight = 0.35;
-
-  /// Weight for brightness in overall quality.
-  static const double brightnessOverallWeight = 0.25;
-
-  /// Weight for entropy in overall quality.
-  static const double entropyOverallWeight = 0.20;
-
-  /// Weight for contrast in overall quality.
-  static const double contrastOverallWeight = 0.20;
+  /// Histogram bins for 8-bit images.
+  static const int histogramBins = 256;
 
   /// Scale factor to convert 0-1 score to 0-100.
   static const double scoreScaleFactor = 100.0;
 
-  /// Histogram bins for 8-bit images.
-  static const int histogramBins = 256;
-
   /// Calculates enhanced quality metrics for an image.
   ///
   /// [image] is the input image to analyze.
+  /// [thresholds] provides configurable thresholds (optional, uses defaults).
   ///
   /// Returns an [EnhancedQualityResult] with comprehensive metrics.
-  static EnhancedQualityResult calculateEnhancedQuality(img.Image image) {
+  static EnhancedQualityResult calculateEnhancedQuality(
+    img.Image image, {
+    ThresholdConfig? thresholds,
+  }) {
+    final t = thresholds ?? const ThresholdConfig();
     final gray = img.grayscale(image);
 
     // Calculate all metrics
-    final laplacian = _calculateLaplacianSharpness(gray);
-    final tenengrad = _calculateTenengradSharpness(gray);
-    final brightness = _calculateBrightnessScore(image);
-    final entropy = _calculateEntropyScore(gray);
-    final contrast = _calculateContrastScore(gray);
+    final laplacian = _calculateLaplacianSharpness(gray, t);
+    final tenengrad = _calculateTenengradSharpness(gray, t);
+    final brightness = _calculateBrightnessScore(image, t);
+    final entropy = _calculateEntropyScore(gray, t);
+    final contrast = _calculateContrastScore(gray, t);
 
     // Combined sharpness
-    final sharpness = laplacian * laplacianSharpnessWeight +
-        tenengrad * tenengradSharpnessWeight;
+    final sharpness = laplacian * t.enhLaplacianSharpnessWeight +
+        tenengrad * t.enhTenengradSharpnessWeight;
 
     // Overall score (weighted average)
-    final overall = (sharpness * sharpnessOverallWeight +
-            brightness * brightnessOverallWeight +
-            entropy * entropyOverallWeight +
-            contrast * contrastOverallWeight) *
+    final overall = (sharpness * t.enhSharpnessOverallWeight +
+            brightness * t.enhBrightnessOverallWeight +
+            entropy * t.enhEntropyOverallWeight +
+            contrast * t.enhContrastOverallWeight) *
         scoreScaleFactor;
 
     // Check rejection criteria
@@ -174,13 +118,13 @@ class EnhancedQualityService {
     final sharpness100 = sharpness * scoreScaleFactor;
     final brightness100 = brightness * scoreScaleFactor;
 
-    if (sharpness100 < acceptedThreshold) {
+    if (sharpness100 < t.iqsAcceptedThreshold) {
       rejectionReasons.add(
         'Imagen borrosa (Nitidez: ${sharpness100.toStringAsFixed(1)}/100)',
       );
     }
 
-    if (brightness100 < acceptedThreshold) {
+    if (brightness100 < t.iqsAcceptedThreshold) {
       rejectionReasons.add(
         'Imagen oscura (Brillo: ${brightness100.toStringAsFixed(1)}/100)',
       );
@@ -199,7 +143,10 @@ class EnhancedQualityService {
   }
 
   /// Calculates Laplacian-based sharpness score.
-  static double _calculateLaplacianSharpness(img.Image gray) {
+  static double _calculateLaplacianSharpness(
+    img.Image gray,
+    ThresholdConfig t,
+  ) {
     final laplacian = img.convolution(
       gray,
       filter: [0, -1, 0, -1, 4, -1, 0, -1, 0],
@@ -218,12 +165,15 @@ class EnhancedQualityService {
     final mean = sum / n;
     final variance = (sumSq / n) - (mean * mean);
 
-    if (variance >= laplacianPerfectVariance) return 1.0;
-    return (variance / laplacianPerfectVariance).clamp(0, 1);
+    if (variance >= t.iqsSharpnessPerfectVariance) return 1.0;
+    return (variance / t.iqsSharpnessPerfectVariance).clamp(0, 1);
   }
 
   /// Calculates Tenengrad (Sobel) sharpness score.
-  static double _calculateTenengradSharpness(img.Image gray) {
+  static double _calculateTenengradSharpness(
+    img.Image gray,
+    ThresholdConfig t,
+  ) {
     // Apply Sobel in X and Y directions
     final sobelX = img.convolution(
       gray,
@@ -247,12 +197,15 @@ class EnhancedQualityService {
     // Average gradient magnitude squared
     final avgMagnitude = sumSquaredMagnitude / n;
 
-    if (avgMagnitude >= tenengradPerfectMagnitude) return 1.0;
-    return (avgMagnitude / tenengradPerfectMagnitude).clamp(0, 1);
+    if (avgMagnitude >= t.enhTenengradPerfectMagnitude) return 1.0;
+    return (avgMagnitude / t.enhTenengradPerfectMagnitude).clamp(0, 1);
   }
 
   /// Calculates brightness score using ITU-R BT.709 luminance.
-  static double _calculateBrightnessScore(img.Image image) {
+  static double _calculateBrightnessScore(
+    img.Image image,
+    ThresholdConfig t,
+  ) {
     double total = 0;
 
     for (final pixel in image) {
@@ -261,20 +214,23 @@ class EnhancedQualityService {
 
     final brightness = total / (image.width * image.height);
 
-    if (brightness >= brightnessMinAcceptance && brightness <= brightnessMaxAcceptance) {
+    if (brightness >= t.iqsBrightnessMin && brightness <= t.iqsBrightnessMax) {
       return 1.0;
     }
 
-    if (brightness < brightnessMinAcceptance) {
-      return (brightness / brightnessMinAcceptance).clamp(0, 1);
+    if (brightness < t.iqsBrightnessMin) {
+      return (brightness / t.iqsBrightnessMin).clamp(0, 1);
     }
 
-    return (1 - (brightness - brightnessMaxAcceptance) /
-        (maxPixelValue - brightnessMaxAcceptance)).clamp(0, 1);
+    return (1 - (brightness - t.iqsBrightnessMax) /
+        (maxPixelValue - t.iqsBrightnessMax)).clamp(0, 1);
   }
 
   /// Calculates entropy score (information content).
-  static double _calculateEntropyScore(img.Image gray) {
+  static double _calculateEntropyScore(
+    img.Image gray,
+    ThresholdConfig t,
+  ) {
     // Build histogram
     final histogram = List<int>.filled(histogramBins, 0);
     final totalPixels = gray.width * gray.height;
@@ -294,14 +250,18 @@ class EnhancedQualityService {
     }
 
     // Normalize: map entropy range to 0-1
-    if (entropy >= entropyPerfectValue) return 1.0;
-    if (entropy <= entropyMinValue) return 0.0;
-    return ((entropy - entropyMinValue) / (entropyPerfectValue - entropyMinValue))
+    if (entropy >= t.enhEntropyPerfectValue) return 1.0;
+    if (entropy <= t.enhEntropyMinValue) return 0.0;
+    return ((entropy - t.enhEntropyMinValue) /
+            (t.enhEntropyPerfectValue - t.enhEntropyMinValue))
         .clamp(0, 1);
   }
 
   /// Calculates RMS contrast score.
-  static double _calculateContrastScore(img.Image gray) {
+  static double _calculateContrastScore(
+    img.Image gray,
+    ThresholdConfig t,
+  ) {
     double sum = 0;
     double sumSq = 0;
     final n = gray.width * gray.height;
@@ -320,19 +280,19 @@ class EnhancedQualityService {
     final rmsContrast = mean > 0 ? stdDev / mean : 0;
 
     // Good contrast: within ideal range
-    if (rmsContrast >= contrastIdealLower && rmsContrast <= contrastIdealUpper) {
+    if (rmsContrast >= t.enhContrastIdealLower && rmsContrast <= t.enhContrastIdealUpper) {
       return 1.0;
     }
 
     // Low contrast
-    if (rmsContrast < contrastLowThreshold) {
-      return (rmsContrast / contrastLowThreshold * 0.5).clamp(0.0, 1.0);
+    if (rmsContrast < t.enhContrastLowThreshold) {
+      return (rmsContrast / t.enhContrastLowThreshold * 0.5).clamp(0.0, 1.0);
     }
 
     // High contrast
-    if (rmsContrast > contrastHighThreshold) {
-      return ((1.0 - (rmsContrast - contrastHighThreshold) /
-          (maxPixelValue / 255 - contrastHighThreshold)) * 0.5).clamp(0.0, 1.0);
+    if (rmsContrast > t.enhContrastHighThreshold) {
+      return ((1.0 - (rmsContrast - t.enhContrastHighThreshold) /
+          (maxPixelValue / 255 - t.enhContrastHighThreshold)) * 0.5).clamp(0.0, 1.0);
     }
 
     // Moderate contrast (between low threshold and ideal lower,
