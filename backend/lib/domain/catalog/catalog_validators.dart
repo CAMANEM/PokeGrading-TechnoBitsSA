@@ -7,6 +7,7 @@
 */
 import '../image_services/image_quality_service.dart';
 import '../image_services/polyglot_detection.dart';
+import '../../core/config/app_config.dart';
 
 /// @brief CatalogValidators
 class CatalogValidators {
@@ -15,13 +16,14 @@ class CatalogValidators {
     caseSensitive: false,
   );
 
-  static String? validateSet(String value) {
+  static String? validateSet(String value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return 'Set is required';
     }
-    if (normalized.length > 60) {
-      return 'Set cannot exceed 60 characters';
+    if (normalized.length > t.validationMaxSetLength) {
+      return 'Set cannot exceed ${t.validationMaxSetLength} characters';
     }
     return null;
   }
@@ -38,18 +40,20 @@ class CatalogValidators {
     return null;
   }
 
-  static String? validateEdition(String value) {
+  static String? validateEdition(String value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return 'Edition is required';
     }
-    if (normalized.length > 40) {
-      return 'Edition cannot exceed 40 characters';
+    if (normalized.length > t.validationMaxEditionLength) {
+      return 'Edition cannot exceed ${t.validationMaxEditionLength} characters';
     }
     return null;
   }
 
-  static String? validateLanguage(String value) {
+  static String? validateLanguage(String value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return 'Language is required';
@@ -58,24 +62,29 @@ class CatalogValidators {
     if (!allowedLanguages.contains(normalized)) {
       return 'Language must be Español, English or Japanese';
     }
-    if (normalized.length > 30) {
-      return 'Language cannot exceed 30 characters';
+    if (normalized.length > t.validationMaxLanguageLength) {
+      return 'Language cannot exceed ${t.validationMaxLanguageLength} characters';
     }
     return null;
   }
 
-  static String? validateFinish(String value) {
+  static String? validateFinish(String value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return 'Finish is required';
     }
-    if (normalized.length > 30) {
-      return 'Finish cannot exceed 30 characters';
+    if (normalized.length > t.validationMaxFinishLength) {
+      return 'Finish cannot exceed ${t.validationMaxFinishLength} characters';
     }
     return null;
   }
 
-  static String? validateImageData(String value) {
+  static String? validateImageData(
+    String value, {
+    ThresholdConfig? thresholds,
+  }) {
+    final t = thresholds ?? const ThresholdConfig();
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return 'Image is required';
@@ -85,12 +94,12 @@ class CatalogValidators {
     }
 
     final base64Part = normalized.split(',').last;
-    if (base64Part.length < 5 * 1024) {
+    if (base64Part.length < t.validationMinImageBase64Bytes) {
       return 'Image rejected: resolution or size insufficient';
     }
 
-    final iqs = ImageQualityService.calculateScore(value);
-    if (iqs.score < ImageQualityService.acceptedThreshold) {
+    final iqs = ImageQualityService.calculateScore(value, thresholds: t);
+    if (iqs.score < t.iqsAcceptedThreshold) {
       return 'Image rejected: IQS not satisfied'
           'Reasons: ${iqs.rejectionReasons.join(', ')}';
     }
@@ -138,21 +147,28 @@ class CatalogValidators {
     return null;
   }
 
-  static String? validateHp(int? value) {
+  static String? validateHp(int? value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     if (value == null) return null;
-    if (value < 0 || value > 2000) return 'HP out of range';
+    if (value < t.validationHpMin || value > t.validationHpMax) {
+      return 'HP out of range';
+    }
     return null;
   }
 
-  static String? validateYear(int? value) {
+  static String? validateYear(int? value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
     if (value == null) return null;
-    if (value < 1950 || value > DateTime.now().year) return 'Invalid year';
+    if (value < t.validationYearMin || value > DateTime.now().year) {
+      return 'Invalid year';
+    }
     return null;
   }
 
-  static String? validateAuthor(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Author is required';
-    if (value.trim().length > 100) return 'Author too long';
+  static String? validateAuthor(String value, {ThresholdConfig? thresholds}) {
+    final t = thresholds ?? const ThresholdConfig();
+    if (value.trim().isEmpty) return 'Author is required';
+    if (value.trim().length > t.validationMaxAuthorLength) return 'Author too long';
     return null;
   }
 }
