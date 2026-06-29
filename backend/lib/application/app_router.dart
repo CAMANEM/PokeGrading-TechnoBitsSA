@@ -69,10 +69,14 @@ Router buildAppRouter(
   );
   final registerRouter = buildAuthRoutes(registerLogic);
 
-  final createCardLogic = CreateCardLogic(repository: catalogRepository);
+  final createCardLogic = CreateCardLogic(
+    repository: catalogRepository,
+    thresholds: config.thresholds,
+  );
   final searchCardLogic = SearchCardLogic(
     repository: catalogRepository,
     traceRepository: searchTraceRepository,
+    thresholds: config.thresholds,
   );
   final catalogRouter = buildCatalogRoutes(
     createCardLogic,
@@ -83,6 +87,7 @@ Router buildAppRouter(
   final evaluationLogic = EvaluationLogic(
     repository: evaluationRepository,
     baselineRegistry: baselineRegistry,
+    thresholds: config.thresholds,
   );
   final evaluationRouter = buildEvaluationRoutes(
     evaluationLogic,

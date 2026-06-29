@@ -29,6 +29,7 @@
 
 import 'package:pokegrading_logging/pokegrading_logging.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
 import 'catalog_validators.dart';
 import 'catalog_models.dart';
@@ -93,6 +94,7 @@ class CardCreatedResult {
 /// @brief CreateCardLogic
 class CreateCardLogic {
   final CatalogRepository repository;
+  final ThresholdConfig _thresholds;
 
   static const String _identityConflictCode = 'identity_rejected';
   static const String _imageConflitCode = 'image_rejected';
@@ -101,7 +103,10 @@ class CreateCardLogic {
 
   /// Creates a new `CreateCardLogic` instance.
   /* Creates a new `CreateCardLogic` instance. */
-  const CreateCardLogic({required this.repository});
+  const CreateCardLogic({
+    required this.repository,
+    ThresholdConfig? thresholds,
+  }) : _thresholds = thresholds ?? const ThresholdConfig();
 
   /*
    Validates the provided `command`, ensures the identity tuple is unique
@@ -224,7 +229,10 @@ class CreateCardLogic {
   // Private helpers validate parts of the command. These throw
   // `CreateCardLogicException` with `identity_rejected` when invalid.
   void _validateIdentity(CreateCardCommand command) {
-    final setError = CatalogValidators.validateSet(command.identity.set);
+    final setError = CatalogValidators.validateSet(
+      command.identity.set,
+      thresholds: _thresholds,
+    );
     if (setError != null) {
       _throwCardError(_identityConflictCode, setError);
     }
@@ -235,20 +243,26 @@ class CreateCardLogic {
       _throwCardError(_identityConflictCode, numberError);
     }
 
-    final editionError =
-        CatalogValidators.validateEdition(command.identity.edition);
+    final editionError = CatalogValidators.validateEdition(
+      command.identity.edition,
+      thresholds: _thresholds,
+    );
     if (editionError != null) {
       _throwCardError(_identityConflictCode, editionError);
     }
 
-    final languageError =
-        CatalogValidators.validateLanguage(command.identity.language);
+    final languageError = CatalogValidators.validateLanguage(
+      command.identity.language,
+      thresholds: _thresholds,
+    );
     if (languageError != null) {
       _throwCardError(_identityConflictCode, languageError);
     }
 
-    final finishError =
-        CatalogValidators.validateFinish(command.identity.finish);
+    final finishError = CatalogValidators.validateFinish(
+      command.identity.finish,
+      thresholds: _thresholds,
+    );
     if (finishError != null) {
       _throwCardError(_identityConflictCode, finishError);
     }
@@ -265,17 +279,26 @@ class CreateCardLogic {
         _throwCardError(_identityConflictCode, typeError);
       }
 
-      final hpError = CatalogValidators.validateHp(display.hp);
+      final hpError = CatalogValidators.validateHp(
+        display.hp,
+        thresholds: _thresholds,
+      );
       if (hpError != null) {
         _throwCardError(_identityConflictCode, hpError);
       }
 
-      final yearError = CatalogValidators.validateYear(display.year);
+      final yearError = CatalogValidators.validateYear(
+        display.year,
+        thresholds: _thresholds,
+      );
       if (yearError != null) {
         _throwCardError(_identityConflictCode, yearError);
       }
 
-      final authorError = CatalogValidators.validateAuthor(display.author);
+      final authorError = CatalogValidators.validateAuthor(
+        display.author ?? '',
+        thresholds: _thresholds,
+      );
       if (authorError != null) {
         _throwCardError(_identityConflictCode, authorError);
       }
@@ -286,7 +309,10 @@ class CreateCardLogic {
     if (imageData == null || imageData.isEmpty) {
       _throwCardError(_imageConflitCode, message);
     }
-    final imageError = CatalogValidators.validateImageData(imageData);
+    final imageError = CatalogValidators.validateImageData(
+      imageData,
+      thresholds: _thresholds,
+    );
     if (imageError != null) {
       _throwCardError(_imageConflitCode, imageError);
     }
